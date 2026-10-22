@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="hu">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="theme-color" content="#080910">
+    <title>Lidércjárás</title>
+    <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+    <div class="background" aria-hidden="true">
+        <div class="moon"></div>
+        <div class="mist mist-one"></div>
+        <div class="mist mist-two"></div>
+        <div class="particles"></div>
+        <div class="vignette"></div>
+    </div>
+
+    <button class="gear-button" id="gearButton" type="button" aria-label="Beállítások" title="Beállítások">
+        <span class="gear-icon" aria-hidden="true">⚙</span>
+    </button>
+
+    <main class="main-content">
+        <section class="game-title">
+            <div class="title-symbol" aria-hidden="true">✦</div>
+            <p class="subtitle">A SÖTÉTSÉG MÁR VÁR</p>
+            <h1>LIDÉRCJÁRÁS</h1>
+            <p class="tagline">Amikor kialszik a fény, valami felébred.</p>
+            <div class="title-line"></div>
+            <button class="start-game-button" id="startGameButton" type="button">JÁTÉK INDÍTÁSA</button>
+        </section>
+    </main>
+
+    <div class="version">LIDÉRCJÁRÁS · ALFA</div>
+
+    <script src="/socket.io/socket.io.js"></script>
+    <script src="/js/socket.js"></script>
+    <script src="/js/menu.js"></script>
+</body>
+</html>
