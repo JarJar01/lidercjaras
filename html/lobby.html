@@ -1,0 +1,272 @@
+<!DOCTYPE html>
+<html lang="hu">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="theme-color" content="#080910">
+    <title>Lidércjárás – Lobby</title>
+    <link rel="stylesheet" href="/css/style.css">
+    <link rel="stylesheet" href="/css/lobby.css">
+    <link rel="stylesheet" href="/css/game.css">
+</head>
+<body class="lobby-page">
+    <div class="background" aria-hidden="true">
+        <div class="moon"></div>
+        <div class="mist mist-one"></div>
+        <div class="mist mist-two"></div>
+        <div class="particles"></div>
+        <div class="vignette"></div>
+    </div>
+
+    <header class="lobby-topbar">
+        <a class="lobby-brand" href="/" aria-label="Vissza a kezdőoldalra">
+            <span class="brand-symbol" aria-hidden="true">✦</span>
+            <span>LIDÉRCJÁRÁS</span>
+        </a>
+        <div class="lobby-topbar-right">
+            <span class="connection-indicator" id="connectionIndicator"><span class="connection-dot"></span><span id="connectionLabel">Kapcsolódás...</span></span>
+            <span class="player-pill"><span aria-hidden="true">♙</span><span id="playerNameLabel">Játékos</span></span>
+            <button class="gear-button lobby-settings-button" id="gearButton" type="button" aria-label="Beállítások" title="Beállítások"><span class="gear-icon" aria-hidden="true">⚙</span></button>
+            <a class="home-link" href="/">Főoldal</a>
+        </div>
+    </header>
+
+    <main class="lobby-shell">
+        <div class="lobby-heading">
+            <p class="lobby-kicker">A KÖD TÚLOLDALÁN</p>
+            <h1>Vár a társaságod</h1>
+            <p class="lobby-lead">Hozz létre egy szobát a barátaidnak, vagy csatlakozz egy már létező játékhoz.</p>
+        </div>
+
+        <div class="lobby-message" id="lobbyMessage" role="status" aria-live="polite" hidden></div>
+
+        <section class="lobby-view lobby-home-view" id="lobbyHomeView">
+            <button class="lobby-choice-card" id="showCreateViewButton" type="button">
+                <span class="choice-icon" aria-hidden="true">✧</span>
+                <span class="choice-title">Szoba készítése</span>
+                <span class="choice-description">Te leszel a házigazda. Állítsd be a szerepeket, majd várd meg a többieket.</span>
+                <span class="choice-action">ÚJ SZOBA LÉTREHOZÁSA <span aria-hidden="true">→</span></span>
+            </button>
+            <button class="lobby-choice-card" id="showSearchViewButton" type="button">
+                <span class="choice-icon choice-icon-blue" aria-hidden="true">⌕</span>
+                <span class="choice-title">Szoba keresése</span>
+                <span class="choice-description">Nézd meg az elérhető szobákat, keress név alapján, és csatlakozz közvetlenül.</span>
+                <span class="choice-action">ELÉRHETŐ SZOBÁK <span aria-hidden="true">→</span></span>
+            </button>
+        </section>
+
+        <section class="lobby-view panel-view" id="createView" hidden>
+            <button class="back-link" id="backFromCreateButton" type="button">← Vissza a lobbyhoz</button>
+            <div class="panel-heading">
+                <span class="panel-symbol" aria-hidden="true">✧</span>
+                <div>
+                    <p class="panel-kicker">HÁZIGAZDAI BEÁLLÍTÁSOK</p>
+                    <h2>Szoba készítése</h2>
+                    <p>Adj nevet a szobának, és állítsd be a szerepkörök létszámát. Jelszóra nincs szükség.</p>
+                </div>
+            </div>
+
+            <form id="createRoomForm" class="lobby-form" novalidate>
+                <div class="form-field room-name-field">
+                    <label for="roomNameInput">Szoba neve</label>
+                    <input id="roomNameInput" name="roomName" type="text" maxlength="24" minlength="3" placeholder="Például: Az elátkozott erdő" autocomplete="off" required>
+                    <small>3–24 karakter</small>
+                </div>
+
+                <div class="roles-heading">
+                    <div>
+                        <h3>Szerepkörök</h3>
+                        <p>Állítsd be, melyik szerepből hány játékos legyen.</p>
+                    </div>
+                    <div class="player-total"><strong id="playerTotal">9</strong><span>/ 16 fő</span></div>
+                </div>
+
+                <div class="role-grid">
+                    <div class="role-field role-spirits">
+                        <label for="roleSpirits">Lidércek</label>
+                        <p>Az éjszaka vadászai</p>
+                        <div class="number-control"><button type="button" data-step="-1" data-target="roleSpirits" aria-label="Lidércek számának csökkentése">−</button><input id="roleSpirits" name="spirits" type="number" min="0" max="16" value="2"><button type="button" data-step="1" data-target="roleSpirits" aria-label="Lidércek számának növelése">+</button></div>
+                    </div>
+                    <div class="role-field role-healer">
+                        <label for="roleHealer">Gyógyító</label>
+                        <p>Védelmező szerep</p>
+                        <div class="number-control"><button type="button" data-step="-1" data-target="roleHealer" aria-label="Gyógyítók számának csökkentése">−</button><input id="roleHealer" name="healer" type="number" min="0" max="16" value="1"><button type="button" data-step="1" data-target="roleHealer" aria-label="Gyógyítók számának növelése">+</button></div>
+                    </div>
+                    <div class="role-field role-villagers">
+                        <label for="roleVillagers">Falusiak</label>
+                        <p>A falu népe</p>
+                        <div class="number-control"><button type="button" data-step="-1" data-target="roleVillagers" aria-label="Falusiak számának csökkentése">−</button><input id="roleVillagers" name="villagers" type="number" min="0" max="16" value="4"><button type="button" data-step="1" data-target="roleVillagers" aria-label="Falusiak számának növelése">+</button></div>
+                    </div>
+                    <div class="role-field role-hunters">
+                        <label for="roleHunters">Vadászok</label>
+                        <p>Nyomkövetők</p>
+                        <div class="number-control"><button type="button" data-step="-1" data-target="roleHunters" aria-label="Vadászok számának csökkentése">−</button><input id="roleHunters" name="hunters" type="number" min="0" max="16" value="1"><button type="button" data-step="1" data-target="roleHunters" aria-label="Vadászok számának növelése">+</button></div>
+                    </div>
+                    <div class="role-field role-fool">
+                        <label for="roleFool">Bolondok</label>
+                        <p>Kiszámíthatatlanok</p>
+                        <div class="number-control"><button type="button" data-step="-1" data-target="roleFool" aria-label="Bolondok számának csökkentése">−</button><input id="roleFool" name="fool" type="number" min="0" max="16" value="1"><button type="button" data-step="1" data-target="roleFool" aria-label="Bolondok számának növelése">+</button></div>
+                    </div>
+                </div>
+
+                <p class="form-hint" id="roleHint">Legalább 4, legfeljebb 16 játékost állíts be. Egy szerepkörből 0 fő is választható.</p>
+                <button class="primary-button full-width" id="createRoomSubmit" type="submit">SZOBÁM LÉTREHOZÁSA <span aria-hidden="true">✦</span></button>
+            </form>
+        </section>
+
+        <section class="lobby-view panel-view" id="searchView" hidden>
+            <button class="back-link" id="backFromSearchButton" type="button">← Vissza a lobbyhoz</button>
+            <div class="panel-heading">
+                <span class="panel-symbol" aria-hidden="true">⌕</span>
+                <div>
+                    <p class="panel-kicker">KALANDTÁRSAK KERESÉSE</p>
+                    <h2>Szoba keresése</h2>
+                    <p>Válassz egy elérhető szobát a listából, és csatlakozz közvetlenül.</p>
+                </div>
+            </div>
+            <div class="room-search-tools">
+                <label class="visually-hidden" for="roomSearchInput">Keresés szobanév alapján</label>
+                <input id="roomSearchInput" type="search" placeholder="Szoba neve..." autocomplete="off">
+                <button class="secondary-button" id="refreshRoomsButton" type="button">Frissítés ↻</button>
+            </div>
+            <div class="room-list" id="roomList" aria-live="polite">
+                <div class="empty-rooms">Szobák keresése...</div>
+            </div>
+        </section>
+
+        <section class="lobby-view panel-view waiting-room-view" id="waitingRoomView" hidden>
+            <div class="waiting-room-topline">
+                <span class="room-status-badge"><span class="status-dot"></span> SZOBÁBAN VAGY</span>
+                <div class="room-top-actions">
+                    <span class="voice-status" id="voiceStatus">Hang kikapcsolva</span>
+                    <button class="secondary-button voice-toggle-button" id="voiceToggleButton" type="button">Mikrofon bekapcsolása</button>
+                    <button class="text-button danger-text" id="leaveRoomButton" type="button">Kilépés a szobából</button>
+                </div>
+            </div>
+            <div class="waiting-room-title-row">
+                <div>
+                    <p class="panel-kicker">VÁRÓTEREM</p>
+                    <h2 id="waitingRoomName">Szoba neve</h2>
+                    <p class="room-subtitle">A játék akkor indul, amikor a szoba megtelt, és mindenki készen áll.</p>
+                </div>
+                <div class="waiting-room-actions">
+                    <button class="secondary-button ready-button" id="readyButton" type="button">KÉSZEN ÁLLOK</button>
+                    <button class="primary-button start-lobby-game-button" id="startGameButtonLobby" type="button" hidden>JÁTÉK INDÍTÁSA ✦</button>
+                </div>
+            </div>
+            <p class="start-hint" id="startHint">Várjátok meg a játékosokat.</p>
+
+            <div class="waiting-room-columns">
+                <section class="inner-panel">
+                    <div class="inner-panel-heading"><h3>Játékosok</h3><span class="count-badge" id="waitingPlayersCount">1 / 9 fő</span></div>
+                    <div class="players-list" id="playersList"></div>
+                </section>
+                <section class="inner-panel">
+                    <div class="inner-panel-heading"><h3>Szerepek a játékban</h3><span class="count-badge" id="waitingCapacity">9 fő</span></div>
+                    <div class="selected-roles-list" id="selectedRolesList"></div>
+                </section>
+            </div>
+            <div class="waiting-note"><span aria-hidden="true">✧</span><span id="waitingNoteText">A szoba készen áll. Várjátok meg a többieket!</span></div>
+            <div id="remoteAudioContainer" class="remote-audio-container" aria-label="Hangkapcsolatok"></div>
+        </section>
+
+        <section class="lobby-view panel-view game-started-view lj-game-view" id="gameStartedView" hidden>
+            <div class="game-header">
+                <div>
+                    <p class="panel-kicker" id="gameRoundLabel">A KÖD LEERESZKEDIK</p>
+                    <h2 id="gameStartedRoomName">Lidércjárás</h2>
+                    <p class="game-phase-title" id="gamePhaseTitle">A játék hamarosan elkezdődik</p>
+                </div>
+                <div class="game-timer-wrap">
+                    <span id="gamePhaseName">Kezdés</span>
+                    <strong id="gameTimer">10</strong>
+                    <span>másodperc</span>
+                </div>
+            </div>
+
+            <div class="game-fade-overlay" id="gameFadeOverlay" aria-hidden="true"></div>
+
+            <div class="game-notice" id="gameNotice" role="status" aria-live="polite">
+                A történet hamarosan elkezdődik.
+            </div>
+
+            <div class="game-layout">
+                <section class="game-panel game-role-panel" id="gameRoleCard" hidden>
+                    <p class="game-section-kicker">A TE TITKOD</p>
+                    <div class="game-role-symbol" id="gameRoleSymbol">✦</div>
+                    <h3 id="gameRoleName">Szerepkör</h3>
+                    <p id="gameRoleDescription">A szereped titkos.</p>
+                    <p class="game-private-note">Ezt a kártyát csak te látod.</p>
+                </section>
+
+                <section class="game-panel game-action-panel">
+                    <div class="game-panel-heading">
+                        <div>
+                            <p class="game-section-kicker">AKTUÁLIS KÖR</p>
+                            <h3>Teendőd</h3>
+                        </div>
+                        <span class="game-phase-badge" id="gamePhaseBadge">Kezdés</span>
+                    </div>
+                    <div class="game-actions" id="gameActions">
+                        <p class="game-muted">Várakozás a szerverre…</p>
+                    </div>
+                    <div class="game-vote-status" id="gameVoteStatus" hidden></div>
+                </section>
+
+                <section class="game-panel game-players-panel">
+                    <div class="game-panel-heading">
+                        <div>
+                            <p class="game-section-kicker">A FALU</p>
+                            <h3>Játékosok</h3>
+                        </div>
+                        <span class="game-player-count" id="gameAliveCount">0 élő</span>
+                    </div>
+                    <div class="game-players-list" id="gamePlayersList"></div>
+                </section>
+
+                <section class="game-panel game-team-chat-panel" id="gameTeamChatPanel" hidden>
+                    <div class="game-panel-heading">
+                        <div>
+                            <p class="game-section-kicker">TITKOS CSATORNA</p>
+                            <h3 id="gameTeamChatTitle">Csapatbeszélgetés</h3>
+                        </div>
+                        <span class="private-chat-badge">PRIVÁT</span>
+                    </div>
+                    <p class="game-muted" id="gameTeamChatHint">Ezt a beszélgetést más szerepek nem látják.</p>
+                    <div class="game-chat-messages" id="gameTeamChatMessages" aria-live="polite"><p class="game-chat-empty">Még nincs üzenet.</p></div>
+                    <form class="game-chat-form" id="gameTeamChatForm">
+                        <label class="visually-hidden" for="gameTeamChatInput">Üzenet a csapatnak</label>
+                        <input id="gameTeamChatInput" type="text" maxlength="240" autocomplete="off" placeholder="Titkos üzenet…">
+                        <button type="submit">Küldés</button>
+                    </form>
+                </section>
+            </div>
+
+            <div class="game-bottom-bar">
+                <div class="game-voice-area">
+                    <span id="gameVoiceStatus">Nappali hang: kikapcsolva</span>
+                    <button class="secondary-button" id="gameVoiceToggleButton" type="button">Mikrofon bekapcsolása</button>
+                </div>
+                <button class="text-button danger-text" id="leaveGameButton" type="button">Kilépés a játékból</button>
+            </div>
+
+            <div class="game-end-panel" id="gameEndPanel" hidden>
+                <div class="game-end-symbol">✦</div>
+                <p class="game-section-kicker">A KÖD ELÜLT</p>
+                <h3 id="gameWinnerTitle">A játéknak vége</h3>
+                <p id="gameWinnerMessage">A történet lezárult.</p>
+                <button class="primary-button" id="gameEndLeaveButton" type="button">Vissza a lobbyhoz</button>
+            </div>
+        </section>
+
+        <footer class="lobby-footer">LIDÉRCJÁRÁS <span>·</span> ALFA VERZIÓ</footer>
+    </main>
+
+    <div id="modalRoot"></div>
+    <script src="/socket.io/socket.io.js"></script>
+    <script src="/js/socket.js"></script>
+    <script src="/js/menu.js"></script>
+    <script src="/js/lobby.js"></script>
+    <script src="/js/game.js"></script>
+</body>
+</html>
