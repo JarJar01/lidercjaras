@@ -1,0 +1,174 @@
+/* LIDÉRCJÁRÁS – JÁTÉKMENET FELÜLETE */
+.lj-game-view {
+    position: relative;
+    max-width: 1220px;
+    margin: 24px auto 36px;
+    padding: clamp(18px, 3vw, 32px);
+    overflow: hidden;
+    text-align: left;
+    border-color: rgba(169, 133, 224, 0.34);
+    background:
+        radial-gradient(ellipse at 50% -5%, rgba(112, 79, 157, 0.20), transparent 50%),
+        rgba(9, 9, 18, 0.96);
+    transition: background 1s ease, border-color 1s ease;
+}
+.lj-game-view[hidden],
+.lj-game-view [hidden] { display: none !important; }
+.lj-game-view.is-night {
+    border-color: rgba(82, 67, 125, 0.7);
+    background:
+        radial-gradient(ellipse at 50% -5%, rgba(35, 28, 68, 0.24), transparent 50%),
+        rgba(4, 4, 10, 0.98);
+}
+.lj-game-view.is-day {
+    border-color: rgba(177, 143, 94, 0.35);
+    background:
+        radial-gradient(ellipse at 50% -5%, rgba(130, 95, 51, 0.15), transparent 50%),
+        rgba(11, 10, 15, 0.97);
+}
+.game-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 24px;
+    padding-bottom: 22px;
+    border-bottom: 1px solid rgba(177, 151, 225, 0.16);
+}
+.game-header h2 { margin: 3px 0 8px; font-family: Georgia, "Times New Roman", serif; font-size: clamp(25px, 3vw, 37px); color: #f0e7ff; }
+.game-phase-title { margin: 0; color: #c7bbdb; line-height: 1.5; }
+.game-timer-wrap {
+    flex: 0 0 auto;
+    min-width: 112px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 12px 18px;
+    border: 1px solid rgba(180, 148, 232, 0.35);
+    border-radius: 10px;
+    background: rgba(14, 11, 25, 0.8);
+    color: #a9a0bb;
+    font-size: 11px;
+    letter-spacing: 0.07em;
+    text-transform: uppercase;
+}
+.game-timer-wrap strong { display: block; color: #f2eaff; font-size: 39px; font-weight: 500; line-height: 1.15; font-variant-numeric: tabular-nums; letter-spacing: 0; }
+.game-notice {
+    margin: 18px 0 20px;
+    padding: 13px 16px;
+    border: 1px solid rgba(173, 141, 229, 0.22);
+    border-left: 3px solid #9470ca;
+    border-radius: 6px;
+    background: rgba(45, 34, 66, 0.32);
+    color: #d8cbe9;
+    line-height: 1.55;
+}
+.game-layout { display: grid; grid-template-columns: minmax(0, 1.1fr) minmax(250px, 0.9fr); align-items: start; gap: 16px; }
+.game-panel {
+    min-width: 0;
+    padding: 19px;
+    border: 1px solid rgba(177, 151, 225, 0.16);
+    border-radius: 9px;
+    background: rgba(17, 15, 28, 0.74);
+}
+.game-role-panel { grid-column: 1 / -1; display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: center; column-gap: 20px; row-gap: 4px; border-color: rgba(188, 151, 241, 0.36); background: linear-gradient(110deg, rgba(51, 34, 75, 0.72), rgba(18, 15, 29, 0.78)); }
+.game-section-kicker { margin: 0 0 8px; color: #9e8abb; font-size: 10px; font-weight: 700; letter-spacing: 0.18em; }
+.game-role-panel .game-section-kicker { grid-column: 1 / -1; }
+.game-role-symbol { grid-row: span 2; display: grid; place-items: center; width: 60px; height: 60px; border: 1px solid rgba(201, 170, 255, 0.33); border-radius: 50%; color: #d7c1ff; font-size: 27px; box-shadow: 0 0 28px rgba(154, 110, 225, 0.16); }
+.game-role-panel h3 { align-self: end; margin: 0; color: #f0e5ff; font-family: Georgia, "Times New Roman", serif; font-size: 24px; }
+.game-role-panel p:not(.game-section-kicker):not(.game-private-note) { margin: 3px 0; color: #c2b6d4; line-height: 1.55; }
+.game-private-note { grid-column: 2; margin: 4px 0 0; color: #a18dbd; font-size: 11px; }
+.game-panel-heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 15px; }
+.game-panel-heading h3 { margin: 0; color: #e9dfff; font-family: Georgia, "Times New Roman", serif; font-size: 21px; font-weight: 500; }
+.game-phase-badge, .game-player-count, .private-chat-badge { flex: 0 0 auto; padding: 6px 9px; border: 1px solid rgba(176, 146, 226, 0.24); border-radius: 999px; color: #cdbbe9; background: rgba(96, 68, 133, 0.16); font-size: 10px; letter-spacing: 0.05em; }
+.game-actions { display: flex; flex-direction: column; gap: 9px; }
+.game-muted { margin: 5px 0 10px; color: #9d94b0; font-size: 13px; line-height: 1.65; }
+.game-action-description { margin: 0 0 8px; color: #bcb1ce; font-size: 13px; line-height: 1.55; }
+.game-choice-button {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    width: 100%;
+    padding: 12px 14px;
+    border: 1px solid rgba(166, 132, 215, 0.31);
+    border-radius: 6px;
+    background: rgba(43, 31, 62, 0.56);
+    color: #e4d8f4;
+    text-align: left;
+    font: inherit;
+    font-size: 13px;
+    cursor: pointer;
+    transition: border-color 0.2s ease, background 0.2s ease, transform 0.2s ease;
+}
+.game-choice-button:hover:not(:disabled) { transform: translateY(-1px); border-color: #b395e3; background: rgba(69, 47, 96, 0.68); }
+.game-choice-button:disabled { opacity: 0.45; cursor: not-allowed; }
+.game-choice-button.is-danger { border-color: rgba(192, 99, 121, 0.36); background: rgba(72, 27, 42, 0.32); }
+.game-choice-button.is-danger:hover:not(:disabled) { border-color: #c66e83; background: rgba(91, 33, 51, 0.56); }
+.game-choice-button.is-neutral { border-color: rgba(130, 123, 151, 0.28); background: rgba(31, 29, 40, 0.55); }
+.game-action-status { margin: 8px 0 0; color: #b6a4d0; font-size: 12px; line-height: 1.5; }
+.game-vote-status { margin-top: 14px; color: #a99cbd; font-size: 12px; }
+.game-players-list { display: flex; flex-direction: column; gap: 7px; }
+.game-player-row { display: flex; align-items: center; gap: 10px; padding: 9px 10px; border: 1px solid rgba(174, 154, 205, 0.11); border-radius: 6px; background: rgba(9, 8, 16, 0.35); }
+.game-player-avatar { display: grid; place-items: center; flex: 0 0 32px; height: 32px; border-radius: 50%; background: rgba(123, 93, 164, 0.3); color: #dfd0f8; font-size: 12px; font-weight: 700; }
+.game-player-info { display: flex; flex: 1; flex-direction: column; min-width: 0; gap: 3px; }
+.game-player-info strong { overflow: hidden; color: #ddd4eb; font-size: 12px; font-weight: 600; text-overflow: ellipsis; white-space: nowrap; }
+.game-player-info span { color: #8f879f; font-size: 10px; }
+.game-player-status { color: #8de0b5; font-size: 11px; }
+.game-player-row.is-dead { opacity: 0.46; filter: grayscale(0.8); }
+.game-player-row.is-dead .game-player-avatar { background: #27232f; }
+.game-team-chat-panel { grid-column: 1 / -1; }
+.game-chat-messages { display: flex; flex-direction: column; gap: 8px; min-height: 64px; max-height: 190px; overflow-y: auto; padding: 10px; border: 1px solid rgba(174, 154, 205, 0.13); border-radius: 6px; background: rgba(5, 5, 10, 0.47); }
+.game-chat-empty { margin: auto; padding: 12px; color: #777087; font-size: 12px; text-align: center; }
+.game-chat-line { color: #d5c8e7; font-size: 12px; line-height: 1.45; overflow-wrap: anywhere; }
+.game-chat-line strong { color: #c5aaff; }
+.game-chat-line time { margin-right: 7px; color: #746986; font-size: 10px; }
+.game-chat-form { display: flex; gap: 8px; margin-top: 10px; }
+.game-chat-form input { flex: 1; min-width: 0; padding: 12px; border: 1px solid rgba(174, 154, 205, 0.23); border-radius: 5px; outline: none; background: rgba(6, 6, 13, 0.85); color: #eee7f8; font: inherit; font-size: 13px; }
+.game-chat-form input:focus { border-color: #a78bfa; }
+.game-chat-form button { padding: 0 17px; border: 1px solid #765c9c; border-radius: 5px; background: #352448; color: #f0e5ff; font: inherit; font-size: 12px; cursor: pointer; }
+.game-chat-form button:hover { background: #4a3064; }
+.game-bottom-bar { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 14px; margin-top: 18px; padding-top: 17px; border-top: 1px solid rgba(177, 151, 225, 0.15); }
+.game-voice-area { display: flex; align-items: center; flex-wrap: wrap; gap: 12px; color: #a89db8; font-size: 11px; }
+.game-voice-area button:disabled { opacity: 0.45; cursor: not-allowed; }
+.game-fade-overlay { position: absolute; z-index: 0; inset: 0; pointer-events: none; background: #020208; opacity: 0; transition: opacity 1.6s ease; }
+.game-fade-overlay.is-active { opacity: 0.88; }
+.game-fade-overlay.is-exiting { opacity: 0.08; }
+.game-end-panel { position: relative; z-index: 6; margin-top: 22px; padding: clamp(22px, 4vw, 40px); border: 1px solid rgba(199, 167, 247, 0.35); border-radius: 10px; background: radial-gradient(ellipse at top, rgba(99, 66, 144, 0.24), transparent 72%), #0a0912; text-align: center; }
+.game-end-symbol { color: #d6baff; font-size: 44px; text-shadow: 0 0 28px rgba(157, 104, 231, 0.55); }
+.game-end-panel h3 { margin: 8px 0 10px; color: #f0e5ff; font-family: Georgia, "Times New Roman", serif; font-size: clamp(26px, 4vw, 39px); }
+.game-end-panel p:not(.game-section-kicker) { color: #bcb0ce; line-height: 1.65; }
+.game-end-panel button { margin-top: 10px; }
+
+@media (max-width: 780px) {
+    .lj-game-view { margin: 12px auto 26px; padding: 17px; }
+    .game-layout { grid-template-columns: minmax(0, 1fr); }
+    .game-role-panel, .game-team-chat-panel { grid-column: auto; }
+    .game-header { align-items: flex-start; }
+    .game-timer-wrap { min-width: 87px; padding: 9px 11px; }
+    .game-timer-wrap strong { font-size: 31px; }
+    .game-role-panel { grid-template-columns: auto minmax(0,1fr); }
+}
+@media (max-width: 480px) {
+    .game-header { flex-direction: column; }
+    .game-timer-wrap { flex-direction: row; justify-content: center; gap: 8px; width: 100%; box-sizing: border-box; }
+    .game-timer-wrap strong { font-size: 25px; }
+    .game-role-symbol { width: 48px; height: 48px; font-size: 22px; }
+    .game-role-panel h3 { font-size: 20px; }
+    .game-panel { padding: 14px; }
+    .game-bottom-bar { align-items: stretch; flex-direction: column; }
+    .game-voice-area { justify-content: space-between; }
+    .game-voice-area button { max-width: 100%; }
+    .game-chat-form button { padding: 0 12px; }
+}
+
+.game-header, .game-notice, .game-layout, .game-bottom-bar { position: relative; z-index: 1; }
+.game-action-status.is-error { color: #ff9bab; }
+.game-chat-system { color: #a99cbd; font-style: italic; }
+
+.lj-game-view.is-countdown .game-header,
+.lj-game-view.is-countdown .game-notice,
+.lj-game-view.is-countdown .game-action-panel,
+.lj-game-view.is-countdown .game-players-panel,
+.lj-game-view.is-countdown .game-bottom-bar { opacity: 0.16; transition: opacity 1.6s ease; }
+.lj-game-view.is-countdown .game-role-panel { opacity: 1; box-shadow: 0 0 36px rgba(159, 113, 232, 0.22); }
+.lj-game-view.is-countdown .game-role-panel h3 { color: #fff4ff; }
