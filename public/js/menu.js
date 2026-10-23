@@ -215,7 +215,7 @@ function openSettings() {
         ["Falusi", "Nincs éjszakai képessége. Nappal a beszélgetés és a szavazás segít felderíteni a lidérceket."],
         ["Vadász", "Éjszaka egyszer lőhet egy élő játékosra vagy passzolhat. Nem vizsgál szerepet. Több vadász a saját éjszakai körében privát hangon és szöveges chaten egyeztethet. Ha a lidércek ugyanazon az éjszakán megölik, nem támadhat vissza."],
         ["Bolond", "A célja, hogy a falu nappali szavazással kiszavazza. Ha így esik ki, ő nyeri a játékot."],
-        ["Bohóc lidérc", "Külön beállítható, biztosan kiosztott különleges lidérc-szerep. A teljes játék során egyszer választhatsz névváltás vagy némítás szabotázst. Nem vizsgálhatsz szerepet; a képességed a lidércek közös támadása mellett működik."],
+        ["Bohóc lidérc", "Nem külön beállítható kaszt: minden kiosztott Lidérc 50% eséllyel válhat Bohóc lidérccé. A lidércek csapatában marad. A külön 20 másodperces körben egyszer névfelvételt vagy némítást választhat; ha egyedüli lidérc, a szabotázs helyett egyszer szerepet is vizsgálhat."],
         ["Fertőző", "Éjszakánként megfertőzhet egy még nem fertőzött, élő játékost. Csak ő látja a fertőzött személyeket; a nyilvános napló nem nevezi meg őket. Akkor nyer, ha minden más életben lévő játékos megfertőződött."]
     ].forEach(([name, descriptionText]) => {
         const entry = createElement("article", "lj-guide-entry");
@@ -229,7 +229,7 @@ function openSettings() {
     [
         "Mindenki READY állapotba kerül, majd a házigazda elindítja a játékot.",
         "A 10 másodperces sötétedés alatt mindenki titkos szerepet kap, utána jön a beállított ismerkedési idő.",
-        "Éjszaka a Bohóc lidérc szabotálhat, a lidércek támadnak, a gyógyítók védenek, a vadászok lőhetnek, a Fertőző pedig fertőzhet. A nappali szavazatok titkosak: csak az látszik, ki szavazott már, a szavazat célpontja nem.",
+        "Éjszaka a Szerepcserélő egyszer vakon szerepet cserélhet; a lidércek támadnak, a gyógyítók védenek, a vadászok lőhetnek, a Fertőző pedig fertőzhet. Minden Lidérc 50% eséllyel különleges Bohóc lidérc lehet. A nappali szavazatok titkosak: csak az látszik, ki szavazott már, a célpont nem.",
         "Reggel megjelennek az éjszakai események, majd a falu megbeszél és szavaz; SKIP is választható.",
         "A körök addig ismétlődnek, amíg a falu vagy a lidércek nem győznek, vagy a bolond nem nyer a kiszavazásával."
     ].forEach((text) => flowList.appendChild(createElement("li", "", text)));

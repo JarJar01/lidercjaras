@@ -29,7 +29,7 @@
         villagers: "Falusiak",
         hunters: "Vadászok",
         fool: "Bolondok",
-        swapper: "Bohóc lidérc",
+        swapper: "Szerepcserélő",
         infectious: "Fertőző"
     };
     const roleIds = {
@@ -97,37 +97,65 @@
         const setting = getRemoteVoiceSetting(player.id);
         const wrapper = makeElement("div", "player-voice-controls");
         wrapper.dataset.peerId = player.id;
-        const label = makeElement("label", "player-voice-volume-label", "Hang");
+        wrapper.dataset.scope = scope;
+
+        const header = makeElement("div", "player-voice-mixer-header");
+        const speakerIcon = makeElement("span", "player-voice-mixer-icon", setting.muted ? "🔇" : "🔊");
+        speakerIcon.setAttribute("aria-hidden", "true");
+        const titleGroup = makeElement("div", "player-voice-mixer-copy");
+        titleGroup.append(
+            makeElement("span", "player-voice-volume-title", "HANGERŐSZABÁLYZÁS"),
+            makeElement("span", "player-voice-volume-subtitle", "Csak nálad érvényes")
+        );
+        header.append(speakerIcon, titleGroup);
+
+        const sliderRow = makeElement("div", "player-voice-slider-row");
+        const lowMark = makeElement("span", "player-voice-volume-mark", "−");
         const input = document.createElement("input");
         input.type = "range";
         input.min = "0";
         input.max = "100";
-        input.step = "5";
+        input.step = "1";
         input.value = String(Math.round(setting.volume * 100));
         input.className = "player-voice-volume-slider";
+        input.style.setProperty("--volume-fill", `${input.value}%`);
         input.setAttribute("aria-label", `${player.username} hangereje`);
-        const output = makeElement("span", "player-voice-volume-value", `${input.value}%`);
-        label.append(input, output);
-        const muteButton = makeElement("button", `player-voice-mute-button${setting.muted ? " is-muted" : ""}`, setting.muted ? "Hang vissza" : "Némítás");
+        input.setAttribute("title", `${player.username} hangereje`);
+        const highMark = makeElement("span", "player-voice-volume-mark", "+");
+        sliderRow.append(lowMark, input, highMark);
+
+        const muteButton = makeElement("button", `player-voice-mute-button${setting.muted ? " is-muted" : ""}`);
         muteButton.type = "button";
+        muteButton.innerHTML = setting.muted
+            ? '<span aria-hidden="true">🔇</span><span>Hang vissza</span>'
+            : '<span aria-hidden="true">🔈</span><span>Némítás</span>';
         muteButton.setAttribute("aria-pressed", String(Boolean(setting.muted)));
         muteButton.setAttribute("aria-label", setting.muted ? `${player.username} hangjának visszakapcsolása` : `${player.username} némítása csak nálad`);
+        muteButton.title = setting.muted ? "Hang visszakapcsolása" : "Játékos némítása csak nálad";
+
         input.addEventListener("input", () => {
             setting.volume = Number(input.value) / 100;
-            output.textContent = `${input.value}%`;
+            input.style.setProperty("--volume-fill", `${input.value}%`);
             applyRemoteAudioSetting(player.id, "public");
             applyRemoteAudioSetting(player.id, "team");
         });
         muteButton.addEventListener("click", () => {
             setting.muted = !setting.muted;
-            muteButton.textContent = setting.muted ? "Hang vissza" : "Némítás";
+            wrapper.classList.toggle("is-muted", setting.muted);
+            speakerIcon.textContent = setting.muted ? "🔇" : "🔊";
+            muteButton.innerHTML = setting.muted
+                ? '<span aria-hidden="true">🔇</span><span>Hang vissza</span>'
+                : '<span aria-hidden="true">🔈</span><span>Némítás</span>';
             muteButton.classList.toggle("is-muted", setting.muted);
             muteButton.setAttribute("aria-pressed", String(setting.muted));
             muteButton.setAttribute("aria-label", setting.muted ? `${player.username} hangjának visszakapcsolása` : `${player.username} némítása csak nálad`);
+            muteButton.title = setting.muted ? "Hang visszakapcsolása" : "Játékos némítása csak nálad";
             applyRemoteAudioSetting(player.id, "public");
             applyRemoteAudioSetting(player.id, "team");
         });
-        wrapper.append(label, muteButton);
+
+        wrapper.classList.toggle("is-muted", setting.muted);
+        wrapper.append(header, sliderRow, muteButton);
         return wrapper;
     }
 
@@ -403,7 +431,7 @@
 
     function getPrivateTeamRole(state = currentGameVoiceState) {
         if (!state || !voiceRole || !gamePlayerAlive) return null;
-        if (voiceRole === "spirits" && state.phase === "night-spirits") return "spirits";
+        if (voiceRole === "spirits" && ["night-special-spirit", "night-spirits"].includes(state.phase)) return "spirits";
         if (voiceRole === "hunters" && state.phase === "night-hunters") return "hunters";
         return null;
     }
@@ -494,7 +522,7 @@
         if (!state || !state.phase) return;
         const previousTeamVoicePhase = teamVoicePhaseActive;
         currentGameVoiceState = state;
-        gameVoiceLocked = ["countdown", "night-swapper", "night-spirits", "night-healer", "night-hunters", "night-fool", "night-infectious"].includes(state.phase);
+        gameVoiceLocked = ["countdown", "night-swapper", "night-special-spirit", "night-spirits", "night-healer", "night-hunters", "night-fool", "night-infectious"].includes(state.phase);
         const me = Array.isArray(state.players) ? state.players.find((player) => player.id === socket.id) : null;
         // A kiesettek a játék végén újra beszélhetnek; a játék közben csak hallgatók.
         if (me) gamePlayerAlive = Boolean((me.alive && me.connected !== false) || state.phase === "game-over");

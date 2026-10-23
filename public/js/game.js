@@ -14,13 +14,14 @@
         villagers: "⌂",
         hunters: "➶",
         fool: "☻",
-        swapper: "🎭",
+        swapper: "🔄",
         infectious: "☣"
     };
     const phaseLabels = {
         countdown: "Kezdés",
         intro: "Ismerkedés",
-        "night-swapper": "Bohóc lidérc köre",
+        "night-swapper": "Szerepcserélő köre",
+        "night-special-spirit": "Bohóc lidérc különleges köre",
         "night-spirits": "Lidércek köre",
         "night-healer": "Gyógyító köre",
         "night-hunters": "Vadászok köre",
@@ -34,7 +35,8 @@
     const phaseTitles = {
         countdown: "A sötétség elnyeli a falut",
         intro: "Ismerkedjetek meg egymással",
-        "night-swapper": "A Bohóc lidérc szabotál",
+        "night-swapper": "Titkos szerepcsere",
+        "night-special-spirit": "A különleges lidérc dönt",
         "night-spirits": "A lidércek vadásznak",
         "night-healer": "A gyógyító védelmet választ",
         "night-hunters": "A vadászok döntenek",
@@ -45,7 +47,7 @@
         "vote-result": "A falu döntött",
         "game-over": "Véget ért a Lidércjárás"
     };
-    const nightPhases = new Set(["night-swapper", "night-spirits", "night-healer", "night-hunters", "night-fool", "night-infectious"]);
+    const nightPhases = new Set(["night-swapper", "night-special-spirit", "night-spirits", "night-healer", "night-hunters", "night-fool", "night-infectious"]);
 
     let myRole = null;
     let myRoleLabel = "";
@@ -55,6 +57,7 @@
     let myLivingHealerCount = 1;
     let mySpecialSpirit = false;
     let mySwapperUsed = false;
+    let myRoleSwapUsed = false;
     let mySpiritInspectUsed = false;
     let amIInfected = false;
     let infectedPlayerIds = new Set();
@@ -182,22 +185,46 @@
         } else if (phase === "intro") {
             panel.appendChild(makeElement("p", "game-muted", "Most még mindenki beszélhet egymással. Ismerkedjetek, figyeljétek meg a többieket, és készüljetek az éjszakára."));
         } else if (phase === "night-swapper") {
-            if (!mySpecialSpirit) {
-                panel.appendChild(makeElement("p", "game-muted", "A Bohóc lidérc titkos szabotázsköre zajlik. A többi játékos várjon."));
-            } else if (mySwapperUsed) {
-                panel.appendChild(makeElement("p", "game-muted", "A teljes játékra szóló egyetlen szabotázsodat már felhasználtad. Többé nem választhatsz újabbat."));
+            if (myRole !== "swapper") {
+                panel.appendChild(makeElement("p", "game-muted", "Most a Szerepcserélő titkos szerepcseréje zajlik. A többiek várjanak."));
+            } else if (myRoleSwapUsed) {
+                panel.appendChild(makeElement("p", "game-muted", "A teljes játékban már felhasználtad a szerepcserédet."));
             } else {
-                appendSectionDescription(panel, "A teljes játék során egyszer választhatsz egy szabotázst: névváltás vagy némítás. Nem vizsgálhatsz szerepet.");
+                appendSectionDescription(panel, "Vakon válassz ki egy másik élő játékost. Megkapod a szerepét, ő pedig Falusi lesz. A szerepét előre nem látod, és a csere után nem cserélhet vissza.");
                 otherPlayers.forEach((player) => {
-                    addChoiceButton(panel, `🎭 A nevem legyen: ${player.username}`, () => {
-                        setActionStatus("A névváltás rögzítve. Te és a célpont nem látjátok a változást a saját nézetetekben; mások a kiválasztott nevet látják nálad.");
+                    addChoiceButton(panel, `🔄 Vakon szerepet cserélek: ${player.username}`, () => {
+                        setActionStatus("A szerepcsere rögzítve. Az új szereped csak a kör végén jelenik meg.");
+                        sendAction("cigan-role-swap", { targetId: player.id });
+                    }, "is-neutral");
+                });
+            }
+        } else if (phase === "night-special-spirit") {
+            if (myRole !== "spirits" || !mySpecialSpirit) {
+                panel.appendChild(makeElement("p", "game-muted", "A különleges lidérc titkos képességköre zajlik. A többi játékos várjon."));
+            } else if (mySwapperUsed) {
+                panel.appendChild(makeElement("p", "game-muted", "A játék során már felhasználtad a különleges lidérc egyszeri képességét."));
+            } else {
+                const livingTeammates = myTeamMembers.filter((member) => players.some((player) => player.id === member.id));
+                appendSectionDescription(panel, "Bohóc lidércként kapsz egy külön 20 másodperces kört. Ebben egyszer választhatsz névfelvételt vagy némítást. Ha te vagy az egyetlen élő lidérc, a szabotázs helyett egyszer szerepet is megvizsgálhatsz a teljes játék során. Ezután a rendes lidérckörben még dönthetsz a támadásról.");
+                otherPlayers.forEach((player) => {
+                    addChoiceButton(panel, `🎭 Felveszem ezt a nevet: ${player.username}`, () => {
+                        setActionStatus("A névfelvétel rögzítve. A célpont a saját eredeti nevét látja; mások téged a kiválasztott néven látnak.");
                         sendAction("swapper-action", { targetId: player.id, effect: "rename" });
                     }, "is-neutral");
-                    addChoiceButton(panel, `🔇 Lenémítom ${player.username}`, () => {
-                        setActionStatus("A némítás rögzítve. Ez az egyetlen szabotázsod ebben a játékban.");
+                    addChoiceButton(panel, `🔇 Lenémítom: ${player.username}`, () => {
+                        setActionStatus("A némítás rögzítve. Ezt a különleges képességet már nem használhatod újra.");
                         sendAction("swapper-action", { targetId: player.id, effect: "mute" });
                     }, "is-danger");
                 });
+                if (livingTeammates.length <= 1 && !mySpiritInspectUsed) {
+                    panel.appendChild(makeElement("p", "game-action-description", "Vagy egyszer megvizsgálhatod egy másik élő játékos szerepét. Ezzel a különleges képességedet is felhasználod, így később nem szabotálhatsz.") );
+                    otherPlayers.forEach((player) => {
+                        addChoiceButton(panel, `☷ Megvizsgálom: ${player.username}`, () => {
+                            setActionStatus(`Megvizsgálod ${player.username} szerepét…`);
+                            sendAction("special-spirit-inspect", { targetId: player.id });
+                        }, "is-neutral");
+                    });
+                }
             }
         } else if (phase === "night-spirits") {
             if (myRole !== "spirits") {
@@ -206,8 +233,8 @@
                 const livingTeammates = myTeamMembers.filter((member) => players.some((player) => player.id === member.id));
                 if (livingTeammates.length <= 1) {
                     appendSectionDescription(panel, mySpecialSpirit
-                        ? "Egyedüli Bohóc lidércként megtámadhatsz egy játékost. Szerepet nem vizsgálhatsz; a különleges szabotázsod a külön körben választható, és a teljes játékban egyszer használható."
-                        : "Egyedüli lidércként megtámadhatsz egy játékost, vagy megvizsgálhatod egy másik élő játékos szerepét. A szerepvizsgálat a teljes játékban egyszer használható. Ebben a körben csak egy döntést hozhatsz.");
+                        ? "Egyedüli Bohóc lidércként megtámadhatsz egy játékost. A különleges képességkörben egyszer névfelvételt, némítást vagy (egyedüliként) szerepvizsgálatot választhattál."
+                        : "Egyedüli lidércként megtámadhatsz egy játékost, vagy megvizsgálhatod egy másik élő játékos szerepét. A szerepvizsgálat a teljes játékban egyszer használható.");
                     otherPlayers.forEach((player) => {
                         addChoiceButton(panel, `☾  Megtámadom: ${player.username}`, () => {
                             setActionStatus("A támadási döntés elküldve. Várd meg a kör végét.");
@@ -215,7 +242,7 @@
                         }, "is-danger");
                     });
                     if (mySpecialSpirit) {
-                        panel.appendChild(makeElement("p", "game-muted", "Bohóc lidércként nem vizsgálhatsz szerepet. A különleges képességed névváltás vagy némítás, és egyszer használható a teljes játék során."));
+                        panel.appendChild(makeElement("p", "game-muted", "A különleges képességköri döntésed külön történt meg. Ebben a körben most a lidérctámadásról döntesz."));
                     } else if (!mySpiritInspectUsed) {
                         panel.appendChild(makeElement("p", "game-action-description", "Vagy vizsgáld meg egy játékos szerepét. Ezt a lehetőséget csak egyszer használhatod a teljes játék során:"));
                         otherPlayers.forEach((player) => {
@@ -478,6 +505,7 @@
         myLivingHealerCount = 1;
         mySpecialSpirit = false;
         mySwapperUsed = false;
+        myRoleSwapUsed = false;
         mySpiritInspectUsed = false;
         amIInfected = false;
         infectedPlayerIds = new Set();
@@ -501,12 +529,19 @@
         myTeamMembers = Array.isArray(payload.teamMembers) ? payload.teamMembers : [];
         mySpecialSpirit = Boolean(payload.specialSpirit);
         mySwapperUsed = Boolean(payload.swapperUsed);
+        myRoleSwapUsed = Boolean(payload.roleSwapUsed);
         mySpiritInspectUsed = Boolean(payload.spiritInspectUsed);
         myLivingHealerCount = Math.max(1, Number(payload.livingHealerCount) || 1);
         infectedPlayerIds = myRole === "infectious" ? new Set(Array.isArray(payload.infectedPlayerIds) ? payload.infectedPlayerIds : []) : new Set();
         if (myRole === "healer") myHealerUsesRemaining = Number.isInteger(payload.healerUsesRemaining) ? payload.healerUsesRemaining : 2;
         renderRoleCard();
         renderGame();
+    });
+
+    socket.on("role-swap-used", (payload = {}) => {
+        myRoleSwapUsed = Boolean(payload.used);
+        renderRoleCard();
+        renderActions();
     });
 
     socket.on("swapper-used", (payload = {}) => {
