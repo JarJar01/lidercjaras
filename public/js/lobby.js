@@ -29,7 +29,7 @@
         villagers: "Falusiak",
         hunters: "Vadászok",
         fool: "Bolondok",
-        swapper: "Szerepcserélő",
+        swapper: "Bohóc lidérc esély",
         infectious: "Fertőző"
     };
     const roleIds = {
@@ -393,6 +393,27 @@
         statuses.forEach((status) => { status.textContent = statusText; });
     }
 
+    function applyRemoteVoiceEffects(state = currentGameVoiceState) {
+        if (!state) return;
+        document.querySelectorAll("#remoteAudioContainer audio[id^='voice-audio-']").forEach((audio) => {
+            const peerId = audio.id.slice("voice-audio-".length);
+            const peerState = (state.players || []).find((player) => player.id === peerId);
+            const effect = peerState?.voiceEffect || null;
+            const mutedByGame = gameVoiceLocked || effect === "mute";
+            audio.muted = mutedByGame;
+            audio.volume = mutedByGame ? 0 : 1;
+            if (effect === "thin" && !gameVoiceLocked) {
+                audio.playbackRate = 1.18;
+                if ("preservesPitch" in audio) audio.preservesPitch = false;
+                if ("webkitPreservesPitch" in audio) audio.webkitPreservesPitch = false;
+            } else {
+                audio.playbackRate = 1;
+                if ("preservesPitch" in audio) audio.preservesPitch = true;
+                if ("webkitPreservesPitch" in audio) audio.webkitPreservesPitch = true;
+            }
+        });
+    }
+
     function applyGameVoiceState(state) {
         if (!state || !state.phase) return;
         const previousTeamVoicePhase = teamVoicePhaseActive;
@@ -433,10 +454,7 @@
             localAudioStream.getAudioTracks().forEach((track) => { track.enabled = Boolean(micEnabled && !muted); });
         }
         // A normál hangcsatorna éjszaka némítva marad. A csapatnak külön WebRTC-kapcsolata van.
-        document.querySelectorAll("#remoteAudioContainer audio[id^='voice-audio-']").forEach((audio) => {
-            audio.muted = gameVoiceLocked;
-            audio.volume = gameVoiceLocked ? 0 : 1;
-        });
+        applyRemoteVoiceEffects(state);
         if (teamVoicePhaseActive) {
             syncTeamVoicePeers();
             if (!localAudioStream) {
@@ -538,6 +556,7 @@
             } else {
                 audio.srcObject = new MediaStream([event.track]);
             }
+            applyRemoteVoiceEffects(currentGameVoiceState);
             audio.play().catch(() => {
                 showMessage("A hang lejátszását a böngésző letiltotta. Kattints az oldalra, majd engedélyezd a hangot.", "info");
             });

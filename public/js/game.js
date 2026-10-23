@@ -14,13 +14,13 @@
         villagers: "⌂",
         hunters: "➶",
         fool: "☻",
-        swapper: "⇄",
+        swapper: "🎭",
         infectious: "☣"
     };
     const phaseLabels = {
         countdown: "Kezdés",
         intro: "Ismerkedés",
-        "night-swapper": "Szerepcserélő köre",
+        "night-swapper": "Bohóc lidérc köre",
         "night-spirits": "Lidércek köre",
         "night-healer": "Gyógyító köre",
         "night-hunters": "Vadászok köre",
@@ -34,7 +34,7 @@
     const phaseTitles = {
         countdown: "A sötétség elnyeli a falut",
         intro: "Ismerkedjetek meg egymással",
-        "night-swapper": "A szerepek összekeverednek",
+        "night-swapper": "A Bohóc lidérc szabotál",
         "night-spirits": "A lidércek vadásznak",
         "night-healer": "A gyógyító védelmet választ",
         "night-hunters": "A vadászok döntenek",
@@ -52,6 +52,10 @@
     let myRoleDescription = "";
     let myTeamMembers = [];
     let myHealerUsesRemaining = 2;
+    let myLivingHealerCount = 1;
+    let mySpecialSpirit = false;
+    let mySpiritInspectUsed = false;
+    let amIInfected = false;
     let infectedPlayerIds = new Set();
     let rematchReadyIds = [];
     let rematchReadyCount = 0;
@@ -177,14 +181,22 @@
         } else if (phase === "intro") {
             panel.appendChild(makeElement("p", "game-muted", "Most még mindenki beszélhet egymással. Ismerkedjetek, figyeljétek meg a többieket, és készüljetek az éjszakára."));
         } else if (phase === "night-swapper") {
-            if (myRole !== "swapper") {
-                panel.appendChild(makeElement("p", "game-muted", "Most a Szerepcserélő titkos köre zajlik. A többi játékos várjon.") );
+            if (!mySpecialSpirit) {
+                panel.appendChild(makeElement("p", "game-muted", "A Bohóc lidérc titkos szabotázsköre zajlik. A többi játékos várjon."));
             } else {
-                appendSectionDescription(panel, "Egy másik élő játékost választhatsz ki vakon. Te megkapod a szerepét, ő Falusi lesz. Nem tudod előre, milyen szerepet cserélsz el, és ezt a képességet csak egyszer használhatod.");
+                appendSectionDescription(panel, "Válassz egy élő játékost, majd egy titkos hatást. A célszemély csak reggel értesül a hanghatásról; a névváltoztatást ő maga nem látja.");
                 otherPlayers.forEach((player) => {
-                    addChoiceButton(panel, `⇄ Szerepet cserélek vele: ${player.username}`, () => {
-                        setActionStatus(`A szerepcsere elküldve ${player.username} játékosra. A szerepét nem látod előre.`);
-                        sendAction("swapper-action", { targetId: player.id });
+                    addChoiceButton(panel, `🎭 Elvékonyítom ${player.username} hangját`, () => {
+                        setActionStatus("A hangtorzítás rögzítve. Reggel a többiek látni fogják az eseménynaplóban.");
+                        sendAction("swapper-action", { targetId: player.id, effect: "thin" });
+                    }, "is-danger");
+                    addChoiceButton(panel, `🔇 Lenémítom ${player.username} hangját`, () => {
+                        setActionStatus("A némítás rögzítve. Reggel a többiek látni fogják az eseménynaplóban.");
+                        sendAction("swapper-action", { targetId: player.id, effect: "mute" });
+                    }, "is-danger");
+                    addChoiceButton(panel, `🎭 Megváltoztatom ${player.username} nevét`, () => {
+                        setActionStatus("A titkos névváltoztatás rögzítve. A célpont továbbra is a saját eredeti nevét látja.");
+                        sendAction("swapper-action", { targetId: player.id, effect: "rename" });
                     }, "is-neutral");
                 });
             }
@@ -201,13 +213,17 @@
                             sendAction("spirit-action", { type: "attack", targetId: player.id });
                         }, "is-danger");
                     });
-                    panel.appendChild(makeElement("p", "game-action-description", "Vagy vizsgáld meg egy játékos szerepét:") );
-                    otherPlayers.forEach((player) => {
-                        addChoiceButton(panel, `☷  Megnézem ${player.username} szerepét`, () => {
-                            setActionStatus(`Megvizsgálod ${player.username} szerepét…`);
-                            sendAction("spirit-action", { type: "inspect", targetId: player.id });
-                        }, "is-neutral");
-                    });
+                    if (!mySpiritInspectUsed) {
+                        panel.appendChild(makeElement("p", "game-action-description", "Vagy vizsgáld meg egy játékos szerepét. Ezt a lehetőséget csak egyszer használhatod a teljes játék során:"));
+                        otherPlayers.forEach((player) => {
+                            addChoiceButton(panel, `☷  Megnézem ${player.username} szerepét`, () => {
+                                setActionStatus(`Megvizsgálod ${player.username} szerepét…`);
+                                sendAction("spirit-action", { type: "inspect", targetId: player.id });
+                            }, "is-neutral");
+                        });
+                    } else {
+                        panel.appendChild(makeElement("p", "game-action-description", "A játék során már felhasználtad az egyszeri szerepvizsgálatodat."));
+                    }
                 } else {
                     appendSectionDescription(panel, "Több lidérc van életben. Titkos chatben egyeztessetek, majd mindannyian ugyanazt a célpontot jelöljétek meg. Eltérő választás esetén a támadás sikertelen.");
                     otherPlayers.filter((player) => !livingTeammates.some((mate) => mate.id === player.id)).forEach((player) => {
@@ -222,10 +238,8 @@
             if (myRole !== "healer") {
                 panel.appendChild(makeElement("p", "game-muted", "A gyógyítók most külön-külön választanak. Ha többen vannak életben, mindegyiküknek ugyanazt a játékost kell választania a sikeres védelemhez."));
             } else {
-                const livingHealers = myTeamMembers.filter((member) => players.some((player) => player.id === member.id));
-                if (livingHealers.length > 1) {
-                    const names = livingHealers.filter((member) => member.id !== socket.id).map((member) => member.username);
-                    appendSectionDescription(panel, `Gyógyítótársaid: ${names.join(", ") || "nincs másik életben lévő gyógyító"}. Nem kommunikálhattok, és nincs ping. Válassz egy játékost. A védelem csak akkor sikerül, ha minden élő gyógyító ugyanazt választja.`);
+                if (myLivingHealerCount > 1) {
+                    appendSectionDescription(panel, "Több gyógyító van életben, de nem látjátok egymás nevét és nem tudjátok, kik a társaitok. Mindegyikőtök külön szavaz; a védelem csak akkor sikerül, ha minden élő gyógyító ugyanazt a játékost választja.");
                 } else {
                     appendSectionDescription(panel, `Egyedüli életben lévő gyógyítóként még ${myHealerUsesRemaining} védési alkalommal rendelkezel. Éjszakánként egyszer használhatod, és saját magadat is megvédheted.`);
                 }
@@ -334,11 +348,14 @@
             if (myRole === "infectious" && infectedPlayerIds.has(player.id)) {
                 info.appendChild(makeElement("span", "game-infected-badge", "☣ Fertőzött (csak neked látszik)"));
             }
+            if (player.id === socket.id && gameState.infectedSelf) {
+                info.appendChild(makeElement("span", "game-infected-badge", "☣ Megfertőződtél"));
+            }
             if (showVotes) {
                 const vote = votesByVoter.get(player.id);
                 if (vote) {
-                    const prefix = vote.submitted ? "Szavazott → " : "Nem szavazott → ";
-                    info.appendChild(makeElement("span", "game-player-vote", `${prefix}${vote.targetName}`));
+                    const label = vote.submitted ? "Szavazott" : "Még nem szavazott";
+                    info.appendChild(makeElement("span", `game-player-vote${vote.submitted ? "" : " is-pending"}`, label));
                 } else if (gameState.phase === "day" && !dead) {
                     info.appendChild(makeElement("span", "game-player-vote is-pending", "Még nem szavazott"));
                 }
@@ -364,6 +381,7 @@
         const panel = $("gameRoleCard");
         if (!panel || !myRole) return;
         panel.hidden = false;
+        panel.classList.toggle("is-clown-spirit", mySpecialSpirit);
         $("gameRoleSymbol").textContent = roleSymbols[myRole] || "✦";
         $("gameRoleName").textContent = myRoleLabel || "Titkos szerep";
         $("gameRoleDescription").textContent = myRoleDescription || "A szereped titkos. Figyeld a játékmenetet.";
@@ -455,6 +473,10 @@
         myRoleDescription = "";
         myTeamMembers = [];
         myHealerUsesRemaining = 2;
+        myLivingHealerCount = 1;
+        mySpecialSpirit = false;
+        mySpiritInspectUsed = false;
+        amIInfected = false;
         infectedPlayerIds = new Set();
         actionSubmitted = false;
         hunterActionBlocked = false;
@@ -474,6 +496,9 @@
         myRoleLabel = payload.label || "Titkos szerep";
         myRoleDescription = payload.roleDescription || "A szereped titkos.";
         myTeamMembers = Array.isArray(payload.teamMembers) ? payload.teamMembers : [];
+        mySpecialSpirit = Boolean(payload.specialSpirit);
+        mySpiritInspectUsed = Boolean(payload.spiritInspectUsed);
+        myLivingHealerCount = Math.max(1, Number(payload.livingHealerCount) || 1);
         infectedPlayerIds = myRole === "infectious" ? new Set(Array.isArray(payload.infectedPlayerIds) ? payload.infectedPlayerIds : []) : new Set();
         if (myRole === "healer") myHealerUsesRemaining = Number.isInteger(payload.healerUsesRemaining) ? payload.healerUsesRemaining : 2;
         renderRoleCard();
@@ -484,6 +509,7 @@
         if (gameState && state.phase !== gameState.phase) speakingPlayerIds.clear();
         resetActionIfNewPhase(state);
         gameState = state;
+        amIInfected = Boolean(state.infectedSelf);
         renderGame();
         if (state.message) showNotice(state.message, `${state.phase}|${state.round}|${state.message}`);
         else showNotice("");
@@ -527,6 +553,24 @@
     socket.on("infectious-state", (payload = {}) => {
         if (myRole !== "infectious") return;
         infectedPlayerIds = new Set(Array.isArray(payload.infectedPlayerIds) ? payload.infectedPlayerIds : []);
+        renderGame();
+    });
+
+    socket.on("infection-self-status", (payload = {}) => {
+        amIInfected = Boolean(payload.infected);
+        if (gameState) gameState.infectedSelf = amIInfected;
+        renderGame();
+    });
+
+    socket.on("spirit-inspect-used", (payload = {}) => {
+        mySpiritInspectUsed = Boolean(payload.used);
+        renderActions();
+    });
+
+    socket.on("healer-status", (payload = {}) => {
+        if (myRole !== "healer") return;
+        myLivingHealerCount = Math.max(0, Number(payload.livingCount) || 0);
+        myHealerUsesRemaining = Math.max(0, Number(payload.usesRemaining) || 0);
         renderGame();
     });
 

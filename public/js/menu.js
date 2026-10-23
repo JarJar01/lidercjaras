@@ -215,7 +215,7 @@ function openSettings() {
         ["Falusi", "Nincs éjszakai képessége. Nappal a beszélgetés és a szavazás segít felderíteni a lidérceket."],
         ["Vadász", "Éjszaka egyszer lőhet vagy passzolhat; egyedüli vadászként egy élő játékos szerepét is megvizsgálhatja. Több vadász a saját éjszakai körében privát hangon és szöveges chaten egyeztethet. Ha a lidércek ugyanazon az éjszakán megölik, nem támadhat vissza."],
         ["Bolond", "A célja, hogy a falu nappali szavazással kiszavazza. Ha így esik ki, ő nyeri a játékot."],
-        ["Szerepcserélő", "Éjszaka egyszer vakon kiválaszt egy élő játékost. Átveszi a célpont szerepét, a célpont pedig Falusi lesz; a célpont nem cserélhet vissza."],
+        ["Bohóc lidérc esély", "A beállítás plusz lidérchelyet ad. Ha legalább egy ilyen hely van, 50% eséllyel egy véletlenszerű lidérc Bohóc lidérc lesz. Éjszakánként titokban megváltoztathatja valakinek a megjelenített nevét, elvékonyíthatja a hangját vagy lenémíthatja; a hatás reggel jelenik meg."],
         ["Fertőző", "Éjszakánként megfertőzhet egy még nem fertőzött, élő játékost. Csak ő látja a fertőzött személyeket; a nyilvános napló nem nevezi meg őket. Akkor nyer, ha minden más életben lévő játékos megfertőződött."]
     ].forEach(([name, descriptionText]) => {
         const entry = createElement("article", "lj-guide-entry");
@@ -229,7 +229,7 @@ function openSettings() {
     [
         "Mindenki READY állapotba kerül, majd a házigazda elindítja a játékot.",
         "A 10 másodperces sötétedés alatt mindenki titkos szerepet kap, utána jön a beállított ismerkedési idő.",
-        "Éjszaka a Szerepcserélő megváltoztathat egy szerepet, a lidércek támadnak, a gyógyítók védenek, a vadászok lőhetnek, a Fertőző pedig fertőzhet.",
+        "Éjszaka a Bohóc lidérc szabotálhat, a lidércek támadnak, a gyógyítók védenek, a vadászok lőhetnek, a Fertőző pedig fertőzhet. A nappali szavazatok titkosak: csak az látszik, ki szavazott már, a szavazat célpontja nem.",
         "Reggel megjelennek az éjszakai események, majd a falu megbeszél és szavaz; SKIP is választható.",
         "A körök addig ismétlődnek, amíg a falu vagy a lidércek nem győznek, vagy a bolond nem nyer a kiszavazásával."
     ].forEach((text) => flowList.appendChild(createElement("li", "", text)));

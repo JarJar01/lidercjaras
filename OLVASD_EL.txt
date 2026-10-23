@@ -24,7 +24,7 @@ TELEPÍTÉS
 - Ha a lidércek ugyanazon az éjszakán megölik a vadászt, az adott vadász nem lőhet vissza ugyanabban az éjszakában.
 - Ha egyedül marad egy lidérc, megtámadhat egy élő játékost vagy megvizsgálhatja egy másik élő játékos szerepét. Ha egyedül marad egy vadász, lőhet/passzolhat vagy megvizsgálhatja egy másik élő játékos szerepét.
 - A szavazás alatt látható, ki adott le szavazatot és kire. Az eredményben a le nem adott szavazat SKIP-ként szerepel.
-- A Szerepcserélő éjszaka egyszer vakon kiválaszt egy élő játékost, átveszi annak szerepét, a célpont pedig Falusi lesz. A célpont szerepe nem fedődik fel előre, és nem tud visszacserélni.
+- A Bohóc lidérc-esély a szobalétrehozásnál beállított extra lidérchely. Ha legalább egy ilyen hely van, 50% eséllyel egy véletlen lidérc Bohóc lidérc lesz. Éjszakánként egy célpont nevét megváltoztathatja, elvékonyíthatja a hangját vagy lenémíthatja a hangját; a hatás reggel jelenik meg.
 - A Fertőző éjszakánként megfertőzhet egy még nem fertőzött élő játékost. Csak a Fertőző látja a fertőzöttek jelölését; a nyilvános napló csak annyit ír, hogy valaki megfertőződött. A Fertőző akkor nyer, ha minden más életben lévő játékos fertőzött.
 - Játék végén a hangkapcsolat minden játékosnak újra elérhető, a kiesetteknek is. Játék közben a kiesettek nem beszélhetnek, de nappal hallgathatják az életben lévő játékosokat.
 
@@ -36,3 +36,11 @@ FONTOS A HANGHOZ
 TESZTELÉS
 - A JavaScript szintaxisát ellenőrizni kell minden fájlon; a több böngészős, valódi WebRTC-hangtesztet külön el kell végezni.
 - A szerver memóriájában tárolt szobák a szerver újraindításakor elvesznek.
+
+
+Új szabályok ebben a verzióban:
+- A nappali szavazatok titkosak: a játékosok csak azt látják, ki szavazott már; a szavazat célpontját nem. Az eredmény kizárólag összesített szavazatszámot mutat.
+- A gyógyítók nem kapják meg egymás nevét vagy azonosítóját. Több gyógyítónál mindenki külön szavaz; a védelem csak egyhangú választás esetén sikerül.
+- Az egyedüli lidérc szerepvizsgálata egyetlen alkalommal használható a teljes játékban.
+- A Fertőző a reggel kezdetén kapja meg az aktuális fertőzöttlistát; a fertőzött játékos saját jelzést kap, a többiek csak általános naplóüzenetet látnak.
+- A Bohóc lidérc névváltoztatása nem látszik a célpont saját felületén. A hangtorzítás a többiek oldalán működik a következő éjszakáig.

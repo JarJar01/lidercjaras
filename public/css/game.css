@@ -229,3 +229,8 @@
 .game-role-team-members { grid-column: 2; margin: 4px 0 0; padding: 8px 10px; border: 1px solid rgba(173, 141, 229, 0.24); border-radius: 6px; background: rgba(65, 44, 91, 0.25); color: #d5c4ee !important; font-size: 12px; line-height: 1.5; }
 .game-infected-badge { color: #a9d88f !important; font-weight: 700; }
 .game-public-log-entry { overflow-wrap: anywhere; }
+
+
+/* Bohóc lidérc szerepkártyája veszélyjelzést kap; a titkos szerep csak a tulajdonosának látszik. */
+.game-role-panel.is-clown-spirit { border-color: rgba(255, 75, 90, .82) !important; box-shadow: 0 0 26px rgba(255, 38, 72, .22); }
+.game-role-panel.is-clown-spirit #gameRoleName { color: #ff737d !important; }
