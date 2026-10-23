@@ -622,3 +622,63 @@ body.lobby-page {
     .public-room-label { display: none; }
 }
 .lobby-view[hidden] { display: none !important; }
+
+
+/* Szobalétrehozási időbeállítások */
+.room-time-settings {
+    margin: 26px 0 10px;
+    padding: 22px;
+    border: 1px solid rgba(185, 163, 223, 0.16);
+    border-radius: 12px;
+    background: rgba(10, 9, 18, 0.56);
+}
+.time-settings-heading {
+    margin: 0 0 18px;
+}
+.time-settings-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 14px;
+}
+.room-setting-field {
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 7px;
+}
+.room-setting-field label {
+    color: #e2d8f0;
+    font-size: 13px;
+    font-weight: 600;
+    line-height: 1.4;
+}
+.room-setting-field input {
+    width: 100%;
+    min-height: 43px;
+    box-sizing: border-box;
+    padding: 10px 12px;
+    border: 1px solid rgba(185, 163, 223, 0.24);
+    border-radius: 7px;
+    background: rgba(5, 5, 13, 0.78);
+    color: #f0e8ff;
+    font: inherit;
+}
+.room-setting-field input:focus {
+    outline: 2px solid rgba(180, 151, 239, 0.55);
+    outline-offset: 1px;
+}
+.room-setting-field small {
+    color: #9289a5;
+    font-size: 11px;
+    line-height: 1.45;
+}
+.rematch-ready-status {
+    max-width: 640px;
+    margin: 12px auto;
+    color: #c4b6dd;
+    line-height: 1.6;
+}
+@media (max-width: 620px) {
+    .time-settings-grid { grid-template-columns: 1fr; }
+    .room-time-settings { padding: 16px; }
+}

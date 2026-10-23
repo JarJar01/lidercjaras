@@ -109,6 +109,33 @@
         return roles;
     }
 
+    function readRoomSettings() {
+        const keys = [
+            "introSeconds", "daySeconds", "spiritsSeconds",
+            "healerSeconds", "huntersSeconds", "foolSeconds"
+        ];
+        const ids = {
+            introSeconds: "settingIntroSeconds",
+            daySeconds: "settingDaySeconds",
+            spiritsSeconds: "settingSpiritsSeconds",
+            healerSeconds: "settingHealerSeconds",
+            huntersSeconds: "settingHuntersSeconds",
+            foolSeconds: "settingFoolSeconds"
+        };
+        const settings = {};
+        for (const key of keys) {
+            const input = document.getElementById(ids[key]);
+            const value = Number.parseInt(input.value, 10);
+            if (!Number.isInteger(value) || value < 5 || value > 3600) {
+                input.focus();
+                showMessage("Minden időtartam 5 és 3600 másodperc közötti egész szám legyen.", "error");
+                return null;
+            }
+            settings[key] = value;
+        }
+        return settings;
+    }
+
     function updateRoleTotal() {
         const total = totalSelectedPlayers();
         document.getElementById("playerTotal").textContent = String(total);
@@ -322,9 +349,10 @@
         if (localAudioStream) {
             localAudioStream.getAudioTracks().forEach((track) => { track.enabled = Boolean(micEnabled && !muted); });
         }
+        // A kiesett játékos nem beszélhet, de nappal továbbra is hallhatja az élőket.
         document.querySelectorAll("#remoteAudioContainer audio").forEach((audio) => {
-            audio.muted = muted;
-            audio.volume = muted ? 0 : 1;
+            audio.muted = gameVoiceLocked;
+            audio.volume = gameVoiceLocked ? 0 : 1;
         });
         updateVoiceUI();
     }
@@ -584,6 +612,8 @@
 
         const roomName = document.getElementById("roomNameInput").value.trim();
         const roles = readSelectedRoles();
+        const settings = readRoomSettings();
+        if (!settings) return;
         const total = roleKeys.reduce((sum, key) => sum + roles[key], 0);
 
         if (roomName.length < 3 || roomName.length > 24) {
@@ -599,7 +629,7 @@
         const submit = document.getElementById("createRoomSubmit");
         submit.disabled = true;
         submit.textContent = "SZOBA KÉSZÍTÉSE...";
-        socket.emit("create-room", { roomName, roles, username: playerName });
+        socket.emit("create-room", { roomName, roles, settings, username: playerName });
         window.setTimeout(() => {
             if (submit.isConnected) {
                 submit.disabled = false;
@@ -679,6 +709,17 @@
 
     socket.on("room-updated", (room) => {
         if (currentRoom && currentRoom.code === room.code) renderWaitingRoom(room);
+    });
+
+    socket.on("return-to-waiting-room", (payload = {}) => {
+        if (!payload.room) return;
+        currentRoom = payload.room;
+        gameVoiceLocked = false;
+        gamePlayerAlive = true;
+        setView("waiting");
+        renderWaitingRoom(payload.room);
+        showMessage(payload.message || "A szoba készen áll az új menetre.", "success", 9000);
+        updateVoiceUI();
     });
 
     socket.on("left-room", () => {

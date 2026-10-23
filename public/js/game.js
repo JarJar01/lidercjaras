@@ -45,6 +45,11 @@
     let myRoleLabel = "";
     let myRoleDescription = "";
     let myTeamMembers = [];
+    let myHealerUsesRemaining = 2;
+    let rematchReadyIds = [];
+    let rematchReadyCount = 0;
+    let rematchReadyTotal = 0;
+    let rematchStatusMessage = "";
     let gameState = null;
     let currentPhase = "";
     let currentRound = 0;
@@ -297,6 +302,12 @@
             $("gameEndPanel").hidden = false;
             $("gameWinnerTitle").textContent = gameState.winnerLabel || "A játéknak vége";
             $("gameWinnerMessage").textContent = gameState.message || "A történet lezárult.";
+            const alreadyReady = rematchReadyIds.includes(socket.id);
+            $("gameEndReadyButton").textContent = alreadyReady
+                ? "VISSZAVONOM A KÉSZSÉGET"
+                : "KÉSZEN ÁLLOK A KÖVETKEZŐ JÁTÉKRA";
+            $("rematchReadyStatus").textContent = rematchStatusMessage ||
+                `Készen állók a következő menetre: ${rematchReadyCount}/${rematchReadyTotal || (gameState.players || []).filter((player) => player.connected !== false).length}. Ha mindenki kész, visszatértek a váróterembe.`;
         } else {
             $("gameEndPanel").hidden = true;
         }
@@ -340,6 +351,20 @@
 
     socket.on("game-started", (payload = {}) => {
         if (payload.room) $("gameStartedRoomName").textContent = payload.room.name || "Lidércjárás";
+        myRole = null;
+        myRoleLabel = "";
+        myRoleDescription = "";
+        myTeamMembers = [];
+        myHealerUsesRemaining = 2;
+        actionSubmitted = false;
+        actionStatusMessage = "";
+        rematchReadyIds = [];
+        rematchReadyCount = 0;
+        rematchReadyTotal = 0;
+        rematchStatusMessage = "";
+        $("gameRoleCard").hidden = true;
+        $("gameEndPanel").hidden = true;
+        $("gameTeamChatPanel").hidden = true;
     });
 
     socket.on("private-role", (payload = {}) => {
@@ -347,6 +372,7 @@
         myRoleLabel = payload.label || "Titkos szerep";
         myRoleDescription = payload.roleDescription || "A szereped titkos.";
         myTeamMembers = Array.isArray(payload.teamMembers) ? payload.teamMembers : [];
+        if (myRole === "healer") myHealerUsesRemaining = Number.isInteger(payload.healerUsesRemaining) ? payload.healerUsesRemaining : 2;
         renderRoleCard();
         renderGame();
     });
@@ -374,6 +400,41 @@
     socket.on("center-card-revealed", (payload = {}) => {
         const text = `A középső ${Number(payload.cardIndex) + 1}. kártyán ez a szerep volt: ${payload.label || "ismeretlen"}.`;
         setActionStatus(text);
+    });
+
+    socket.on("healer-uses-left", (payload = {}) => {
+        if (myRole !== "healer") return;
+        myHealerUsesRemaining = Math.max(0, Number(payload.remaining) || 0);
+        renderGame();
+    });
+
+    socket.on("rematch-ready-update", (payload = {}) => {
+        rematchReadyIds = Array.isArray(payload.readyIds) ? payload.readyIds : [];
+        rematchReadyCount = Number(payload.readyCount) || 0;
+        rematchReadyTotal = Number(payload.total) || 0;
+        rematchStatusMessage = String(payload.message || "");
+        if (gameState && gameState.phase === "game-over") renderGame();
+    });
+
+    socket.on("return-to-waiting-room", () => {
+        gameState = null;
+        myRole = null;
+        myRoleLabel = "";
+        myRoleDescription = "";
+        myTeamMembers = [];
+        myHealerUsesRemaining = 2;
+        actionSubmitted = false;
+        actionStatusMessage = "";
+        rematchReadyIds = [];
+        rematchReadyCount = 0;
+        rematchReadyTotal = 0;
+        rematchStatusMessage = "";
+        currentPhase = "";
+        currentRound = 0;
+        $("gameRoleCard").hidden = true;
+        $("gameEndPanel").hidden = true;
+        $("gameTeamChatPanel").hidden = true;
+        $("gameTeamChatMessages").replaceChildren(makeElement("p", "game-chat-empty", "Még nincs üzenet."));
     });
 
     socket.on("team-chat-message", (payload = {}) => {
@@ -410,7 +471,10 @@
         if (window.confirm("Biztosan kilépsz a játékból? Ezzel kiesett játékosként folytatódik a játék.")) socket.emit("leave-room");
     }
     $("leaveGameButton").addEventListener("click", leaveGame);
-    $("gameEndLeaveButton").addEventListener("click", () => socket.emit("leave-room"));
+    $("gameEndReadyButton").addEventListener("click", () => {
+        const alreadyReady = rematchReadyIds.includes(socket.id);
+        socket.emit("ready-next-game", { ready: !alreadyReady });
+    });
 
     timerInterval = window.setInterval(updateTimer, 250);
     window.addEventListener("beforeunload", () => {
