@@ -2,16 +2,26 @@
   "use strict";
   const BASE = "/game/";
   let questionBank = null;
+  const fallbackQuestionBank = {
+    white: ["Mondj el egy kínos, de vicces randitörténetet!", "Ki a társaság legnagyobb bajkeverője, és miért?"],
+    yellow: ["Melyik emlékedet mesélnéd el legszívesebben a társaságnak?", "Válassz valakit, aki mondjon rólad egy vicces történetet!"],
+    red: ["Tartsatok egy közös, alkoholmentes koccintást!", "Mindenki mondjon egy vicces szót a körből!"],
+    curses: [], shields: [], boosts: []
+  };
   const bankReady = fetch(`${BASE}question-bank.json`).then((response) => {
     if (!response.ok) throw new Error("A kérdésbank nem tölthető be.");
     return response.json();
-  }).then((data) => { questionBank = data; return data; });
+  }).then((data) => { questionBank = data; return data; }).catch((error) => {
+    console.error("Kiiszik: a kérdésbank betöltése nem sikerült, alap kérdéseket használok.", error);
+    questionBank = fallbackQuestionBank;
+    return questionBank;
+  });
 
   const app = {
     root: null, ui: {}, mode: null, socket: null, state: null,
     local: null, tickHandle: null, localTimerHandle: null, localMoveHandle: null,
     currentWhiteOptionId: null, selectedChatTab: "chat", noticeHandle: null,
-    media: {}, mediaOriginals: [], running: false, lastHandledTimeoutTurn: null
+    media: {}, mediaOriginals: [], running: false, lastHandledTimeoutTurn: null, diceAnimationInterval: null, diceAnimationTimeout: null
   };
 
   function byId(id) { return app.root ? app.root.querySelector(`#${id}`) : null; }
@@ -28,6 +38,24 @@
       return r < 0.54 ? "white" : r < 0.82 ? "yellow" : "red";
     });
   }
+  // 100 mezőből álló, befelé csavarodó útvonal egy ház alaprajzán.
+  // A koordináták külön függvényben vannak, így az animáció is a látható úton halad.
+  function makeSpiralPath(count = 100, size = 12) {
+    const path = [];
+    let top = 0, right = size - 1, bottom = size - 1, left = 0;
+    while (top <= bottom && left <= right && path.length < count) {
+      for (let col = left; col <= right && path.length < count; col += 1) path.push({ row: top, col });
+      top += 1;
+      for (let row = top; row <= bottom && path.length < count; row += 1) path.push({ row, col: right });
+      right -= 1;
+      for (let col = right; col >= left && path.length < count && top <= bottom; col -= 1) path.push({ row: bottom, col });
+      bottom -= 1;
+      for (let row = bottom; row >= top && path.length < count && left <= right; row -= 1) path.push({ row, col: left });
+      left += 1;
+    }
+    return path.slice(0, count);
+  }
+  const SPIRAL_PATH = makeSpiralPath(100, 12);
   function sampleTwo(values) {
     const copy = [...values];
     for (let i = copy.length - 1; i > 0; i -= 1) {
@@ -46,26 +74,29 @@
     root.innerHTML = `
       <header class="kg-topbar">
         <div class="kg-brand"><strong>KIISZIK</strong><span>18+ PARTY BOARD GAME</span></div>
-        <div class="kg-game-status" id="kg-game-status">A játék betöltése…</div>
-        <div class="kg-top-controls kg-media-controls">
-          <button class="kg-top-button" id="kg-mic-toggle" type="button">🎙 Mikrofon: KI</button>
-          <button class="kg-top-button" id="kg-camera-toggle" type="button">📷 Kamera: KI</button>
+        <div class="kg-game-status" id="kg-game-status">A játék indulására vár…</div>
+        <div class="kg-top-controls">
           <button class="kg-top-button" id="kg-pause-toggle" type="button">⏸ Szünet szavazás</button>
           <button class="kg-top-button is-danger" id="kg-exit-button" type="button">Kilépés</button>
         </div>
       </header>
       <div class="kg-camera-strip" id="kg-camera-strip">
-        <div class="kg-camera-title"><span>📹</span><div>Kamera-sor<br><small>balról jobbra</small></div></div>
-        <div class="kg-camera-empty" id="kg-camera-empty">Kapcsold be a webkamerát, ha szeretnél megjelenni.</div>
+        <div class="kg-camera-title"><span>📹</span><div>JÁTÉKOS KAMERÁK<br><small>balról jobbra</small></div></div>
+        <div class="kg-camera-empty" id="kg-camera-empty">A kamerát bekapcsoló játékosok itt jelennek meg.</div>
+      </div>
+      <div class="kg-media-toolbar">
+        <span class="kg-media-toolbar-label">🎧 Hang és kép</span>
+        <button class="kg-top-button" id="kg-mic-toggle" type="button">🎙 Mikrofon: KI</button>
+        <button class="kg-top-button" id="kg-camera-toggle" type="button">📷 Webkamera: KI</button>
+        <span class="kg-media-hint">A mikrofon és a kamera külön kapcsolható.</span>
       </div>
       <div class="kg-status-banner" id="kg-pause-banner" hidden>⏸ A parti szünetel, amíg a társaság megszavazza a folytatást.</div>
       <main class="kg-main">
         <section class="kg-panel kg-board-wrap">
           <div class="kg-panel-heading"><div><p class="kg-eyebrow">A HÁZON ÁT A WC-IG</p><h2>100 mezős pálya</h2></div><div class="kg-game-status" id="kg-position-summary">🚪 Start → 🚽 Cél</div></div>
-          <div class="kg-house-labels"><span>🚪 BEJÁRAT</span><span>🛋 NAPPALI</span><span>🍕 KONYHA</span><span>🛏 HÁLÓ</span><span>🚿 FÜRDŐ</span><span>🚽 WC · CÉL</span></div>
+          <div class="kg-house-labels"><span>🚪 BEJÁRAT / START</span><span>🛋 NAPPALI</span><span>🍕 KONYHA</span><span>🛏 HÁLÓ</span><span>🚿 FÜRDŐ</span><span>🚽 WC · CÉL</span></div>
           <div class="kg-board-surface" id="kg-board-surface">
             <div class="kg-entrance-zone" id="kg-entrance-marker"><span>🚪 BEJÁRAT / START</span><span class="kg-start-tokens" id="kg-start-tokens"></span></div>
-            <div class="kg-room-ribbon"><span>🛋 NAPPALI</span><span>🥨 KONYHA</span><span>🪴 FOLYOSÓ</span><span>🛏 HÁLÓ</span><span>🚿 FÜRDŐ</span></div>
             <div class="kg-tile-grid" id="kg-tile-grid"></div>
             <div class="kg-moving-token" id="kg-moving-token" aria-hidden="true">?</div>
           </div>
@@ -74,15 +105,10 @@
         </section>
         <aside class="kg-side-column">
           <section class="kg-panel kg-turn-panel">
-            <div class="kg-turn-line"><div><p class="kg-eyebrow">SORON KÖVETKEZIK</p><div class="kg-turn-name" id="kg-turn-name">Játékos</div><div class="kg-turn-subtitle" id="kg-turn-subtitle">Dobj a kockával!</div></div><div class="kg-timer" id="kg-timer">60</div></div>
+            <div class="kg-turn-line"><div class="kg-turn-summary"><p class="kg-eyebrow">SORON KÖVETKEZIK</p><div class="kg-turn-playerline"><span class="kg-turn-avatar" id="kg-turn-avatar">🎲</span><div class="kg-turn-name" id="kg-turn-name">Játékos</div></div><div class="kg-turn-subtitle" id="kg-turn-subtitle">Dobj a kockával!</div></div><div class="kg-timer" id="kg-timer">60</div></div>
             <div class="kg-progress"><span id="kg-progress-bar"></span></div>
-            <div class="kg-turn-actions"><button class="kg-dice-button" id="kg-dice-button" type="button"><span class="kg-dice-cube" id="kg-dice-face">⚄</span><span>KOCKADOBÁS</span></button><button class="kg-action-button" id="kg-roll-info" type="button" disabled>Dobás után mezőről mezőre lépsz</button></div>
+            <div class="kg-turn-actions"><button class="kg-dice-button" id="kg-dice-button" type="button"><span class="kg-dice-cube" id="kg-dice-face">⚄</span><span>KOCKADOBÁS</span></button><button class="kg-action-button" id="kg-roll-info" type="button" disabled>LÉPÉSEK</button></div>
             <div class="kg-current-status" id="kg-current-status" role="status" aria-live="polite">A parti készen áll.</div>
-          </section>
-          <section class="kg-panel kg-action-panel">
-            <div class="kg-panel-heading"><h3>Mező feladata</h3><span class="kg-action-type" id="kg-action-type">KÖVETKEZIK</span></div>
-            <div id="kg-action-content"><p class="kg-small-note">Dobj a kockával, és nézd meg, milyen mezőre érkezel.</p></div>
-            <button class="kg-next-button" id="kg-next-button" type="button" hidden>Következő játékos →</button>
           </section>
           <section class="kg-panel kg-card-panel"><div class="kg-panel-heading"><h3>🃏 Kártyáim</h3><span class="kg-card-count" id="kg-card-count">0</span></div><div class="kg-hand" id="kg-hand"><div class="kg-card-empty">Nincs kártyád. Néha a mezőkön találsz egyet.</div></div></section>
           <div class="kg-lower-panels">
@@ -91,12 +117,32 @@
           </div>
         </aside>
       </main>
+
+      <div class="kg-task-modal" id="kg-task-modal" hidden role="dialog" aria-modal="true" aria-label="Mezőkártya">
+        <div class="kg-task-modal-backdrop"></div>
+        <div class="kg-task-modal-stage">
+          <div class="kg-task-modal-caption"><span>🃏</span><div><strong>MEZŐKÁRTYA</strong><small>A feladat és a szavazás itt jelenik meg</small></div></div>
+          <section class="kg-panel kg-action-panel kg-task-card" id="kg-action-panel">
+            <div class="kg-panel-heading"><h3>Mező feladata</h3><span class="kg-action-type" id="kg-action-type">KÖVETKEZIK</span></div>
+            <div id="kg-action-content"><p class="kg-small-note">Dobj a kockával, és nézd meg, milyen mezőre érkezel.</p></div>
+            <button class="kg-next-button" id="kg-next-button" type="button" hidden>Következő játékos →</button>
+          </section>
+        </div>
+      </div>
       <div class="kg-finish-overlay" id="kg-finish-overlay" hidden><div class="kg-finish-card"><div class="kg-finish-icon">🚽🎉</div><h2 id="kg-finish-title">Megvan a WC!</h2><p id="kg-finish-copy">A parti véget ért.</p><button id="kg-finish-exit" type="button">Vissza a lobbyba</button><div class="kg-privacy-note">A Kiiszik 18+ társasjáték. Játsszatok felelősen, és tartsátok tiszteletben, ha valaki passzol.</div></div></div>
       <div class="kg-slap-impact" id="kg-slap-impact" aria-hidden="true"><span>🖐️</span><strong>💥 KIÜTÉS! 💥</strong></div>
       <div class="kg-notice" id="kg-notice" hidden></div>`;
     document.body.append(root);
     app.root = root;
-    ["game-status", "mic-toggle", "camera-toggle", "pause-toggle", "exit-button", "camera-strip", "camera-empty", "pause-banner", "position-summary", "board-surface", "entrance-marker", "start-tokens", "tile-grid", "moving-token", "turn-name", "turn-subtitle", "timer", "progress-bar", "dice-button", "dice-face", "roll-info", "current-status", "action-type", "action-content", "next-button", "card-count", "hand", "chat-messages", "chat-form", "chat-input", "game-logs", "finish-overlay", "finish-title", "finish-copy", "finish-exit", "notice", "slap-impact"].forEach((id) => { app.ui[id] = byId(`kg-${id}`); });
+    // A markup azonosítói kebab-case formájúak (pl. dice-button), a kód viszont
+    // camelCase property-ket használ (pl. app.ui.diceButton). Konvertáljuk azokat,
+    // mielőtt az eseménykezelőket bekötnénk; enélkül a játékindítás azonnal hibára fut.
+    ["game-status", "task-modal", "turn-avatar", "mic-toggle", "camera-toggle", "pause-toggle", "exit-button", "camera-strip", "camera-empty", "pause-banner", "position-summary", "board-surface", "entrance-marker", "start-tokens", "tile-grid", "moving-token", "turn-name", "turn-subtitle", "timer", "progress-bar", "dice-button", "dice-face", "roll-info", "current-status", "action-type", "action-content", "next-button", "card-count", "hand", "chat-messages", "chat-form", "chat-input", "game-logs", "finish-overlay", "finish-title", "finish-copy", "finish-exit", "notice", "slap-impact"].forEach((id) => {
+      const property = id.replace(/-([a-z])/g, (_, letter) => letter.toUpperCase());
+      app.ui[property] = byId(`kg-${id}`);
+    });
+    app.ui.turnPanel = app.root.querySelector(".kg-turn-panel");
+    app.ui.actionPanel = byId("kg-action-panel");
     app.ui.diceButton.addEventListener("click", roll);
     app.ui.nextButton.addEventListener("click", completeTurn);
     app.ui.pauseToggle.addEventListener("click", togglePause);
@@ -144,14 +190,20 @@
       : (state.paused ? "▶ Folytatás szavazás" : "⏸ Szünet szavazás");
     app.ui.pauseToggle.classList.toggle("is-on", Boolean(state.paused));
     app.root.classList.toggle("kg-local-mode", app.mode === "local");
+    app.ui.taskModal.hidden = !state.pending;
+    app.ui.taskModal.classList.toggle("type-white", state.pending?.type === "white");
+    app.ui.taskModal.classList.toggle("type-yellow", state.pending?.type === "yellow");
+    app.ui.taskModal.classList.toggle("type-red", state.pending?.type === "red");
     app.ui.pauseToggle.hidden = false;
     app.ui.micToggle.hidden = app.mode === "local";
     app.ui.cameraToggle.hidden = app.mode === "local";
-    app.ui.turnName.textContent = currentPlayer(state)?.name || "Játékos";
     const active = currentPlayer(state);
+    app.ui.turnName.textContent = active?.name || "Játékos";
+    app.ui.turnAvatar.textContent = initials(active?.name || "Játékos");
+    app.ui.turnPanel.classList.toggle("is-your-turn", canControlTurn(state));
     const activeState = state.players.find((player) => player.id === state.currentPlayerId);
     const currentPos = activeState ? activeState.position : 0;
-    app.ui.turnSubtitle.textContent = state.gameOver ? "A parti véget ért." : state.phase === "moving" ? "A bábu úton van…" : state.phase === "action" ? "A mező feladata aktív." : `Jelenlegi mező: ${currentPos}/100 · Kör ${state.turnNumber || 1}`;
+    app.ui.turnSubtitle.textContent = state.gameOver ? "A parti véget ért." : state.phase === "moving" ? "A bábu ugrál a pályán…" : state.pending ? "" : `Mező ${currentPos}/100 · ${state.turnNumber || 1}. kör`;
     let seconds = 0;
     if (state.paused) seconds = 0;
     else if (state.turnEndsAt) seconds = Math.max(0, Math.ceil((state.turnEndsAt - Date.now()) / 1000));
@@ -159,6 +211,7 @@
     app.ui.timer.classList.toggle("is-low", !state.paused && seconds <= 10);
     app.ui.progressBar.style.width = `${state.paused ? 0 : Math.min(100, Math.max(0, seconds / 60 * 100))}%`;
     app.ui.diceButton.disabled = !(canControlTurn(state) && state.phase === "turn" && !state.pending);
+    app.ui.diceButton.setAttribute("aria-label", app.ui.diceButton.disabled ? "Dobókocka, most nem te dobsz" : "Dobás a dobókockával");
     app.ui.diceFace.textContent = state.lastRoll && state.lastRoll.value ? ["⚀", "⚁", "⚂", "⚃", "⚄", "⚅"][Math.max(0, Math.min(5, state.lastRoll.value - 1))] : "⚄";
     app.ui.rollInfo.textContent = state.phase === "moving" ? "A bábu lépeget…" : state.lastRoll ? `Utolsó dobás: ${state.lastRoll.value}` : "Dobás után mezőről mezőre lépsz";
     app.ui.positionSummary.textContent = state.gameOver ? "🏆 A célba értek!" : `🚪 Start → ${Math.max(0, currentPos)}/100 → 🚽 WC`;
@@ -185,22 +238,33 @@
     app.ui.startTokens.replaceChildren();
     (positionByPlayer.get(0) || []).forEach((player) => app.ui.startTokens.append(makeToken(player, state.players.indexOf(player))));
     const colors = Array.isArray(state.board) && state.board.length === 100 ? state.board : makeBoard();
+    const houseCore = document.createElement("div");
+    houseCore.className = "kg-house-core";
+    houseCore.style.gridRow = "4 / span 6";
+    houseCore.style.gridColumn = "4 / span 6";
+    houseCore.innerHTML = `
+      <div class="kg-room kg-room-living"><span>🛋️</span><strong>NAPPALI</strong><small>Kanapé · tévé</small></div>
+      <div class="kg-room kg-room-kitchen"><span>🍕</span><strong>KONYHA</strong><small>Hűtő · asztal</small></div>
+      <div class="kg-room kg-room-bath"><span>🚿</span><strong>FÜRDŐ</strong><small>Fürdőkád</small></div>
+      <div class="kg-room kg-room-bedroom"><span>🛏️</span><strong>HÁLÓ</strong><small>Ágy · párna</small></div>`;
+    board.append(houseCore);
     colors.forEach((color, index) => {
       const number = index + 1;
       const tile = document.createElement("div");
       tile.className = `kg-tile tile-${["white", "yellow", "red"].includes(color) ? color : "white"}`;
       tile.dataset.tile = String(number);
-      const row = Math.floor(index / 10);
-      const inRow = index % 10;
-      const col = row % 2 === 0 ? inRow : 9 - inRow;
-      tile.style.gridRow = String(row + 1);
-      tile.style.gridColumn = String(col + 1);
+      const coord = SPIRAL_PATH[index] || { row: 0, col: 0 };
+      tile.style.gridRow = String(coord.row + 1);
+      tile.style.gridColumn = String(coord.col + 1);
+      tile.style.zIndex = String(5 + (100 - number));
+      if (number === 1) tile.classList.add("kg-tile-start");
+      if (number === 100) tile.classList.add("kg-tile-finish");
       const num = document.createElement("span");
       num.className = "kg-tile-number";
       num.textContent = String(number);
       const icon = document.createElement("span");
       icon.className = "kg-tile-icon";
-      icon.textContent = number === 100 ? "🚽" : color === "white" ? "❔" : color === "yellow" ? "🥃" : "💥";
+      icon.textContent = number === 1 ? "🚪" : number === 100 ? "🚽" : color === "white" ? "❔" : color === "yellow" ? "🥃" : "💥";
       const tokens = document.createElement("div");
       tokens.className = "kg-tile-players";
       (positionByPlayer.get(number) || []).forEach((player) => tokens.append(makeToken(player, state.players.indexOf(player))));
@@ -238,7 +302,7 @@
     prompt.className = "kg-action-prompt";
     if (pending.type === "white" && !pending.resolved) prompt.textContent = "Válassz két kérdés közül egyet, utána jelöld ki, ki vállalja a választ vagy a büntetést.";
     else if (pending.type === "yellow" && !pending.resolved) prompt.textContent = "A társaság szavaz a két feladat közül. A legtöbb szavazat nyer, döntetlennél a játék véletlenül választ.";
-    else if (pending.type === "red") prompt.textContent = `🔴 PIROS MEZŐ! ${pending.text || "Mindenki sorra kerül."} A játék ${pending.sipCount || 1} kortyot sorsolt; választhatsz alkoholmentes alternatívát is.`;
+    else if (pending.type === "red") prompt.textContent = `🔴 PIROS MEZŐ · MINDENKI. ${pending.text || "Közös feladat következik."} Választhatsz alkoholmentes italt vagy passzolhatsz.`;
     else if (pending.type === "skipped") prompt.textContent = pending.text || "Ezt a kört ki kell hagynod.";
     else if (pending.type === "yellow" && pending.resolved) prompt.textContent = `A szavazás eredménye: „${pending.text}”. ${currentPlayer(state)?.name || "A játékos"} ${pending.sipCount || 1} korty vagy alkoholmentes alternatíva közül választ.`;
     else if (pending.type === "white" && pending.resolved) {
@@ -307,9 +371,9 @@
     } else if (pending.type === "white" && pending.resolved) {
       const detail = document.createElement("p"); detail.className = "kg-small-note"; detail.textContent = "A feladat lezárult. A célpont dönthet, hogy válaszol vagy passzol."; container.append(detail);
     }
-    if (pending.type === "red" || pending.type === "skipped") {
+    if (pending.type === "skipped") {
       const note = document.createElement("p"); note.className = "kg-small-note";
-      note.textContent = pending.type === "red" ? "Minden játékos dönthet maga: korty, víz/üdítő vagy passz. A játék nem ellenőrzi és nem kényszeríti az ivást." : "Az átok idejére a dobás kimarad.";
+      note.textContent = "Az átok idejére a dobás kimarad.";
       container.append(note);
     }
     if (pending.resolved && canControlTurn(state) && state.phase === "action") {
@@ -360,7 +424,7 @@
   function renderLogs(state) {
     const box = app.ui.gameLogs;
     box.replaceChildren();
-    (state.logs || []).slice(-22).forEach((entry) => {
+    (state.logs || []).filter((entry) => !(entry.type === "red" && /Mindenki választhat:.*korty vagy alkoholmentes alternatíva/i.test(entry.message || ""))).slice(-16).forEach((entry) => {
       const line = document.createElement("div"); line.className = `kg-log-item${entry.type ? ` type-${entry.type}` : ""}`; line.textContent = entry.message; box.append(line);
     });
     box.scrollTop = box.scrollHeight;
@@ -408,39 +472,56 @@
   }
 
   function start(config = {}) {
-    return bankReady.then(() => {
-      makeStaticUi();
-      if (app.running) stop(false);
-      app.mode = config.mode === "online" ? "online" : "local";
-      app.socket = config.socket || window.kiiszikSocket || null;
-      app.local = null;
-      app.state = null;
-      app.currentWhiteOptionId = null;
-      app.lastHandledTimeoutTurn = null;
-      app.root.hidden = false;
-      app.running = true;
-      attachMediaElements();
-      if (app.mode === "online") {
-        if (!app.socket || !app.socket.connected) {
-          setNotice("A játék szerverkapcsolata megszakadt. Próbálj frissíteni.");
-          app.ui.gameStatus.textContent = "ONLINE · NINCS KAPCSOLAT";
-        }
-        bindSocket(app.socket);
-        app.socket?.emit("game:request-state");
-      } else {
+    // A játékfelület azonnal jelenjen meg; az online mód kérdéseit a szerver küldi.
+    // Így a kérdésbank fetch-elése nem akadályozhatja meg a parti megnyitását.
+    makeStaticUi();
+    if (app.running) stop(false);
+    app.mode = config.mode === "online" ? "online" : "local";
+    app.socket = config.socket || window.kiiszikSocket || null;
+    app.local = null;
+    app.state = null;
+    app.currentWhiteOptionId = null;
+    app.lastHandledTimeoutTurn = null;
+    app.root.hidden = false;
+    app.running = true;
+    app.ui.gameStatus.textContent = app.mode === "online" ? "ONLINE · JÁTÉK INDUL…" : "EGY KÉSZÜLÉKEN · JÁTÉK INDUL…";
+    attachMediaElements();
+    if (app.mode === "online") {
+      app.stateRequestAttempts = 0;
+      app.ui.gameStatus.textContent = "ONLINE · JÁTÉKÁLLAPOT KÉRÉSE…";
+      app.ui.diceButton.disabled = true;
+      bindSocket(app.socket);
+      requestOnlineState();
+    } else {
+      bankReady.then(() => {
+        if (!app.running || app.mode !== "local") return;
         createLocalGame(config.players || ["Játékos 1", "Játékos 2"], config.penaltyAudioDataUrl || null);
-      }
-      render();
-    }).catch((error) => {
-      console.error("Kiiszik game initialization error:", error);
-      setNotice("Nem sikerült betölteni a játék kérdésbankját. Ellenőrizd, hogy a szerver fut-e.");
-    });
+      });
+    }
+    render();
+    return Promise.resolve(true);
   }
 
+  function requestOnlineState() {
+    if (!app.running || app.mode !== "online" || app.state) return;
+    app.stateRequestAttempts = (app.stateRequestAttempts || 0) + 1;
+    if (app.socket && app.socket.connected) {
+      app.socket.emit("game:request-state");
+    }
+    if (app.stateRequestTimer) clearTimeout(app.stateRequestTimer);
+    if (app.stateRequestAttempts < 8) {
+      app.stateRequestTimer = setTimeout(requestOnlineState, 900);
+    } else {
+      app.ui.gameStatus.textContent = "ONLINE · NINCS JÁTÉKÁLLAPOT";
+      setStatus("Nem érkezett válasz a játékszervertől. Ellenőrizd a kapcsolatot, majd lépj vissza a lobbyba és indítsd újra a partit.");
+      setNotice("Nem sikerült betölteni a játékállapotot. A dobás addig nem aktiválható, amíg a szerver nem válaszol.");
+    }
+  }
   function bindSocket(socket) {
     if (!socket) return;
     unbindSocket(socket);
     socket.on("game:state", onGameState);
+    socket.on("game:state-error", onGameStateError);
     socket.on("game:move-start", onMoveStart);
     socket.on("game:collision", onCollision);
     socket.on("game:move-back", onMoveBack);
@@ -452,6 +533,7 @@
   function unbindSocket(socket) {
     if (!socket) return;
     socket.off("game:state", onGameState);
+    socket.off("game:state-error", onGameStateError);
     socket.off("game:move-start", onMoveStart);
     socket.off("game:collision", onCollision);
     socket.off("game:move-back", onMoveBack);
@@ -463,15 +545,23 @@
   function onGameState(state) {
     if (!app.running || app.mode !== "online" || !state) return;
     app.state = state;
+    if (app.stateRequestTimer) clearTimeout(app.stateRequestTimer);
+    app.stateRequestTimer = null;
+    app.stateRequestAttempts = 0;
     app.currentWhiteOptionId = null;
     render();
+    setStatus(state.gameOver ? "A parti véget ért." : state.pending ? "" : state.phase === "turn" ? `${currentPlayer(state)?.name || "Játékos"} dobhat.` : state.phase === "moving" ? "A bábu mozgásban van." : "");
+  }
+  function onGameStateError(data) {
+    if (!app.running || app.mode !== "online") return;
+    app.ui.gameStatus.textContent = "ONLINE · SZERVER VÁLASZRA VÁR";
+    if (data?.message) setStatus(data.message);
   }
   function onMoveStart(move) {
     if (!app.running || app.mode !== "online" || !move) return;
-    app.ui.diceButton.classList.add("is-rolling");
-    app.ui.diceFace.textContent = "⚄";
+    startDiceAnimation(1150);
     app.ui.gameStatus.textContent = `${move.playerName || "Játékos"} dobott: ${move.roll}`;
-    animateMove(move).finally(() => app.ui.diceButton.classList.remove("is-rolling"));
+    animateMove(move).catch((error) => console.warn("A bábuanimáció megszakadt:", error));
   }
   function onCollision(data) {
     if (!app.running || !data) return;
@@ -532,6 +622,9 @@
       if (!tile) continue;
       app.ui.tileGrid.querySelectorAll(".is-stepping").forEach((item) => item.classList.remove("is-stepping"));
       tile.classList.add("is-stepping");
+      overlayToken.classList.remove("is-jumping");
+      void overlayToken.offsetWidth;
+      overlayToken.classList.add("is-jumping");
       const containerRect = boardSurface.getBoundingClientRect();
       const tileRect = tile.getBoundingClientRect();
       overlayToken.style.left = `${tileRect.left - containerRect.left + tileRect.width / 2 - overlayToken.offsetWidth / 2}px`;
@@ -543,13 +636,31 @@
     app.ui.tileGrid.querySelectorAll(".is-stepping").forEach((item) => item.classList.remove("is-stepping"));
   }
 
+  function startDiceAnimation(duration = 1250) {
+    if (app.diceAnimationInterval) clearInterval(app.diceAnimationInterval);
+    if (app.diceAnimationTimeout) clearTimeout(app.diceAnimationTimeout);
+    const faces = ["⚀", "⚁", "⚂", "⚃", "⚄", "⚅"];
+    app.ui.diceButton.classList.add("is-rolling");
+    app.ui.diceButton.disabled = true;
+    app.diceAnimationInterval = setInterval(() => {
+      app.ui.diceFace.textContent = faces[Math.floor(Math.random() * faces.length)];
+    }, 75);
+    app.diceAnimationTimeout = setTimeout(() => {
+      if (app.diceAnimationInterval) clearInterval(app.diceAnimationInterval);
+      app.diceAnimationInterval = null;
+      app.diceAnimationTimeout = null;
+      app.ui.diceButton.classList.remove("is-rolling");
+      const finalValue = Number(app.state?.lastRoll?.value || 0);
+      if (finalValue >= 1 && finalValue <= 6) app.ui.diceFace.textContent = faces[finalValue - 1];
+      if (app.state) app.ui.diceButton.disabled = !(canControlTurn() && app.state.phase === "turn" && !app.state.pending);
+    }, duration);
+  }
   function roll() {
     if (!app.state || !canControlTurn() || app.state.phase !== "turn" || app.state.pending) return;
-    app.ui.diceButton.classList.add("is-rolling");
+    startDiceAnimation(1250);
     if (app.mode === "online") {
       app.socket.emit("game:roll");
-      setStatus("Dobás… a szerver sorsolja az eredményt.");
-      setTimeout(() => app.ui.diceButton.classList.remove("is-rolling"), 1300);
+      setStatus("Dobás…");
       return;
     }
     localRoll();
@@ -575,7 +686,7 @@
     state.lastRoll = game.lastRoll;
     state.players = game.players.map(publicLocalPlayer);
     render();
-    animateMove({ playerName: player.name, from, to, roll: die }).finally(() => app.ui.diceButton.classList.remove("is-rolling"));
+    animateMove({ playerName: player.name, from, to, roll: die }).catch((error) => console.warn("A bábuanimáció megszakadt:", error));
     clearTimeout(game.moveHandle);
     game.moveHandle = setTimeout(() => finishLocalMove(player, from, to, die, spaces), 1200);
   }
@@ -832,6 +943,11 @@
     const oldMode = app.mode;
     if (app.socket) unbindSocket(app.socket);
     if (app.tickHandle) clearInterval(app.tickHandle);
+    if (app.stateRequestTimer) clearTimeout(app.stateRequestTimer);
+    app.stateRequestTimer = null;
+    if (app.diceAnimationInterval) clearInterval(app.diceAnimationInterval);
+    if (app.diceAnimationTimeout) clearTimeout(app.diceAnimationTimeout);
+    app.diceAnimationInterval = null; app.diceAnimationTimeout = null;
     if (app.local?.tickHandle) clearInterval(app.local.tickHandle);
     if (app.local?.moveHandle) clearTimeout(app.local.moveHandle);
     app.local = null;

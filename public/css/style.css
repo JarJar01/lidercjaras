@@ -269,3 +269,15 @@ body.lj-effect-spirits .background::after {
 @media (prefers-reduced-motion: reduce) {
     *, *::before, *::after { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; scroll-behavior: auto !important; }
 }
+
+/* Játékszabály-útmutató a beállításablakban */
+.lj-rules-guide { margin-top: 20px; padding: 14px; border: 1px solid rgba(173, 136, 255, 0.22); border-radius: 7px; background: rgba(9, 8, 16, 0.58); }
+.lj-guide-heading { margin: 0 0 7px; color: #e8d8ff; font-size: 1rem; }
+.lj-guide-intro { margin: 0 0 12px; color: #a9a1bb; font-size: 0.8rem; line-height: 1.55; }
+.lj-guide-details { padding: 10px 0; border-top: 1px solid rgba(173, 136, 255, 0.14); }
+.lj-guide-details summary { color: #d9c8f4; cursor: pointer; font-size: 0.88rem; font-weight: 600; }
+.lj-guide-list { display: grid; gap: 10px; padding-top: 12px; }
+.lj-guide-entry strong { display: block; color: #d9c8f4; font-size: 0.8rem; }
+.lj-guide-entry p { margin: 4px 0 0; color: #9991ac; font-size: 0.76rem; line-height: 1.5; }
+.lj-guide-steps { margin: 10px 0 0; padding-left: 20px; color: #a9a1bb; font-size: 0.78rem; line-height: 1.6; }
+.lj-guide-steps li + li { margin-top: 5px; }

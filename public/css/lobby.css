@@ -376,6 +376,8 @@ body.lobby-page {
 .role-villagers { border-top: 2px solid #d4c08d; }
 .role-hunters { border-top: 2px solid #89bde3; }
 .role-fool { border-top: 2px solid #d7a0dc; }
+.role-swapper { border-top: 2px solid #d9a779; }
+.role-infectious { border-top: 2px solid #8dbb78; }
 
 .number-control { display: grid; grid-template-columns: 32px minmax(20px, 1fr) 32px; align-items: center; gap: 6px; }
 .number-control button {
@@ -494,6 +496,8 @@ body.lobby-page {
 .role-color-villagers { border-left-color: #d4c08d; }
 .role-color-hunters { border-left-color: #89bde3; }
 .role-color-fool { border-left-color: #d7a0dc; }
+.role-color-swapper { border-left-color: #c5a2f1; }
+.role-color-infectious { border-left-color: #9ac46a; }
 .waiting-note { display: flex; align-items: flex-start; gap: 10px; margin-top: 18px; padding: 13px 15px; border: 1px solid rgba(169, 144, 210, 0.14); border-radius: 5px; background: rgba(31, 24, 45, 0.45); color: #a69bb8; font-size: 11px; line-height: 1.7; }
 .waiting-note > span:first-child { color: #c4a6f2; font-size: 15px; }
 
@@ -682,3 +686,19 @@ body.lobby-page {
     .time-settings-grid { grid-template-columns: 1fr; }
     .room-time-settings { padding: 16px; }
 }
+
+.player-speaking-badge {
+    display: inline-flex;
+    align-self: flex-start;
+    margin-top: 2px;
+    color: #9bf0be;
+    font-size: 10px;
+    font-weight: 700;
+    animation: playerSpeakingPulse 1.2s ease-in-out infinite;
+}
+@keyframes playerSpeakingPulse {
+    0%, 100% { opacity: 0.72; }
+    50% { opacity: 1; }
+}
+
+.player-speaking-badge { padding: 2px 7px; border-radius: 999px; background: rgba(61, 145, 92, 0.14); }

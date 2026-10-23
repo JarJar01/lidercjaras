@@ -1,0 +1,38 @@
+LIDÉRCJÁRÁS – SZEREPCSERÉLŐ, FERTŐZŐ, GYÓGYÍTÓ ÉS TITKOS SZEREPEK
+Verzió: lidercjaras-szerepcserelo-fertozo-2026-10-23-6
+
+TELEPÍTÉS
+1. Állítsd le a futó szervert Ctrl+C billentyűkkel.
+2. Csomagold ki a ZIP tartalmát a projekt főmappájába, ahol a server.js és package.json található.
+3. Engedélyezd a projekt kódfájljainak felülírását.
+4. A meglévő public/music mappát és a két MP3-fájlt hagyd meg; ezeket a ZIP nem tartalmazza.
+5. A node_modules mappát nem szükséges törölni. A package.json maradjon meg.
+6. Indítás: npm start
+7. Helyi játék: http://localhost:3000
+8. Verzióellenőrzés: http://localhost:3000/health
+
+ÚJÍTÁSOK
+- A beállítások fogaskerekénél külön, összecsukható játékszabály-útmutató található. Leírja a szerepeket és a játék fő szakaszait.
+- A titkos szerepkártya felsorolja az azonos szerepű társakat. Ez a gyógyítókra és a vadászokra is érvényes; a gyógyítók nem kommunikálnak egymással; a vadászok a saját éjszakai körükben privát hangot és szöveges chatet használhatnak.
+- Több életben lévő gyógyító külön-külön választ célpontot. Nincs ping, közös hang vagy chat; a védelem csak akkor sikerül, ha minden életben lévő gyógyító ugyanazt a játékost választja. Eltérő döntés esetén nincs védelem.
+- Ha egy többgyógyítós csapatból csak egy gyógyító marad életben, a megmaradó gyógyító egyedüli szabály szerint, összesen két alkalommal védhet, éjszakánként legfeljebb egyszer.
+- Ha a gyógyító megvédi a lidérctámadás célpontját, és a játékos életben marad, hajnalban mindenki látja: „A gyógyító megóvta XY játékost.”
+- Ha csak egy gyógyító marad életben, egyedüli gyógyítóként összesen két alkalommal használhatja a képességét, éjszakánként legfeljebb egyszer.
+- A szereptársak nevei a titkos szerepkártyán jelennek meg: lidércek, gyógyítók és vadászok is látják az azonos szerepű társaikat. A gyógyítók nem kommunikálhatnak egymással.
+- Több lidérc a saját éjszakai körében privát szöveges chatet és külön WebRTC-hangkapcsolatot használhat. A böngésző mikrofonengedélyével a privát lidérchang automatikusan indul a megfelelő fázisban, és a fázis végén automatikusan leáll. A gyógyítók nem kapnak privát hangot vagy szöveges chatet; a vadászok csak a saját éjszakai körükben kommunikálhatnak privát csatornán.
+- A játékoslistán beszélőjelzés jelenik meg. A szerver jelzi, amikor valaki beszél; a jelzés minden játékosnak látható. A lidércek és a vadászok privát hangja továbbra is csak a saját csapatukhoz jut el.
+- Ha a lidércek ugyanazon az éjszakán megölik a vadászt, az adott vadász nem lőhet vissza ugyanabban az éjszakában.
+- Ha egyedül marad egy lidérc, megtámadhat egy élő játékost vagy megvizsgálhatja egy másik élő játékos szerepét. Ha egyedül marad egy vadász, lőhet/passzolhat vagy megvizsgálhatja egy másik élő játékos szerepét.
+- A szavazás alatt látható, ki adott le szavazatot és kire. Az eredményben a le nem adott szavazat SKIP-ként szerepel.
+- A Szerepcserélő éjszaka egyszer vakon kiválaszt egy élő játékost, átveszi annak szerepét, a célpont pedig Falusi lesz. A célpont szerepe nem fedődik fel előre, és nem tud visszacserélni.
+- A Fertőző éjszakánként megfertőzhet egy még nem fertőzött élő játékost. Csak a Fertőző látja a fertőzöttek jelölését; a nyilvános napló csak annyit ír, hogy valaki megfertőződött. A Fertőző akkor nyer, ha minden más életben lévő játékos fertőzött.
+- Játék végén a hangkapcsolat minden játékosnak újra elérhető, a kiesetteknek is. Játék közben a kiesettek nem beszélhetnek, de nappal hallgathatják az életben lévő játékosokat.
+
+FONTOS A HANGHOZ
+- A böngésző a mikrofon első használatakor engedélyt kér; ezt a biztonsági kérést a kód nem kerülheti meg. Ha már engedélyezve van, a privát lidérchang automatikusan bekapcsol a saját éjszakai körük kezdetekor.
+- A hang HTTPS-en vagy localhoston működik. Egyes hálózatokon TURN-szerverre is szükség lehet; ez a projekt STUN-alapú WebRTC-kapcsolatot használ.
+- A beszélőjelzés a böngészőben mért hangerőből származik, ezért a mikrofon érzékenysége és környezeti zaj befolyásolhatja.
+
+TESZTELÉS
+- A JavaScript szintaxisát ellenőrizni kell minden fájlon; a több böngészős, valódi WebRTC-hangtesztet külön el kell végezni.
+- A szerver memóriájában tárolt szobák a szerver újraindításakor elvesznek.

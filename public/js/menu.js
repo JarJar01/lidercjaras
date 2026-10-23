@@ -203,9 +203,42 @@ function openSettings() {
     const status = createElement("div", "lj-status", lastStatus);
     status.id = "ljMusicStatus";
     status.classList.toggle("error", lastStatusIsError);
+    const guide = createElement("section", "lj-rules-guide");
+    const guideHeading = createElement("h3", "lj-guide-heading", "Játékszabályok és szerepek");
+    const guideIntro = createElement("p", "lj-guide-intro", "A cél az, hogy kiderítsd, kik a lidércek. A falu nappal megbeszél és szavaz; éjszaka a szerepek titkos képességei működnek.");
+    const roleDetails = createElement("details", "lj-guide-details");
+    const roleSummary = createElement("summary", "", "Mit tudnak a szerepek?");
+    const roleList = createElement("div", "lj-guide-list");
+    [
+        ["Lidérc", "Éjszaka közösen választanak célpontot. Több lidércnek ugyanarra kell szavaznia. Egyedül maradva támadhat vagy megvizsgálhatja egy élő játékos szerepét. A lidércek egymással privát hangon és szöveges chaten beszélhetnek."],
+        ["Gyógyító", "Ha több gyógyító él, mindegyik külön szavaz, nincs chat vagy ping; védelem csak akkor történik, ha mind ugyanazt a játékost választja. Ha egyedüli gyógyító marad, összesen két éjszakán védhet, éjszakánként legfeljebb egyszer."],
+        ["Falusi", "Nincs éjszakai képessége. Nappal a beszélgetés és a szavazás segít felderíteni a lidérceket."],
+        ["Vadász", "Éjszaka egyszer lőhet vagy passzolhat; egyedüli vadászként egy élő játékos szerepét is megvizsgálhatja. Több vadász a saját éjszakai körében privát hangon és szöveges chaten egyeztethet. Ha a lidércek ugyanazon az éjszakán megölik, nem támadhat vissza."],
+        ["Bolond", "A célja, hogy a falu nappali szavazással kiszavazza. Ha így esik ki, ő nyeri a játékot."],
+        ["Szerepcserélő", "Éjszaka egyszer vakon kiválaszt egy élő játékost. Átveszi a célpont szerepét, a célpont pedig Falusi lesz; a célpont nem cserélhet vissza."],
+        ["Fertőző", "Éjszakánként megfertőzhet egy még nem fertőzött, élő játékost. Csak ő látja a fertőzött személyeket; a nyilvános napló nem nevezi meg őket. Akkor nyer, ha minden más életben lévő játékos megfertőződött."]
+    ].forEach(([name, descriptionText]) => {
+        const entry = createElement("article", "lj-guide-entry");
+        entry.append(createElement("strong", "", name), createElement("p", "", descriptionText));
+        roleList.appendChild(entry);
+    });
+    roleDetails.append(roleSummary, roleList);
+    const flowDetails = createElement("details", "lj-guide-details");
+    const flowSummary = createElement("summary", "", "Hogyan zajlik egy játék?");
+    const flowList = createElement("ol", "lj-guide-steps");
+    [
+        "Mindenki READY állapotba kerül, majd a házigazda elindítja a játékot.",
+        "A 10 másodperces sötétedés alatt mindenki titkos szerepet kap, utána jön a beállított ismerkedési idő.",
+        "Éjszaka a Szerepcserélő megváltoztathat egy szerepet, a lidércek támadnak, a gyógyítók védenek, a vadászok lőhetnek, a Fertőző pedig fertőzhet.",
+        "Reggel megjelennek az éjszakai események, majd a falu megbeszél és szavaz; SKIP is választható.",
+        "A körök addig ismétlődnek, amíg a falu vagy a lidércek nem győznek, vagy a bolond nem nyer a kiszavazásával."
+    ].forEach((text) => flowList.appendChild(createElement("li", "", text)));
+    flowDetails.append(flowSummary, flowList);
+    guide.append(guideHeading, guideIntro, roleDetails, flowDetails);
+
     const footer = createElement("p", "lj-footer", "A beállításaid ezen a böngészőn automatikusan elmentődnek.");
 
-    modal.append(header, description, trackField, volumeField, themeField, effectField, status, footer);
+    modal.append(header, description, trackField, volumeField, themeField, effectField, guide, status, footer);
     overlay.appendChild(modal);
     document.body.appendChild(overlay);
     settingsWindow = overlay;

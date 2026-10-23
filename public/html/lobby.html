@@ -107,6 +107,16 @@
                         <p>Kiszámíthatatlanok</p>
                         <div class="number-control"><button type="button" data-step="-1" data-target="roleFool" aria-label="Bolondok számának csökkentése">−</button><input id="roleFool" name="fool" type="number" min="0" max="16" value="1"><button type="button" data-step="1" data-target="roleFool" aria-label="Bolondok számának növelése">+</button></div>
                     </div>
+                    <div class="role-field role-swapper">
+                        <label for="roleSwapper">Szerepcserélő</label>
+                        <p>Vakon szerepet cserél egyszer</p>
+                        <div class="number-control"><button type="button" data-step="-1" data-target="roleSwapper" aria-label="Szerepcserélők számának csökkentése">−</button><input id="roleSwapper" name="swapper" type="number" min="0" max="16" value="0"><button type="button" data-step="1" data-target="roleSwapper" aria-label="Szerepcserélők számának növelése">+</button></div>
+                    </div>
+                    <div class="role-field role-infectious">
+                        <label for="roleInfectious">Fertőző</label>
+                        <p>Éjszakánként terjeszti a fertőzést</p>
+                        <div class="number-control"><button type="button" data-step="-1" data-target="roleInfectious" aria-label="Fertőzők számának csökkentése">−</button><input id="roleInfectious" name="infectious" type="number" min="0" max="16" value="0"><button type="button" data-step="1" data-target="roleInfectious" aria-label="Fertőzők számának növelése">+</button></div>
+                    </div>
                 </div>
 
                 <section class="room-time-settings" aria-labelledby="roomTimeSettingsTitle">
@@ -134,7 +144,7 @@
                         <div class="room-setting-field">
                             <label for="settingHealerSeconds">Gyógyító köre (mp)</label>
                             <input id="settingHealerSeconds" type="number" min="5" max="3600" step="1" value="10" required>
-                            <small>A gyógyító összesen 2 alkalommal védhet a játékban.</small>
+                            <small>Egyedül két alkalommal védhetsz. Több élő gyógyítónak ugyanarra a célpontra kell szavaznia.</small>
                         </div>
                         <div class="room-setting-field">
                             <label for="settingHuntersSeconds">Vadászok köre (mp)</label>
@@ -143,6 +153,14 @@
                         <div class="room-setting-field">
                             <label for="settingFoolSeconds">Bolond köre (mp)</label>
                             <input id="settingFoolSeconds" type="number" min="5" max="3600" step="1" value="10" required>
+                        </div>
+                        <div class="room-setting-field">
+                            <label for="settingSwapperSeconds">Szerepcserélő köre (mp)</label>
+                            <input id="settingSwapperSeconds" type="number" min="5" max="3600" step="1" value="10" required>
+                        </div>
+                        <div class="room-setting-field">
+                            <label for="settingInfectiousSeconds">Fertőző köre (mp)</label>
+                            <input id="settingInfectiousSeconds" type="number" min="5" max="3600" step="1" value="10" required>
                         </div>
                     </div>
                     <p class="form-hint">Minden idő 5 és 3600 másodperc közötti egész szám legyen.</p>
@@ -229,12 +247,24 @@
                 A történet hamarosan elkezdődik.
             </div>
 
+            <section class="game-panel game-public-log-panel" id="gamePublicLogPanel" aria-live="polite" hidden>
+                <div class="game-panel-heading">
+                    <div>
+                        <p class="game-section-kicker">REGGELI ESEMÉNYEK</p>
+                        <h3>Eseménynapló</h3>
+                    </div>
+                    <span class="private-chat-badge">MINDENKI LÁTJA</span>
+                </div>
+                <div class="game-public-log-messages" id="gamePublicLogMessages"></div>
+            </section>
+
             <div class="game-layout">
                 <section class="game-panel game-role-panel" id="gameRoleCard" hidden>
                     <p class="game-section-kicker">A TE TITKOD</p>
                     <div class="game-role-symbol" id="gameRoleSymbol">✦</div>
                     <h3 id="gameRoleName">Szerepkör</h3>
                     <p id="gameRoleDescription">A szereped titkos.</p>
+                    <p class="game-role-team-members" id="gameRoleTeamMembers" hidden></p>
                     <p class="game-private-note">Ezt a kártyát csak te látod.</p>
                 </section>
 

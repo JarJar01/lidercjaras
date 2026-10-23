@@ -13,15 +13,19 @@
         healer: "✚",
         villagers: "⌂",
         hunters: "➶",
-        fool: "☻"
+        fool: "☻",
+        swapper: "⇄",
+        infectious: "☣"
     };
     const phaseLabels = {
         countdown: "Kezdés",
         intro: "Ismerkedés",
+        "night-swapper": "Szerepcserélő köre",
         "night-spirits": "Lidércek köre",
         "night-healer": "Gyógyító köre",
         "night-hunters": "Vadászok köre",
         "night-fool": "Bolond köre",
+        "night-infectious": "Fertőző köre",
         "dawn-result": "Hajnalodik",
         day: "Nappal",
         "vote-result": "Szavazás eredménye",
@@ -30,30 +34,35 @@
     const phaseTitles = {
         countdown: "A sötétség elnyeli a falut",
         intro: "Ismerkedjetek meg egymással",
+        "night-swapper": "A szerepek összekeverednek",
         "night-spirits": "A lidércek vadásznak",
         "night-healer": "A gyógyító védelmet választ",
         "night-hunters": "A vadászok döntenek",
         "night-fool": "A bolond kivárja az éjszakát",
+        "night-infectious": "A fertőzés továbbterjed",
         "dawn-result": "Felszáll a reggeli köd",
         day: "A falu felébred",
         "vote-result": "A falu döntött",
         "game-over": "Véget ért a Lidércjárás"
     };
-    const nightPhases = new Set(["night-spirits", "night-healer", "night-hunters", "night-fool"]);
+    const nightPhases = new Set(["night-swapper", "night-spirits", "night-healer", "night-hunters", "night-fool", "night-infectious"]);
 
     let myRole = null;
     let myRoleLabel = "";
     let myRoleDescription = "";
     let myTeamMembers = [];
     let myHealerUsesRemaining = 2;
+    let infectedPlayerIds = new Set();
     let rematchReadyIds = [];
     let rematchReadyCount = 0;
     let rematchReadyTotal = 0;
     let rematchStatusMessage = "";
+    const speakingPlayerIds = new Set();
     let gameState = null;
     let currentPhase = "";
     let currentRound = 0;
     let actionSubmitted = false;
+    let hunterActionBlocked = false;
     let actionStatusMessage = "";
     let timerInterval = null;
     let lastNoticeKey = "";
@@ -167,25 +176,36 @@
             panel.appendChild(makeElement("p", "game-muted", "A szereped titokban kiosztásra került. Figyeld a saját szerepkártyádat; a történet hamarosan elkezdődik."));
         } else if (phase === "intro") {
             panel.appendChild(makeElement("p", "game-muted", "Most még mindenki beszélhet egymással. Ismerkedjetek, figyeljétek meg a többieket, és készüljetek az éjszakára."));
+        } else if (phase === "night-swapper") {
+            if (myRole !== "swapper") {
+                panel.appendChild(makeElement("p", "game-muted", "Most a Szerepcserélő titkos köre zajlik. A többi játékos várjon.") );
+            } else {
+                appendSectionDescription(panel, "Egy másik élő játékost választhatsz ki vakon. Te megkapod a szerepét, ő Falusi lesz. Nem tudod előre, milyen szerepet cserélsz el, és ezt a képességet csak egyszer használhatod.");
+                otherPlayers.forEach((player) => {
+                    addChoiceButton(panel, `⇄ Szerepet cserélek vele: ${player.username}`, () => {
+                        setActionStatus(`A szerepcsere elküldve ${player.username} játékosra. A szerepét nem látod előre.`);
+                        sendAction("swapper-action", { targetId: player.id });
+                    }, "is-neutral");
+                });
+            }
         } else if (phase === "night-spirits") {
             if (myRole !== "spirits") {
                 panel.appendChild(makeElement("p", "game-muted", "A falu alszik. Most a lidércek titkos köre zajlik."));
             } else {
                 const livingTeammates = myTeamMembers.filter((member) => players.some((player) => player.id === member.id));
                 if (livingTeammates.length <= 1) {
-                    appendSectionDescription(panel, "Egyedüli lidércként vagy: választhatsz egy játékost, akit megtámadsz, VAGY megnézhetsz egy középső szerepkártyát. Csak egyet választhatsz.");
+                    appendSectionDescription(panel, "Egyedüli lidércként választhatsz: megtámadsz egy játékost, VAGY megvizsgálod egy másik élő játékos szerepét. Középső kártyák nincsenek. Ebben a körben csak egy döntést hozhatsz.");
                     otherPlayers.forEach((player) => {
                         addChoiceButton(panel, `☾  Megtámadom: ${player.username}`, () => {
                             setActionStatus("A támadási döntés elküldve. Várd meg a kör végét.");
                             sendAction("spirit-action", { type: "attack", targetId: player.id });
                         }, "is-danger");
                     });
-                    const cardTitle = makeElement("p", "game-action-description", "Vagy nézz meg egy középső kártyát:");
-                    panel.appendChild(cardTitle);
-                    [0, 1, 2].forEach((index) => {
-                        addChoiceButton(panel, `Középső kártya ${index + 1} megtekintése`, () => {
-                            setActionStatus("Megnézed a középső kártyát…");
-                            sendAction("spirit-action", { type: "peek", cardIndex: index });
+                    panel.appendChild(makeElement("p", "game-action-description", "Vagy vizsgáld meg egy játékos szerepét:") );
+                    otherPlayers.forEach((player) => {
+                        addChoiceButton(panel, `☷  Megnézem ${player.username} szerepét`, () => {
+                            setActionStatus(`Megvizsgálod ${player.username} szerepét…`);
+                            sendAction("spirit-action", { type: "inspect", targetId: player.id });
                         }, "is-neutral");
                     });
                 } else {
@@ -200,12 +220,20 @@
             }
         } else if (phase === "night-healer") {
             if (myRole !== "healer") {
-                panel.appendChild(makeElement("p", "game-muted", "A gyógyító most egyetlen játékost védhet meg az éjszakai támadástól."));
+                panel.appendChild(makeElement("p", "game-muted", "A gyógyítók most külön-külön választanak. Ha többen vannak életben, mindegyiküknek ugyanazt a játékost kell választania a sikeres védelemhez."));
             } else {
-                appendSectionDescription(panel, "Válassz egy élő játékost, akit megvédesz. Saját magadat is választhatod, és a döntésed az éjszakára végleges.");
+                const livingHealers = myTeamMembers.filter((member) => players.some((player) => player.id === member.id));
+                if (livingHealers.length > 1) {
+                    const names = livingHealers.filter((member) => member.id !== socket.id).map((member) => member.username);
+                    appendSectionDescription(panel, `Gyógyítótársaid: ${names.join(", ") || "nincs másik életben lévő gyógyító"}. Nem kommunikálhattok, és nincs ping. Válassz egy játékost. A védelem csak akkor sikerül, ha minden élő gyógyító ugyanazt választja.`);
+                } else {
+                    appendSectionDescription(panel, `Egyedüli életben lévő gyógyítóként még ${myHealerUsesRemaining} védési alkalommal rendelkezel. Éjszakánként egyszer használhatod, és saját magadat is megvédheted.`);
+                }
                 players.forEach((player) => {
-                    addChoiceButton(panel, `${player.id === socket.id ? "✚  Saját magam védelme" : `✚  Megvédem: ${player.username}`}`, () => {
-                        setActionStatus(`A védelmi döntés elküldve: ${player.username}.`);
+                    addChoiceButton(panel, `${player.id === socket.id ? "✚ Saját magam védelme" : `✚ Megvédem: ${player.username}`}`, () => {
+                        setActionStatus(livingHealers.length > 1
+                            ? `A gyógyítói szavazatod rögzítve. Ha minden társad ugyanazt választotta, a védelem sikerül.`
+                            : `A védelmi döntés elküldve: ${player.username}.`);
                         sendAction("healer-protect", { targetId: player.id });
                     }, "is-neutral");
                 });
@@ -213,8 +241,13 @@
         } else if (phase === "night-hunters") {
             if (myRole !== "hunters") {
                 panel.appendChild(makeElement("p", "game-muted", "Most a vadászok köre van. A többi falu csendben vár."));
+            } else if (hunterActionBlocked) {
+                panel.appendChild(makeElement("p", "game-muted", "Ebben az éjszakában nem használhatod a vadász képességedet. Várd meg a reggelt."));
             } else {
-                appendSectionDescription(panel, "Egy lövésed van erre az éjszakára. Ha nem lidércet találsz el, a célpont és te is meghaltok. Dönthetsz úgy is, hogy nem lősz.");
+                const livingHunters = myTeamMembers.filter((member) => players.some((player) => player.id === member.id));
+                appendSectionDescription(panel, livingHunters.length === 1
+                    ? "Egyedüli vadászként lőhetsz egy játékosra, passzolhatsz, VAGY megvizsgálhatod egy másik élő játékos szerepét. Csak egy döntést hozhatsz. Ha ártatlant lősz le, te is meghalsz."
+                    : "Egy lövésed van erre az éjszakára. A többi életben lévő vadásszal titkos chatben és privát hangon is egyeztethetsz. Ha nem lidércet találsz el, a célpont és te is meghaltok. Dönthetsz úgy is, hogy nem lősz.");
                 otherPlayers.forEach((player) => {
                     addChoiceButton(panel, `➶  Rálövök: ${player.username}`, () => {
                         setActionStatus(`A lövés rögzítve: ${player.username}.`);
@@ -225,9 +258,35 @@
                     setActionStatus("Passzoltál erre az éjszakára.");
                     sendAction("hunter-shoot", { pass: true });
                 }, "is-neutral");
+                if (livingHunters.length === 1) {
+                    panel.appendChild(makeElement("p", "game-action-description", "Vagy egy lövés helyett nézd meg egy játékos szerepét:"));
+                    otherPlayers.forEach((player) => {
+                        addChoiceButton(panel, `☷  Megnézem ${player.username} szerepét`, () => {
+                            setActionStatus(`Megvizsgálod ${player.username} szerepét…`);
+                            sendAction("hunter-inspect", { targetId: player.id });
+                        }, "is-neutral");
+                    });
+                }
             }
         } else if (phase === "night-fool") {
-            panel.appendChild(makeElement("p", "game-muted", myRole === "fool" ? "Nincs éjszakai képességed. Várd meg a reggelt, és próbáld elérni, hogy a falu később kiszavazzon." : "Az éjszaka utolsó csendes köre zajlik. Várd meg a reggelt."));
+            panel.appendChild(makeElement("p", "game-muted", myRole === "fool" ? "Nincs éjszakai képességed. Várd meg a reggelt, és próbáld elérni, hogy a falu később kiszavazzon." : "Az éjszaka csendes köre zajlik. Várd meg a reggelt."));
+        } else if (phase === "night-infectious") {
+            if (myRole !== "infectious") {
+                panel.appendChild(makeElement("p", "game-muted", "A Fertőző most titokban kiválasztja a következő célpontját."));
+            } else {
+                appendSectionDescription(panel, "Minden éjszaka egy még nem fertőzött, élő játékost jelölhetsz meg. A nyilvános napló nem árulja el, kit fertőztél meg. Csak te látod a fertőzött játékosok jelzését.");
+                const candidates = otherPlayers.filter((player) => !infectedPlayerIds.has(player.id));
+                if (!candidates.length) {
+                    panel.appendChild(makeElement("p", "game-muted", "Már minden más élő játékos fertőzött. Ha ez reggelig is így marad, megnyered a játékot."));
+                } else {
+                    candidates.forEach((player) => {
+                        addChoiceButton(panel, `☣ Megfertőzöm: ${player.username}`, () => {
+                            setActionStatus("A fertőzési célpont rögzítve. A többiek csak annyit látnak majd, hogy valaki megfertőződött.");
+                            sendAction("infectious-action", { targetId: player.id });
+                        }, "is-danger");
+                    });
+                }
+            }
         } else if (phase === "dawn-result") {
             panel.appendChild(makeElement("p", "game-muted", "A reggeli eredmény mindjárt megjelenik. A voice chat nappal ismét elérhető az életben maradt játékosoknak."));
         } else if (phase === "day") {
@@ -259,16 +318,46 @@
         container.replaceChildren();
         const living = alivePlayers();
         $("gameAliveCount").textContent = `${living.length} élő`;
+        const showVotes = ["day", "vote-result"].includes(gameState.phase);
+        const votesByVoter = new Map((gameState.voteDetails || []).map((vote) => [vote.voterId, vote]));
         gameState.players.forEach((player) => {
             const dead = !player.alive || player.connected === false;
-            const row = makeElement("div", `game-player-row${dead ? " is-dead" : ""}`);
+            const canShowSpeaker = speakingPlayerIds.has(player.id) && (!dead || gameState.phase === "game-over");
+            const row = makeElement("div", `game-player-row${dead ? " is-dead" : ""}${canShowSpeaker ? " is-speaking" : ""}`);
             const avatar = makeElement("span", "game-player-avatar", dead ? "†" : player.username.slice(0, 1).toLocaleUpperCase("hu-HU"));
             const info = makeElement("div", "game-player-info");
             info.appendChild(makeElement("strong", "", player.username + (player.id === socket.id ? " (te)" : "")));
             info.appendChild(makeElement("span", "", dead ? "Kiesett" : (player.isHost ? "Házigazda · életben" : "Életben")));
+            if (canShowSpeaker) {
+                info.appendChild(makeElement("span", "game-speaking-badge", "🎙 Éppen beszél"));
+            }
+            if (myRole === "infectious" && infectedPlayerIds.has(player.id)) {
+                info.appendChild(makeElement("span", "game-infected-badge", "☣ Fertőzött (csak neked látszik)"));
+            }
+            if (showVotes) {
+                const vote = votesByVoter.get(player.id);
+                if (vote) {
+                    const prefix = vote.submitted ? "Szavazott → " : "Nem szavazott → ";
+                    info.appendChild(makeElement("span", "game-player-vote", `${prefix}${vote.targetName}`));
+                } else if (gameState.phase === "day" && !dead) {
+                    info.appendChild(makeElement("span", "game-player-vote is-pending", "Még nem szavazott"));
+                }
+            }
             row.append(avatar, info, makeElement("span", "game-player-status", dead ? "✕" : "●"));
             container.appendChild(row);
         });
+    }
+
+    function renderPublicLog() {
+        const panel = $("gamePublicLogPanel");
+        const messages = $("gamePublicLogMessages");
+        if (!panel || !messages || !gameState) return;
+        const entries = Array.isArray(gameState.lastNightLog) ? gameState.lastNightLog : [];
+        messages.replaceChildren();
+        entries.forEach((entry) => {
+            messages.appendChild(makeElement("div", "game-public-log-entry", entry.text || "Éjszakai esemény történt."));
+        });
+        panel.hidden = entries.length === 0;
     }
 
     function renderRoleCard() {
@@ -278,6 +367,12 @@
         $("gameRoleSymbol").textContent = roleSymbols[myRole] || "✦";
         $("gameRoleName").textContent = myRoleLabel || "Titkos szerep";
         $("gameRoleDescription").textContent = myRoleDescription || "A szereped titkos. Figyeld a játékmenetet.";
+        const teamLine = $("gameRoleTeamMembers");
+        if (teamLine) {
+            const teammates = myTeamMembers.filter((member) => member.id !== socket.id).map((member) => member.username);
+            teamLine.hidden = teammates.length === 0;
+            teamLine.textContent = teammates.length ? `A szereped társai: ${teammates.join(", ")}.` : "";
+        }
     }
 
     function renderGame() {
@@ -313,18 +408,21 @@
         }
 
         const meAlive = isMyselfAlive();
-        const teamRole = (myRole === "spirits" && phase === "night-spirits") || (myRole === "hunters" && phase === "night-hunters");
+        const activeTeamRole =
+            (myRole === "spirits" && phase === "night-spirits") ? "spirits" :
+            ((myRole === "hunters" && phase === "night-hunters") ? "hunters" : null);
         const activeTeamMembers = myTeamMembers.filter((member) => gameState.players.some((player) => player.id === member.id && player.alive && player.connected !== false));
-        const showTeamChat = meAlive && teamRole && activeTeamMembers.length > 1;
+        const showTeamChat = meAlive && Boolean(activeTeamRole) && activeTeamMembers.length > 1;
         $("gameTeamChatPanel").hidden = !showTeamChat;
-        $("gameTeamChatTitle").textContent = myRole === "spirits" ? "Lidércek titkos csatornája" : "Vadászok titkos csatornája";
-        $("gameTeamChatHint").textContent = myRole === "spirits"
-            ? "Csak az életben lévő lidércek látják ezt a beszélgetést. A többi játékos nem hallja és nem olvassa."
-            : "Csak az életben lévő vadászok látják ezt a beszélgetést. A többi játékos nem hallja és nem olvassa.";
+        $("gameTeamChatTitle").textContent = activeTeamRole === "hunters" ? "Vadászok titkos csatornája" : "Lidércek titkos csatornája";
+        $("gameTeamChatHint").textContent = activeTeamRole === "hunters"
+            ? "Csak az életben lévő vadászok látják és hallják ezt a beszélgetést. A többi játékos nem kapja meg a hangot vagy az üzeneteket."
+            : "Csak az életben lévő lidércek látják és hallják ezt a beszélgetést. A többi játékos nem kapja meg a hangot vagy az üzeneteket.";
         if (myRole === "fool" && phase === "night-fool") {
             // A bolond várakozik, képesség nincs.
         }
         renderPlayers();
+        renderPublicLog();
         renderActions();
         updateTimer();
     }
@@ -345,6 +443,7 @@
             currentPhase = state.phase;
             currentRound = state.round;
             actionSubmitted = false;
+            hunterActionBlocked = false;
             actionStatusMessage = "";
         }
     }
@@ -356,12 +455,15 @@
         myRoleDescription = "";
         myTeamMembers = [];
         myHealerUsesRemaining = 2;
+        infectedPlayerIds = new Set();
         actionSubmitted = false;
+        hunterActionBlocked = false;
         actionStatusMessage = "";
         rematchReadyIds = [];
         rematchReadyCount = 0;
         rematchReadyTotal = 0;
         rematchStatusMessage = "";
+        speakingPlayerIds.clear();
         $("gameRoleCard").hidden = true;
         $("gameEndPanel").hidden = true;
         $("gameTeamChatPanel").hidden = true;
@@ -372,17 +474,26 @@
         myRoleLabel = payload.label || "Titkos szerep";
         myRoleDescription = payload.roleDescription || "A szereped titkos.";
         myTeamMembers = Array.isArray(payload.teamMembers) ? payload.teamMembers : [];
+        infectedPlayerIds = myRole === "infectious" ? new Set(Array.isArray(payload.infectedPlayerIds) ? payload.infectedPlayerIds : []) : new Set();
         if (myRole === "healer") myHealerUsesRemaining = Number.isInteger(payload.healerUsesRemaining) ? payload.healerUsesRemaining : 2;
         renderRoleCard();
         renderGame();
     });
 
     socket.on("game-state", (state = {}) => {
+        if (gameState && state.phase !== gameState.phase) speakingPlayerIds.clear();
         resetActionIfNewPhase(state);
         gameState = state;
         renderGame();
         if (state.message) showNotice(state.message, `${state.phase}|${state.round}|${state.message}`);
         else showNotice("");
+    });
+
+    socket.on("player-speaking", (payload = {}) => {
+        if (!payload.playerId) return;
+        if (payload.speaking) speakingPlayerIds.add(payload.playerId);
+        else speakingPlayerIds.delete(payload.playerId);
+        renderPlayers();
     });
 
     socket.on("game-action-ack", (payload = {}) => {
@@ -397,9 +508,26 @@
         renderActions();
     });
 
-    socket.on("center-card-revealed", (payload = {}) => {
-        const text = `A középső ${Number(payload.cardIndex) + 1}. kártyán ez a szerep volt: ${payload.label || "ismeretlen"}.`;
-        setActionStatus(text);
+    socket.on("hunter-action-locked", (payload = {}) => {
+        hunterActionBlocked = true;
+        actionSubmitted = true;
+        setActionStatus(payload.message || "Ebben az éjszakában nem használhatod a vadász képességedet.");
+        renderActions();
+    });
+
+    socket.on("player-role-revealed", (payload = {}) => {
+        setActionStatus(`${payload.targetName || "A játékos"} szerepe: ${payload.label || "ismeretlen"}. Ezt az információt csak te látod.`);
+    });
+
+    socket.on("role-change-notice", (payload = {}) => {
+        setActionStatus(String(payload.message || "A szereped megváltozott."));
+        appendChatMessage({ fromName: "Játékrendszer", text: String(payload.message || "A szereped megváltozott."), system: true });
+    });
+
+    socket.on("infectious-state", (payload = {}) => {
+        if (myRole !== "infectious") return;
+        infectedPlayerIds = new Set(Array.isArray(payload.infectedPlayerIds) ? payload.infectedPlayerIds : []);
+        renderGame();
     });
 
     socket.on("healer-uses-left", (payload = {}) => {
@@ -423,12 +551,15 @@
         myRoleDescription = "";
         myTeamMembers = [];
         myHealerUsesRemaining = 2;
+        infectedPlayerIds = new Set();
         actionSubmitted = false;
+        hunterActionBlocked = false;
         actionStatusMessage = "";
         rematchReadyIds = [];
         rematchReadyCount = 0;
         rematchReadyTotal = 0;
         rematchStatusMessage = "";
+        speakingPlayerIds.clear();
         currentPhase = "";
         currentRound = 0;
         $("gameRoleCard").hidden = true;

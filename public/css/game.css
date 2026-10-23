@@ -172,3 +172,60 @@
 .lj-game-view.is-countdown .game-bottom-bar { opacity: 0.16; transition: opacity 1.6s ease; }
 .lj-game-view.is-countdown .game-role-panel { opacity: 1; box-shadow: 0 0 36px rgba(159, 113, 232, 0.22); }
 .lj-game-view.is-countdown .game-role-panel h3 { color: #fff4ff; }
+
+
+/* Élő beszélőjelzés a játékoslistában */
+.game-player-row.is-speaking {
+    border-color: rgba(134, 239, 172, 0.55);
+    box-shadow: 0 0 0 1px rgba(134, 239, 172, 0.08), 0 0 18px rgba(74, 222, 128, 0.08);
+}
+.game-speaking-badge {
+    display: inline-flex;
+    align-self: flex-start;
+    align-items: center;
+    gap: 5px;
+    margin-top: 2px;
+    color: #9bf0be !important;
+    font-size: 10px !important;
+    font-weight: 700;
+    animation: gameSpeakingPulse 1.2s ease-in-out infinite;
+}
+@keyframes gameSpeakingPulse {
+    0%, 100% { opacity: 0.72; }
+    50% { opacity: 1; }
+}
+.game-player-vote {
+    color: #d5c0ff !important;
+    font-size: 10px !important;
+    line-height: 1.4;
+    overflow-wrap: anywhere;
+}
+.game-player-vote.is-pending {
+    color: #8c849c !important;
+    font-style: italic;
+}
+.game-public-log-panel {
+    position: relative;
+    z-index: 1;
+    margin: 14px 0;
+}
+.game-public-log-messages {
+    display: flex;
+    flex-direction: column;
+    gap: 7px;
+    margin-top: 12px;
+}
+.game-public-log-entry {
+    padding: 10px 12px;
+    border-left: 2px solid #9bd0b0;
+    border-radius: 3px;
+    background: rgba(61, 103, 78, 0.12);
+    color: #c7e8d2;
+    font-size: 12px;
+    line-height: 1.55;
+}
+
+/* Szereptársak és fertőzésjelzés */
+.game-role-team-members { grid-column: 2; margin: 4px 0 0; padding: 8px 10px; border: 1px solid rgba(173, 141, 229, 0.24); border-radius: 6px; background: rgba(65, 44, 91, 0.25); color: #d5c4ee !important; font-size: 12px; line-height: 1.5; }
+.game-infected-badge { color: #a9d88f !important; font-weight: 700; }
+.game-public-log-entry { overflow-wrap: anywhere; }

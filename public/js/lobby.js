@@ -22,27 +22,33 @@
     const lobbyMessage = document.getElementById("lobbyMessage");
     const modalRoot = document.getElementById("modalRoot");
 
-    const roleKeys = ["spirits", "healer", "villagers", "hunters", "fool"];
+    const roleKeys = ["spirits", "healer", "villagers", "hunters", "fool", "swapper", "infectious"];
     const roleLabels = {
         spirits: "Lidércek",
         healer: "Gyógyító",
         villagers: "Falusiak",
         hunters: "Vadászok",
-        fool: "Bolondok"
+        fool: "Bolondok",
+        swapper: "Szerepcserélő",
+        infectious: "Fertőző"
     };
     const roleIds = {
         spirits: "roleSpirits",
         healer: "roleHealer",
         villagers: "roleVillagers",
         hunters: "roleHunters",
-        fool: "roleFool"
+        fool: "roleFool",
+        swapper: "roleSwapper",
+        infectious: "roleInfectious"
     };
     const roleClasses = {
         spirits: "role-color-spirits",
         healer: "role-color-healer",
         villagers: "role-color-villagers",
         hunters: "role-color-hunters",
-        fool: "role-color-fool"
+        fool: "role-color-fool",
+        swapper: "role-color-swapper",
+        infectious: "role-color-infectious"
     };
 
     let currentRoom = null;
@@ -51,10 +57,21 @@
 
     // WebRTC hangkapcsolatok. A hanghoz a böngésző mikrofonengedélye szükséges.
     const voicePeers = new Map();
+    const teamVoicePeers = new Map();
+    const speakingPlayerIds = new Set();
     let localAudioStream = null;
     let micEnabled = false;
     let gameVoiceLocked = false;
     let gamePlayerAlive = true;
+    let currentGameVoiceState = null;
+    let voiceRole = null;
+    let voiceTeamMembers = [];
+    let teamVoicePhaseActive = false;
+    let teamVoiceRole = null;
+    let teamMicEnabled = false;
+    let teamAudioTrack = null;
+    let teamAudioStream = null;
+    let speechDetection = null;
 
     document.getElementById("playerNameLabel").textContent = playerName;
 
@@ -112,7 +129,7 @@
     function readRoomSettings() {
         const keys = [
             "introSeconds", "daySeconds", "spiritsSeconds",
-            "healerSeconds", "huntersSeconds", "foolSeconds"
+            "healerSeconds", "huntersSeconds", "foolSeconds", "swapperSeconds", "infectiousSeconds"
         ];
         const ids = {
             introSeconds: "settingIntroSeconds",
@@ -120,7 +137,9 @@
             spiritsSeconds: "settingSpiritsSeconds",
             healerSeconds: "settingHealerSeconds",
             huntersSeconds: "settingHuntersSeconds",
-            foolSeconds: "settingFoolSeconds"
+            foolSeconds: "settingFoolSeconds",
+            swapperSeconds: "settingSwapperSeconds",
+            infectiousSeconds: "settingInfectiousSeconds"
         };
         const settings = {};
         for (const key of keys) {
@@ -198,6 +217,7 @@
             joinButton.addEventListener("click", () => {
                 joinButton.disabled = true;
                 joinButton.textContent = "CSATLAKOZÁS...";
+                autoEnableVoiceFromUserAction();
                 socket.emit("join-room", { roomId: room.code, username: playerName });
             });
             bottom.appendChild(joinButton);
@@ -228,6 +248,9 @@
             info.appendChild(makeElement("strong", "player-name", player.username));
             const detail = player.isHost ? "Házigazda" : (player.ready ? "Készen áll" : "Még nem kész");
             info.appendChild(makeElement("span", "player-position", detail));
+            if (speakingPlayerIds.has(player.id)) {
+                info.appendChild(makeElement("span", "player-speaking-badge", "🎙 Éppen beszél"));
+            }
             const marker = makeElement("span", player.isHost ? "host-marker" : (player.ready ? "player-marker is-ready" : "player-marker"), player.isHost ? "✦" : (player.ready ? "✓" : "●"));
             row.append(avatar, info, marker);
 
@@ -302,6 +325,28 @@
     // WEBRTC VOICE CHAT
     // -----------------------------------------------
 
+    function getPrivateTeamRole(state = currentGameVoiceState) {
+        if (!state || !voiceRole || !gamePlayerAlive) return null;
+        if (voiceRole === "spirits" && state.phase === "night-spirits") return "spirits";
+        if (voiceRole === "hunters" && state.phase === "night-hunters") return "hunters";
+        return null;
+    }
+
+    function getLivingTeamPeerIds(state = currentGameVoiceState, role = getPrivateTeamRole(state)) {
+        if (!state || !role) return [];
+        const livingIds = new Set((state.players || [])
+            .filter((player) => player.alive && player.connected !== false)
+            .map((player) => player.id));
+        return voiceTeamMembers
+            .filter((member) => member.id !== socket.id && livingIds.has(member.id))
+            .map((member) => member.id);
+    }
+
+    function canUsePrivateTeamVoice(state = currentGameVoiceState) {
+        const role = getPrivateTeamRole(state);
+        return Boolean(role && getLivingTeamPeerIds(state, role).length > 0);
+    }
+
     function updateVoiceUI() {
         const buttons = [
             document.getElementById("voiceToggleButton"),
@@ -311,16 +356,22 @@
             document.getElementById("voiceStatus"),
             document.getElementById("gameVoiceStatus")
         ].filter(Boolean);
-        const locked = gameVoiceLocked || !gamePlayerAlive;
+        const privateTeamVoice = canUsePrivateTeamVoice();
         let buttonText;
         let statusText;
 
         if (!gamePlayerAlive) {
             buttonText = "Mikrofon letiltva";
-            statusText = "Kiestél · a mikrofonod le van tiltva";
+            statusText = "Kiestél · hallgathatsz, de nem beszélhetsz";
+        } else if (privateTeamVoice) {
+            const teamName = teamVoiceRole === "hunters" || voiceRole === "hunters" ? "Vadászok" : "Lidércek";
+            buttonText = teamMicEnabled ? `${teamName} mikrofon némítása` : `${teamName} privát mikrofon bekapcsolása`;
+            statusText = teamMicEnabled
+                ? `${teamName} privát hangja aktív · csak a csapat hallja`
+                : `${teamName} privát hangja némítva`;
         } else if (gameVoiceLocked) {
             buttonText = "Éjszakai csend";
-            statusText = "Éjszaka · a voice chat automatikusan némítva";
+            statusText = "Éjszaka · a normál voice chat automatikusan némítva";
         } else if (!localAudioStream) {
             buttonText = "Mikrofon bekapcsolása";
             statusText = "Hangkapcsolat · mikrofon nincs engedélyezve";
@@ -334,26 +385,79 @@
 
         buttons.forEach((button) => {
             button.textContent = buttonText;
-            button.disabled = locked;
-            button.classList.toggle("is-active", Boolean(localAudioStream && micEnabled && !locked));
+            button.disabled = !gamePlayerAlive || (gameVoiceLocked && !privateTeamVoice);
+            button.classList.toggle("is-active", Boolean(
+                privateTeamVoice ? teamMicEnabled : (localAudioStream && micEnabled && !gameVoiceLocked)
+            ));
         });
         statuses.forEach((status) => { status.textContent = statusText; });
     }
 
     function applyGameVoiceState(state) {
         if (!state || !state.phase) return;
-        gameVoiceLocked = ["countdown", "night-spirits", "night-healer", "night-hunters", "night-fool"].includes(state.phase);
+        const previousTeamVoicePhase = teamVoicePhaseActive;
+        currentGameVoiceState = state;
+        gameVoiceLocked = ["countdown", "night-swapper", "night-spirits", "night-healer", "night-hunters", "night-fool", "night-infectious"].includes(state.phase);
         const me = Array.isArray(state.players) ? state.players.find((player) => player.id === socket.id) : null;
-        if (me) gamePlayerAlive = Boolean(me.alive && me.connected !== false);
-        const muted = gameVoiceLocked || !gamePlayerAlive;
+        // A kiesettek a játék végén újra beszélhetnek; a játék közben csak hallgatók.
+        if (me) gamePlayerAlive = Boolean((me.alive && me.connected !== false) || state.phase === "game-over");
+
+        const nextTeamRole = getPrivateTeamRole(state);
+        const nextTeamVoicePhase = Boolean(nextTeamRole && getLivingTeamPeerIds(state, nextTeamRole).length > 0);
+
+        if (nextTeamVoicePhase && !previousTeamVoicePhase) {
+            // Ha a mikrofonengedély megvan, a lidércek privát mikrofonja automatikusan bekapcsol.
+            teamMicEnabled = Boolean(localAudioStream);
+            teamVoiceRole = nextTeamRole;
+            teamVoicePhaseActive = true;
+        } else if (!nextTeamVoicePhase && previousTeamVoicePhase) {
+            teamMicEnabled = false;
+            teamVoicePhaseActive = false;
+            teamVoiceRole = null;
+            if (speechDetection?.channel === "team") stopSpeechDetection();
+            closeTeamVoiceConnections(true);
+        } else {
+            teamVoicePhaseActive = nextTeamVoicePhase;
+            teamVoiceRole = nextTeamVoicePhase ? nextTeamRole : null;
+        }
+
+        // Ha már kaptunk mikrofonengedélyt, a külön csapatsávot azelőtt klónozzuk,
+        // hogy a mindenki felé menő normál sávot éjszakára elnémítanánk.
+        if (teamVoicePhaseActive && localAudioStream && !teamAudioTrack) createTeamAudioTrack();
+        if (teamVoicePhaseActive && localAudioStream) {
+            teamMicEnabled = true;
+            if (teamAudioTrack) teamAudioTrack.enabled = Boolean(gamePlayerAlive);
+        }
+        const muted = gameVoiceLocked || !gamePlayerAlive || teamVoicePhaseActive;
         if (localAudioStream) {
             localAudioStream.getAudioTracks().forEach((track) => { track.enabled = Boolean(micEnabled && !muted); });
         }
-        // A kiesett játékos nem beszélhet, de nappal továbbra is hallhatja az élőket.
-        document.querySelectorAll("#remoteAudioContainer audio").forEach((audio) => {
+        // A normál hangcsatorna éjszaka némítva marad. A csapatnak külön WebRTC-kapcsolata van.
+        document.querySelectorAll("#remoteAudioContainer audio[id^='voice-audio-']").forEach((audio) => {
             audio.muted = gameVoiceLocked;
             audio.volume = gameVoiceLocked ? 0 : 1;
         });
+        if (teamVoicePhaseActive) {
+            syncTeamVoicePeers();
+            if (!localAudioStream) {
+                ensureLocalAudio().then(() => {
+                    micEnabled = true;
+                    teamMicEnabled = true;
+                    if (teamVoicePhaseActive) {
+                        createTeamAudioTrack();
+                        if (teamAudioTrack) teamAudioTrack.enabled = true;
+                        syncTeamVoicePeers();
+                    }
+                    if (currentRoom) syncVoicePeers(currentRoom);
+                    refreshSpeechDetection();
+                    updateVoiceUI();
+                }).catch((error) => {
+                    showMessage("A privát lidérchanghoz engedélyezd a mikrofont a böngészőben.", "error", 9000);
+                    console.warn(error);
+                });
+            }
+        }
+        refreshSpeechDetection();
         updateVoiceUI();
     }
 
@@ -372,6 +476,24 @@
         });
         micEnabled = true;
         return localAudioStream;
+    }
+
+    async function autoEnableVoiceFromUserAction() {
+        try {
+            await ensureLocalAudio();
+            micEnabled = true;
+            localAudioStream?.getAudioTracks().forEach((track) => {
+                track.enabled = Boolean(!gameVoiceLocked && gamePlayerAlive && !teamVoicePhaseActive);
+            });
+            if (currentRoom) syncVoicePeers(currentRoom);
+            if (currentGameVoiceState) applyGameVoiceState(currentGameVoiceState);
+            refreshSpeechDetection();
+            updateVoiceUI();
+        } catch (error) {
+            // A szobába belépés mikrofonengedély nélkül is működjön.
+            showMessage("A szobába beléptél, de a mikrofon nem kapott engedélyt. A böngésző címsoránál engedélyezd a mikrofont.", "info", 9000);
+            console.warn("Automatikus mikrofonengedély nem sikerült:", error);
+        }
     }
 
     function signalPeer(peerId, data) {
@@ -456,6 +578,229 @@
         transceiver.direction = "sendrecv";
     }
 
+    function signalTeamPeer(peerId, data) {
+        if (socket.connected && currentRoom) socket.emit("team-voice-signal", { to: peerId, data });
+    }
+
+    function createTeamAudioTrack() {
+        if (!localAudioStream || teamAudioTrack) return teamAudioTrack;
+        const original = localAudioStream.getAudioTracks()[0];
+        if (!original || typeof original.clone !== "function") return null;
+        const wasEnabled = original.enabled;
+        // A klónozáskor röviden legyen aktív a forrássáv; utána azonnal visszaállítjuk.
+        // A klónozott sáv ezután külön némítható, nem szivárog át a normál hangcsatornába.
+        if (!wasEnabled) original.enabled = true;
+        teamAudioTrack = original.clone();
+        original.enabled = wasEnabled;
+        teamAudioTrack.enabled = Boolean(teamMicEnabled && teamVoicePhaseActive && gamePlayerAlive);
+        teamAudioStream = new MediaStream([teamAudioTrack]);
+        return teamAudioTrack;
+    }
+
+    async function attachTeamAudio(pc) {
+        if (!teamAudioTrack) return;
+        let transceiver = pc.getTransceivers().find((item) => item.receiver && item.receiver.track && item.receiver.track.kind === "audio");
+        if (!transceiver) transceiver = pc.addTransceiver(teamAudioTrack, { direction: "sendrecv", streams: [teamAudioStream] });
+        else {
+            await transceiver.sender.replaceTrack(teamAudioTrack);
+            if (transceiver.direction !== "sendrecv") transceiver.direction = "sendrecv";
+        }
+    }
+
+    function ensureTeamVoicePeer(peerId) {
+        if (!peerId || peerId === socket.id) return null;
+        if (teamVoicePeers.has(peerId)) return teamVoicePeers.get(peerId);
+        const pc = new RTCPeerConnection({
+            iceServers: [{ urls: "stun:stun.l.google.com:19302" }]
+        });
+        const record = {
+            pc,
+            polite: String(socket.id).localeCompare(String(peerId)) > 0,
+            makingOffer: false,
+            ignoreOffer: false,
+            settingRemoteAnswerPending: false,
+            pendingCandidates: []
+        };
+        teamVoicePeers.set(peerId, record);
+        pc.onicecandidate = (event) => {
+            if (event.candidate) signalTeamPeer(peerId, { candidate: event.candidate });
+        };
+        pc.ontrack = (event) => {
+            const container = document.getElementById("remoteAudioContainer");
+            if (!container) return;
+            let audio = document.getElementById(`team-voice-audio-${peerId}`);
+            if (!audio) {
+                audio = document.createElement("audio");
+                audio.id = `team-voice-audio-${peerId}`;
+                audio.autoplay = true;
+                audio.playsInline = true;
+                audio.setAttribute("aria-label", "Titkos csapattárs hangja");
+                container.appendChild(audio);
+            }
+            audio.muted = false;
+            audio.volume = 1;
+            audio.srcObject = event.streams?.[0] || new MediaStream([event.track]);
+            audio.play().catch(() => showMessage("A privát csapathang lejátszásához kattints az oldalra, majd engedélyezd a hangot.", "info"));
+        };
+        pc.onnegotiationneeded = async () => {
+            try {
+                record.makingOffer = true;
+                await pc.setLocalDescription();
+                signalTeamPeer(peerId, { description: pc.localDescription });
+            } catch (error) {
+                console.warn("A privát csapathang egyeztetése nem sikerült:", error);
+            } finally {
+                record.makingOffer = false;
+            }
+        };
+        pc.addTransceiver("audio", { direction: teamAudioTrack ? "sendrecv" : "recvonly" });
+        if (teamAudioTrack) attachTeamAudio(pc).catch((error) => console.warn(error));
+        return record;
+    }
+
+    function syncTeamVoicePeers() {
+        if (!window.RTCPeerConnection || !teamVoicePhaseActive || !currentRoom || !currentGameVoiceState) return;
+        const expectedIds = new Set(getLivingTeamPeerIds(currentGameVoiceState, teamVoiceRole));
+        for (const [peerId, record] of teamVoicePeers.entries()) {
+            if (!expectedIds.has(peerId)) {
+                record.pc.close();
+                teamVoicePeers.delete(peerId);
+                document.getElementById(`team-voice-audio-${peerId}`)?.remove();
+            }
+        }
+        expectedIds.forEach((peerId) => {
+            const record = ensureTeamVoicePeer(peerId);
+            if (record && teamAudioTrack) attachTeamAudio(record.pc).catch((error) => console.warn(error));
+        });
+    }
+
+    async function handleTeamVoiceSignal({ from, data } = {}) {
+        if (!from || !data || !teamVoicePhaseActive || !voiceTeamMembers.some((member) => member.id === from)) return;
+        const record = ensureTeamVoicePeer(from);
+        if (!record) return;
+        const pc = record.pc;
+        try {
+            if (data.description) {
+                const description = data.description;
+                const readyForOffer = !record.makingOffer && (pc.signalingState === "stable" || record.settingRemoteAnswerPending);
+                const offerCollision = description.type === "offer" && !readyForOffer;
+                record.ignoreOffer = !record.polite && offerCollision;
+                if (record.ignoreOffer) return;
+                record.settingRemoteAnswerPending = description.type === "answer";
+                if (offerCollision) {
+                    await Promise.all([pc.setLocalDescription({ type: "rollback" }), pc.setRemoteDescription(description)]);
+                } else {
+                    await pc.setRemoteDescription(description);
+                }
+                record.settingRemoteAnswerPending = false;
+                while (record.pendingCandidates.length > 0) {
+                    const candidate = record.pendingCandidates.shift();
+                    try { await pc.addIceCandidate(candidate); } catch (candidateError) { console.warn("Privát ICE jelölt hiba:", candidateError); }
+                }
+                if (description.type === "offer") {
+                    await pc.setLocalDescription();
+                    signalTeamPeer(from, { description: pc.localDescription });
+                }
+            } else if (data.candidate) {
+                if (!pc.remoteDescription) record.pendingCandidates.push(data.candidate);
+                else {
+                    try { await pc.addIceCandidate(data.candidate); }
+                    catch (error) { if (!record.ignoreOffer) throw error; }
+                }
+            }
+        } catch (error) {
+            console.warn("A privát csapathang jelzésének feldolgozása sikertelen:", error);
+        }
+    }
+
+    function closeTeamVoiceConnections(stopTrack = false) {
+        for (const [peerId, record] of teamVoicePeers.entries()) {
+            record.pc.close();
+            document.getElementById(`team-voice-audio-${peerId}`)?.remove();
+        }
+        teamVoicePeers.clear();
+        if (stopTrack && teamAudioTrack) {
+            teamAudioTrack.stop();
+            teamAudioTrack = null;
+            teamAudioStream = null;
+        }
+    }
+
+    function emitSpeaking(channel, isSpeaking) {
+        if (!socket.connected) return;
+        socket.emit(channel === "team" ? "team-voice-speaking" : "voice-speaking", { speaking: Boolean(isSpeaking) });
+    }
+
+    function stopSpeechDetection() {
+        if (!speechDetection) return;
+        const detector = speechDetection;
+        speechDetection = null;
+        if (detector.raf) cancelAnimationFrame(detector.raf);
+        if (detector.speaking) emitSpeaking(detector.channel, false);
+        try { detector.source.disconnect(); } catch {}
+        try { detector.analyser.disconnect(); } catch {}
+        if (detector.context && detector.context.state !== "closed") detector.context.close().catch(() => {});
+    }
+
+    function startSpeechDetection(stream, channel) {
+        if (!stream) return;
+        if (speechDetection && speechDetection.stream === stream && speechDetection.channel === channel) return;
+        stopSpeechDetection();
+        const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+        if (!AudioContextClass) return;
+        try {
+            const context = new AudioContextClass();
+            const source = context.createMediaStreamSource(stream);
+            const analyser = context.createAnalyser();
+            analyser.fftSize = 512;
+            analyser.smoothingTimeConstant = 0.35;
+            source.connect(analyser);
+            const samples = new Uint8Array(analyser.fftSize);
+            const detector = { stream, channel, context, source, analyser, samples, raf: 0, speaking: false, above: 0, below: 0 };
+            speechDetection = detector;
+            const tick = () => {
+                if (speechDetection !== detector) return;
+                analyser.getByteTimeDomainData(samples);
+                let total = 0;
+                for (let i = 0; i < samples.length; i++) {
+                    const value = (samples[i] - 128) / 128;
+                    total += value * value;
+                }
+                const rms = Math.sqrt(total / samples.length);
+                const tracksEnabled = stream.getAudioTracks().some((track) => track.enabled && track.readyState === "live");
+                const voice = tracksEnabled && rms > 0.035;
+                if (voice) { detector.above += 1; detector.below = 0; }
+                else { detector.below += 1; detector.above = 0; }
+                if (!detector.speaking && detector.above >= 3) {
+                    detector.speaking = true;
+                    emitSpeaking(channel, true);
+                } else if (detector.speaking && detector.below >= 10) {
+                    detector.speaking = false;
+                    emitSpeaking(channel, false);
+                }
+                detector.raf = requestAnimationFrame(tick);
+            };
+            detector.raf = requestAnimationFrame(tick);
+            context.resume().catch(() => {});
+        } catch (error) {
+            console.warn("A beszédjelzés nem indítható el:", error);
+        }
+    }
+
+    function refreshSpeechDetection() {
+        if (teamVoicePhaseActive && teamMicEnabled && teamAudioStream && teamAudioTrack?.enabled) {
+            startSpeechDetection(teamAudioStream, "team");
+            return;
+        }
+        const publicTrackEnabled = localAudioStream && localAudioStream.getAudioTracks().some((track) => track.enabled && track.readyState === "live");
+        const gameOver = currentGameVoiceState?.phase === "game-over";
+        if (!gameVoiceLocked && (gamePlayerAlive || gameOver) && micEnabled && publicTrackEnabled) {
+            startSpeechDetection(localAudioStream, "public");
+            return;
+        }
+        stopSpeechDetection();
+    }
+
     function syncVoicePeers(room) {
         if (!window.RTCPeerConnection || !room) return;
         const expectedIds = new Set(room.players.map((player) => player.id).filter((id) => id !== socket.id));
@@ -477,20 +822,35 @@
 
     async function toggleVoice() {
         const button = document.getElementById("voiceToggleButton");
-        if (gameVoiceLocked) {
-            showMessage("Éjszaka a voice chat automatikusan kikapcsol. Használd a szereped privát szöveges csatornáját, ha elérhető.", "info");
+        const privateTeamVoice = canUsePrivateTeamVoice();
+        if (gameVoiceLocked && !privateTeamVoice) {
+            showMessage("Éjszaka a normál voice chat automatikusan kikapcsol.", "info");
             return;
         }
-        if (!gamePlayerAlive) {
-            showMessage("Kiesett játékosként a mikrofonod nem kapcsolható vissza.", "info");
+        if (!gamePlayerAlive && currentGameVoiceState?.phase !== "game-over") {
+            showMessage("Kiesett játékosként a mikrofonod a játék végéig letiltva marad.", "info");
             return;
         }
         if (button) button.disabled = true;
         try {
-            if (!localAudioStream) {
+            if (privateTeamVoice) {
+                const publicMicPreference = micEnabled;
+                if (!localAudioStream) {
+                    await ensureLocalAudio();
+                    // A mikrofonengedély megszerzése nem kapcsolja be automatikusan a nappali mikrofont.
+                    micEnabled = publicMicPreference;
+                }
+                if (!teamAudioTrack) createTeamAudioTrack();
+                teamMicEnabled = !teamMicEnabled;
+                if (teamAudioTrack) teamAudioTrack.enabled = Boolean(teamMicEnabled && teamVoicePhaseActive && gamePlayerAlive);
+                // A normál, mindenki számára elérhető mikrofoncsatorna éjszaka némítva marad.
+                localAudioStream?.getAudioTracks().forEach((track) => { track.enabled = false; });
+                syncTeamVoicePeers();
+                if (teamMicEnabled) showMessage("A privát csapathang bekapcsolt. Csak az életben lévő csapattársaid hallanak.", "success");
+            } else if (!localAudioStream) {
                 await ensureLocalAudio();
                 if (currentRoom) syncVoicePeers(currentRoom);
-                showMessage("A mikrofon bekapcsolt. Ha kérte a böngésző, engedélyezd a mikrofon használatát.", "success");
+                showMessage("A mikrofon bekapcsolt. Ha a böngésző kérte, engedélyezd a mikrofon használatát.", "success");
             } else {
                 micEnabled = !micEnabled;
                 localAudioStream.getAudioTracks().forEach((track) => { track.enabled = Boolean(micEnabled && !gameVoiceLocked && gamePlayerAlive); });
@@ -499,6 +859,7 @@
             showMessage(error && error.message ? error.message : "Nem sikerült bekapcsolni a mikrofont.", "error");
         } finally {
             if (button) button.disabled = false;
+            refreshSpeechDetection();
             updateVoiceUI();
         }
     }
@@ -570,6 +931,18 @@
         updateVoiceUI();
     }
 
+    function resetPrivateVoiceContext() {
+        stopSpeechDetection();
+        closeTeamVoiceConnections(true);
+        currentGameVoiceState = null;
+        voiceRole = null;
+        voiceTeamMembers = [];
+        teamVoicePhaseActive = false;
+        teamVoiceRole = null;
+        teamMicEnabled = false;
+        speakingPlayerIds.clear();
+    }
+
     // -----------------------------------------------
     // FELÜLETI ESEMÉNYEK
     // -----------------------------------------------
@@ -629,6 +1002,7 @@
         const submit = document.getElementById("createRoomSubmit");
         submit.disabled = true;
         submit.textContent = "SZOBA KÉSZÍTÉSE...";
+        autoEnableVoiceFromUserAction();
         socket.emit("create-room", { roomName, roles, settings, username: playerName });
         window.setTimeout(() => {
             if (submit.isConnected) {
@@ -645,6 +1019,8 @@
     });
 
     document.getElementById("leaveRoomButton").addEventListener("click", () => {
+        stopSpeechDetection();
+        closeTeamVoiceConnections(true);
         closeVoiceConnections(true);
         socket.emit("leave-room");
     });
@@ -684,6 +1060,7 @@
         showMessage("Megszakadt a kapcsolat a szerverrel. A böngésző megpróbál újracsatlakozni.", "error", 0);
         gameVoiceLocked = false;
         gamePlayerAlive = true;
+        resetPrivateVoiceContext();
         closeVoiceConnections(true);
         if (currentRoom) {
             currentRoom = null;
@@ -713,6 +1090,15 @@
 
     socket.on("return-to-waiting-room", (payload = {}) => {
         if (!payload.room) return;
+        stopSpeechDetection();
+        closeTeamVoiceConnections(true);
+        currentGameVoiceState = null;
+        voiceRole = null;
+        voiceTeamMembers = [];
+        speakingPlayerIds.clear();
+        teamVoicePhaseActive = false;
+        teamVoiceRole = null;
+        teamMicEnabled = false;
         currentRoom = payload.room;
         gameVoiceLocked = false;
         gamePlayerAlive = true;
@@ -726,6 +1112,7 @@
         currentRoom = null;
         gameVoiceLocked = false;
         gamePlayerAlive = true;
+        resetPrivateVoiceContext();
         closeVoiceConnections(true);
         setView("home");
         showMessage("Kiléptél a szobából.", "success");
@@ -735,6 +1122,7 @@
         currentRoom = null;
         gameVoiceLocked = false;
         gamePlayerAlive = true;
+        resetPrivateVoiceContext();
         closeVoiceConnections(true);
         setView("home");
         showMessage(`A házigazda eltávolított a(z) „${details.roomName || ""}” szobából.`, "error");
@@ -752,9 +1140,32 @@
 
     socket.on("game-started", (payload = {}) => {
         if (payload.room) currentRoom = payload.room;
+        currentGameVoiceState = null;
+        voiceRole = null;
+        voiceTeamMembers = [];
+        teamVoicePhaseActive = false;
+        teamVoiceRole = null;
+        teamMicEnabled = false;
+        closeTeamVoiceConnections(true);
+        speakingPlayerIds.clear();
         document.getElementById("gameStartedRoomName").textContent = payload.room?.name || currentRoom?.name || "A játék elkezdődött";
         setView("game");
         showMessage("A házigazda elindította a játékot!", "success");
+    });
+
+    socket.on("private-role", (payload = {}) => {
+        voiceRole = payload.role || null;
+        voiceTeamMembers = Array.isArray(payload.teamMembers) ? payload.teamMembers : [];
+        if (currentGameVoiceState) applyGameVoiceState(currentGameVoiceState);
+    });
+
+    socket.on("team-voice-signal", handleTeamVoiceSignal);
+
+    socket.on("player-speaking", (payload = {}) => {
+        if (!payload.playerId) return;
+        if (payload.speaking) speakingPlayerIds.add(payload.playerId);
+        else speakingPlayerIds.delete(payload.playerId);
+        if (currentRoom && !views.waiting.hidden) renderWaitingRoom(currentRoom);
     });
 
     socket.on("voice-signal", handleVoiceSignal);
