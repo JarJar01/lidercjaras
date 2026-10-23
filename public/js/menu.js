@@ -216,7 +216,11 @@ function openSettings() {
         ["Vadász", "Éjszaka egyszer lőhet egy élő játékosra vagy passzolhat. Nem vizsgál szerepet. Több vadász a saját éjszakai körében privát hangon és szöveges chaten egyeztethet. Ha a lidércek ugyanazon az éjszakán megölik, nem támadhat vissza."],
         ["Bolond", "A célja, hogy a falu nappali szavazással kiszavazza. Ha így esik ki, ő nyeri a játékot."],
         ["Bohóc lidérc", "Nem külön beállítható kaszt: minden kiosztott Lidérc 50% eséllyel válhat Bohóc lidérccé. A lidércek csapatában marad. A külön 20 másodperces körben egyszer névfelvételt vagy némítást választhat; ha egyedüli lidérc, a szabotázs helyett egyszer szerepet is vizsgálhat."],
-        ["Fertőző", "Éjszakánként megfertőzhet egy még nem fertőzött, élő játékost. Csak ő látja a fertőzött személyeket; a nyilvános napló nem nevezi meg őket. Akkor nyer, ha minden más életben lévő játékos megfertőződött."]
+        ["Fertőző", "Éjszakánként megfertőzhet egy még nem fertőzött, élő játékost. Csak ő látja a fertőzött személyeket; a nyilvános napló nem nevezi meg őket. Akkor nyer, ha minden más életben lévő játékos megfertőződött."],
+        ["Látnok", "A halott játékosokkal külön szöveges csatornán beszélhet, és segítséget kérhet tőlük. Az élők többi tagja nem látja ezt a beszélgetést."],
+        ["Földesúr", "A nappali szavazata két szavazati pontot ér. Egy célpontot vagy a SKIP lehetőséget választja, és a voks kétszer számít."],
+        ["Házastársak", "A beállított játékosok párokba kerülnek. Éjszaka privát hangon és chaten beszélhetnek egymással. Ha egyikük meghal, a párja is kiesik."],
+        ["Kalandor", "Három, a szobában tényleg beállított szerepet kell megtalálnia. Éjszakánként egy játékosra tippelhet. A célpont halála nem törli a feladatot; mindhárom helyes találat után nyer."]
     ].forEach(([name, descriptionText]) => {
         const entry = createElement("article", "lj-guide-entry");
         entry.append(createElement("strong", "", name), createElement("p", "", descriptionText));
@@ -229,7 +233,7 @@ function openSettings() {
     [
         "Mindenki READY állapotba kerül, majd a házigazda elindítja a játékot.",
         "A 10 másodperces sötétedés alatt mindenki titkos szerepet kap, utána jön a beállított ismerkedési idő.",
-        "Éjszaka a Szerepcserélő egyszer vakon szerepet cserélhet; a lidércek támadnak, a gyógyítók védenek, a vadászok lőhetnek, a Fertőző pedig fertőzhet. Minden Lidérc 50% eséllyel különleges Bohóc lidérc lehet. A nappali szavazatok titkosak: csak az látszik, ki szavazott már, a célpont nem.",
+        "Éjszaka az Árnycserélő egyszer vakon szerepet cserélhet; a lidércek támadnak, a gyógyítók védenek, a vadászok lőhetnek, a Fertőző fertőzhet, a Kalandor szerepeket keres. Minden Lidérc külön 50% eséllyel lehet Bohóc lidérc. A nappali szavazatok titkosak: csak az látszik, ki szavazott már, a célpont nem.",
         "Reggel megjelennek az éjszakai események, majd a falu megbeszél és szavaz; SKIP is választható.",
         "A körök addig ismétlődnek, amíg a falu vagy a lidércek nem győznek, vagy a bolond nem nyer a kiszavazásával."
     ].forEach((text) => flowList.appendChild(createElement("li", "", text)));

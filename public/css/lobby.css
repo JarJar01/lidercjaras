@@ -378,6 +378,10 @@ body.lobby-page {
 .role-fool { border-top: 2px solid #d7a0dc; }
 .role-swapper { border-top: 2px solid #d9a779; }
 .role-infectious { border-top: 2px solid #8dbb78; }
+.role-seer { border-top: 2px solid #a9a0ef; }
+.role-landlord { border-top: 2px solid #d4b06d; }
+.role-spouses { border-top: 2px solid #e5a9bb; }
+.role-adventurer { border-top: 2px solid #79c6cf; }
 
 .number-control { display: grid; grid-template-columns: 32px minmax(20px, 1fr) 32px; align-items: center; gap: 6px; }
 .number-control button {
@@ -498,6 +502,10 @@ body.lobby-page {
 .role-color-fool { border-left-color: #d7a0dc; }
 .role-color-swapper { border-left-color: #c5a2f1; }
 .role-color-infectious { border-left-color: #9ac46a; }
+.role-color-seer { border-left-color: #a9a0ef; }
+.role-color-landlord { border-left-color: #d4b06d; }
+.role-color-spouses { border-left-color: #e5a9bb; }
+.role-color-adventurer { border-left-color: #79c6cf; }
 .waiting-note { display: flex; align-items: flex-start; gap: 10px; margin-top: 18px; padding: 13px 15px; border: 1px solid rgba(169, 144, 210, 0.14); border-radius: 5px; background: rgba(31, 24, 45, 0.45); color: #a69bb8; font-size: 11px; line-height: 1.7; }
 .waiting-note > span:first-child { color: #c4a6f2; font-size: 15px; }
 

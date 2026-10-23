@@ -15,7 +15,11 @@
         hunters: "➶",
         fool: "☻",
         swapper: "🔄",
-        infectious: "☣"
+        infectious: "☣",
+        seer: "🔮",
+        landlord: "♜",
+        spouses: "💍",
+        adventurer: "🧭"
     };
     const phaseLabels = {
         countdown: "Kezdés",
@@ -27,6 +31,7 @@
         "night-hunters": "Vadászok köre",
         "night-fool": "Bolond köre",
         "night-infectious": "Fertőző köre",
+        "night-adventurer": "Kalandor küldetése",
         "dawn-result": "Hajnalodik",
         day: "Nappal",
         "vote-result": "Szavazás eredménye",
@@ -42,12 +47,13 @@
         "night-hunters": "A vadászok döntenek",
         "night-fool": "A bolond kivárja az éjszakát",
         "night-infectious": "A fertőzés továbbterjed",
+        "night-adventurer": "A Kalandor célpontot keres",
         "dawn-result": "Felszáll a reggeli köd",
         day: "A falu felébred",
         "vote-result": "A falu döntött",
         "game-over": "Véget ért a Lidércjárás"
     };
-    const nightPhases = new Set(["night-swapper", "night-special-spirit", "night-spirits", "night-healer", "night-hunters", "night-fool", "night-infectious"]);
+    const nightPhases = new Set(["night-swapper", "night-special-spirit", "night-spirits", "night-healer", "night-hunters", "night-fool", "night-infectious", "night-adventurer"]);
 
     let myRole = null;
     let myRoleLabel = "";
@@ -275,7 +281,7 @@
                 }
                 players.forEach((player) => {
                     addChoiceButton(panel, `${player.id === socket.id ? "✚ Saját magam védelme" : `✚ Megvédem: ${player.username}`}`, () => {
-                        setActionStatus(livingHealers.length > 1
+                        setActionStatus(myLivingHealerCount > 1
                             ? `A gyógyítói szavazatod rögzítve. Ha minden társad ugyanazt választotta, a védelem sikerül.`
                             : `A védelmi döntés elküldve: ${player.username}.`);
                         sendAction("healer-protect", { targetId: player.id });
@@ -319,6 +325,27 @@
                             setActionStatus("A fertőzési célpont rögzítve. A többiek csak annyit látnak majd, hogy valaki megfertőződött.");
                             sendAction("infectious-action", { targetId: player.id });
                         }, "is-danger");
+                    });
+                }
+            }
+        } else if (phase === "night-adventurer") {
+            if (myRole !== "adventurer") {
+                panel.appendChild(makeElement("p", "game-muted", "A Kalandor most titkos küldetésen van. A többiek várjanak."));
+            } else {
+                const tasks = Array.isArray(gameState.adventurerTasks) ? gameState.adventurerTasks : [];
+                const nextTask = tasks.find((task) => !task.solved);
+                tasks.forEach((task) => {
+                    panel.appendChild(makeElement("p", `game-adventurer-task${task.solved ? " is-solved" : ""}`, `${task.solved ? "✓" : "○"} Találd meg: ${task.label}${task.solved ? ` — ${task.targetName || "megtalálva"}` : ""}`));
+                });
+                if (!nextTask) {
+                    panel.appendChild(makeElement("p", "game-muted", "Mindhárom szerepet megtaláltad."));
+                } else {
+                    appendSectionDescription(panel, `A következő feladatod egy ${nextTask.label} szerepű játékos megtalálása. Válassz ki egy élő vagy már kiesett játékost. A célpont halála nem törli a feladatot.`);
+                    gameState.players.filter((player) => player.id !== socket.id && player.connected !== false).forEach((player) => {
+                        addChoiceButton(panel, `🧭 ${player.username}${player.alive ? "" : " · kiesett"}`, () => {
+                            setActionStatus(`Tipp elküldve: ${player.username}.`);
+                            sendAction("adventurer-guess", { roleKey: nextTask.role, targetId: player.id });
+                        }, player.alive ? "is-neutral" : "is-danger");
                     });
                 }
             }
@@ -455,16 +482,24 @@
         }
 
         const meAlive = isMyselfAlive();
-        const activeTeamRole =
-            (myRole === "spirits" && phase === "night-spirits") ? "spirits" :
-            ((myRole === "hunters" && phase === "night-hunters") ? "hunters" : null);
+        const canUseSeance = Boolean(gameState.seerChannelAvailable && ((myRole === "seer" && meAlive) || !meAlive));
+        const activeTeamRole = canUseSeance ? "seance" :
+            (myRole === "spirits" && ["night-special-spirit", "night-spirits"].includes(phase)) ? "spirits" :
+            (myRole === "hunters" && phase === "night-hunters") ? "hunters" :
+            (myRole === "spouses" && nightPhases.has(phase)) ? "spouses" : null;
         const activeTeamMembers = myTeamMembers.filter((member) => gameState.players.some((player) => player.id === member.id && player.alive && player.connected !== false));
-        const showTeamChat = meAlive && Boolean(activeTeamRole) && activeTeamMembers.length > 1;
+        const showTeamChat = activeTeamRole === "seance" || (meAlive && Boolean(activeTeamRole) && (activeTeamRole === "spouses" ? activeTeamMembers.length >= 1 : activeTeamMembers.length > 1));
         $("gameTeamChatPanel").hidden = !showTeamChat;
-        $("gameTeamChatTitle").textContent = activeTeamRole === "hunters" ? "Vadászok titkos csatornája" : "Lidércek titkos csatornája";
+        $("gameTeamChatTitle").textContent = activeTeamRole === "hunters" ? "Vadászok titkos csatornája" :
+            activeTeamRole === "spouses" ? "Házastársak titkos csatornája" :
+            activeTeamRole === "seance" ? "Látnok és halottak csatornája" : "Lidércek titkos csatornája";
         $("gameTeamChatHint").textContent = activeTeamRole === "hunters"
-            ? "Csak az életben lévő vadászok látják és hallják ezt a beszélgetést. A többi játékos nem kapja meg a hangot vagy az üzeneteket."
-            : "Csak az életben lévő lidércek látják és hallják ezt a beszélgetést. A többi játékos nem kapja meg a hangot vagy az üzeneteket.";
+            ? "Csak az életben lévő vadászok látják és hallják ezt a beszélgetést."
+            : activeTeamRole === "spouses"
+                ? "Csak te és a házastársad látjátok ezt a privát beszélgetést éjszaka."
+                : activeTeamRole === "seance"
+                    ? "A Látnok és a halott játékosok beszélhetnek itt. Az élők többi tagja nem látja ezt a csatornát."
+                    : "Csak az életben lévő lidércek látják és hallják ezt a beszélgetést. A többi játékos nem kapja meg a hangot vagy az üzeneteket.";
         if (myRole === "fool" && phase === "night-fool") {
             // A bolond várakozik, képesség nincs.
         }
@@ -658,8 +693,20 @@
     });
 
     socket.on("team-chat-message", (payload = {}) => {
-        if (!myRole || payload.team !== myRole) return;
+        if (!myRole) return;
+        if (payload.team === "seance") {
+            const seanceViewer = Boolean(gameState?.seerChannelAvailable && ((myRole === "seer" && isMyselfAlive()) || !isMyselfAlive()));
+            if (!seanceViewer) return;
+        } else if (payload.team !== myRole) {
+            return;
+        }
         appendChatMessage({ fromName: payload.fromName || "Csapattárs", text: payload.text || "", at: payload.at || Date.now() });
+    });
+
+    socket.on("adventurer-guess-result", (payload = {}) => {
+        setActionStatus(payload.message || (payload.correct ? "Helyes találat!" : "Nem talált."), !payload.correct);
+        showNotice(payload.message || "Kalandor-tipp kiértékelve.", `adventurer|${payload.roleKey}|${payload.targetId}|${payload.correct}`);
+        renderActions();
     });
 
     socket.on("game-ended", (payload = {}) => {

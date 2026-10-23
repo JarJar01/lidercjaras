@@ -10,7 +10,7 @@ const app = express();
 const server = http.createServer(app);
 const io = new Server(server);
 const PUBLIC_DIR = path.join(__dirname, "public");
-const APP_VERSION = "lidercjaras-bohoc-specialvoice-cigan-rolefix-2026-10-24-2";
+const APP_VERSION = "lidercjaras-roles-seer-landlord-spouses-adventurer-2026-10-24-4";
 
 app.get("/health", (_req, res) => {
     res.json({ ok: true, app: "Lidércjárás", version: APP_VERSION });
@@ -20,15 +20,19 @@ app.get("/lobby", (_req, res) => res.sendFile(path.join(PUBLIC_DIR, "html", "lob
 app.use(express.static(PUBLIC_DIR));
 
 const rooms = new Map();
-const ROLE_KEYS = ["spirits", "healer", "villagers", "hunters", "fool", "swapper", "infectious"];
+const ROLE_KEYS = ["spirits", "healer", "villagers", "hunters", "fool", "swapper", "infectious", "seer", "landlord", "spouses", "adventurer"];
 const ROLE_LABELS = {
     spirits: "Lidérc",
     healer: "Gyógyító",
     villagers: "Falusi",
     hunters: "Vadász",
     fool: "Bolond",
-    swapper: "Szerepcserélő",
-    infectious: "Fertőző"
+    swapper: "Árnycserélő",
+    infectious: "Fertőző",
+    seer: "Látnok",
+    landlord: "Földesúr",
+    spouses: "Házastárs",
+    adventurer: "Kalandor"
 };
 const ROLE_PLURALS = {
     spirits: "Lidércek",
@@ -36,19 +40,24 @@ const ROLE_PLURALS = {
     villagers: "Falusiak",
     hunters: "Vadászok",
     fool: "Bolondok",
-    swapper: "Szerepcserélők",
-    infectious: "Fertőző"
+    swapper: "Árnycserélők",
+    infectious: "Fertőző",
+    seer: "Látnokok",
+    landlord: "Földesurak",
+    spouses: "Házastársak",
+    adventurer: "Kalandorok"
 };
 const WINNER_LABELS = {
     spirits: "A lidércek győztek",
     villagers: "A falu győzött",
     fool: "A bolond győzött",
     infectious: "A Fertőző győzött: mindenki megfertőződött",
+    adventurer: "A Kalandor megtalálta mindhárom szerepet",
     draw: "A játék döntetlennel ért véget"
 };
 const MIN_PLAYERS = 4;
 const MAX_PLAYERS = 16;
-const NIGHT_PHASES = new Set(["night-swapper", "night-special-spirit", "night-spirits", "night-healer", "night-hunters", "night-fool", "night-infectious"]);
+const NIGHT_PHASES = new Set(["night-swapper", "night-special-spirit", "night-spirits", "night-healer", "night-hunters", "night-fool", "night-infectious", "night-adventurer"]);
 
 function cleanText(value, maxLength) {
     return String(value ?? "")
@@ -77,12 +86,19 @@ function normalizeRoles(input) {
     if (!input || typeof input !== "object") return null;
     const roles = {};
     for (const key of ROLE_KEYS) {
-        const value = Number(input[key]);
+        const value = Number(input[key] ?? 0);
         if (!Number.isInteger(value) || value < 0 || value > MAX_PLAYERS) return null;
         roles[key] = value;
     }
     const total = ROLE_KEYS.reduce((sum, key) => sum + roles[key], 0);
     if (total < MIN_PLAYERS || total > MAX_PLAYERS) return null;
+    // Házastársakból páros szám kell, mert minden pár két játékosból áll.
+    if (roles.spouses % 2 !== 0) return null;
+    // A Kalandor csak olyan szerepeket kaphat feladatként, amelyekből tényleg van a szobában.
+    if (roles.adventurer > 0) {
+        const objectiveRoleCount = ROLE_KEYS.filter((key) => key !== "adventurer" && roles[key] > 0).length;
+        if (objectiveRoleCount < 3) return null;
+    }
     return { roles, total };
 }
 
@@ -95,7 +111,8 @@ function normalizeRoomSettings(input) {
         huntersSeconds: 10,
         foolSeconds: 10,
         swapperSeconds: 10,
-        infectiousSeconds: 10
+        infectiousSeconds: 10,
+        adventurerSeconds: 20
     };
     const source = input && typeof input === "object" ? input : {};
     const settings = {};
@@ -115,10 +132,10 @@ function fitRolesToPlayerCount(currentRoles, count) {
     roles.spirits = Math.max(1, Number(roles.spirits) || 0);
 
     while (sum() > count) {
-        const reductionOrder = ["villagers", "fool", "swapper", "infectious", "hunters", "healer", "spirits"];
-        const key = reductionOrder.find((candidate) => roles[candidate] > (candidate === "spirits" ? 1 : 0));
+        const reductionOrder = ["villagers", "fool", "swapper", "infectious", "hunters", "healer", "seer", "landlord", "adventurer", "spouses", "spirits"];
+        const key = reductionOrder.find((candidate) => roles[candidate] > (candidate === "spirits" || candidate === "spouses" ? 1 : 0));
         if (!key) break;
-        roles[key] -= 1;
+        roles[key] -= key === "spouses" ? 2 : 1;
     }
     if (sum() < count) roles.villagers += count - sum();
     return roles;
@@ -176,6 +193,23 @@ function livingPlayers(room) {
 }
 function livingRolePlayers(room, role) { return livingPlayers(room).filter((player) => player.role === role); }
 
+function cascadeSpouseDeaths(room, deadIds) {
+    let changed = true;
+    while (changed) {
+        changed = false;
+        for (const id of [...deadIds]) {
+            const player = room.players.get(id);
+            if (!player || player.role !== "spouses" || !player.spousePartnerId) continue;
+            const partner = room.players.get(player.spousePartnerId);
+            if (partner && partner.role === "spouses" && !deadIds.has(partner.id)) {
+                deadIds.add(partner.id);
+                changed = true;
+            }
+        }
+    }
+    return deadIds;
+}
+
 function currentVoteDetails(room) {
     const game = room.game;
     // A többiek csak azt látják, hogy a játékos leadta-e a szavazatát; a célpont titkos.
@@ -195,9 +229,11 @@ function displayNameForPlayer(player, viewerId) {
 function gamePublicState(room, viewerId = null) {
     const game = room.game;
     const living = livingPlayers(room);
+    const viewerPlayer = viewerId ? room.players.get(viewerId) : null;
     const rawVoteResult = game.lastVoteResult;
     const voteResult = rawVoteResult ? {
         expelledName: rawVoteResult.expelledId ? displayNameForPlayer(room.players.get(rawVoteResult.expelledId), viewerId) : null,
+        additionalExpelledNames: (rawVoteResult.additionalExpelledIds || []).map((id) => displayNameForPlayer(room.players.get(id), viewerId)),
         counts: (rawVoteResult.counts || []).map((item) => ({
             name: item.targetId === "skip" ? "SKIP" : displayNameForPlayer(room.players.get(item.targetId), viewerId),
             votes: item.votes
@@ -219,6 +255,21 @@ function gamePublicState(room, viewerId = null) {
             voiceEffect: player.id !== viewerId ? (player.voiceSabotage || null) : null
         })),
         infectedSelf: Boolean(viewerId && game.infectedPlayerIds instanceof Set && game.infectedPlayerIds.has(viewerId)),
+        seerChannelAvailable: Boolean(
+            game.phase !== "game-over" && livingRolePlayers(room, "seer").length > 0 &&
+            viewerPlayer && ((viewerPlayer.role === "seer" && viewerPlayer.alive !== false) || viewerPlayer.alive === false)
+        ),
+        adventurerTasks: viewerPlayer?.role === "adventurer"
+            ? (game.adventurerObjectiveRoles?.get(viewerId) || []).map((roleKey) => ({
+                role: roleKey,
+                label: ROLE_LABELS[roleKey],
+                solved: Boolean(game.adventurerProgress?.get(viewerId)?.has(roleKey)),
+                targetId: game.adventurerProgress?.get(viewerId)?.get(roleKey) || null,
+                targetName: game.adventurerProgress?.get(viewerId)?.has(roleKey)
+                    ? displayNameForPlayer(room.players.get(game.adventurerProgress.get(viewerId).get(roleKey)), viewerId)
+                    : null
+            }))
+            : [],
         alivePlayerIds: living.map((player) => player.id),
         lastNightDeaths: (game.lastNightDeaths || []).map((item) => ({
             username: displayNameForPlayer(room.players.get(item.id), viewerId)
@@ -256,7 +307,15 @@ function emitSpeakingToChannel(room, playerId, channel, speaking) {
         io.to(room.code).emit("player-speaking", payload);
         return;
     }
-    // A privát csatorna beszélőjelzése is csak a csapat tagjaihoz jut el.
+    // A házastársi beszélőjelzés kizárólag a saját párhoz jut el.
+    if (channel === "spouses") {
+        const speaker = room.players.get(playerId);
+        const partner = speaker?.spousePartnerId ? room.players.get(speaker.spousePartnerId) : null;
+        io.to(playerId).emit("player-speaking", payload);
+        if (partner && partner.alive !== false && partner.connected !== false) io.to(partner.id).emit("player-speaking", payload);
+        return;
+    }
+    // A többi privát csatorna beszélőjelzése a csapat tagjaihoz jut el.
     for (const teammate of livingRolePlayers(room, channel)) {
         io.to(teammate.id).emit("player-speaking", payload);
     }
@@ -316,6 +375,13 @@ function getWinner(room) {
     const living = livingPlayers(room);
     if (living.length === 0) return "draw";
     const game = room.game;
+    if (game?.adventurerObjectiveRoles instanceof Map && game?.adventurerProgress instanceof Map) {
+        for (const adventurer of livingRolePlayers(room, "adventurer")) {
+            const objectives = game.adventurerObjectiveRoles.get(adventurer.id) || [];
+            const progress = game.adventurerProgress.get(adventurer.id) || new Map();
+            if (objectives.length === 3 && objectives.every((roleKey) => progress.has(roleKey))) return "adventurer";
+        }
+    }
     const infectedIds = game?.infectedPlayerIds instanceof Set ? game.infectedPlayerIds : new Set();
     const infectiousAlive = living.some((player) => player.role === "infectious");
     if (infectiousAlive && living.every((player) => player.role === "infectious" || infectedIds.has(player.id))) {
@@ -397,6 +463,7 @@ function startNightRound(room) {
     room.game.healerActions = new Map();
     room.game.healerDisagreement = false;
     room.game.hunterActions = new Map();
+    room.game.adventurerAttempts = new Map();
     room.game.nightAttackTargetId = null;
     room.game.lastNightDeaths = [];
     room.game.pendingPublicEvents = [];
@@ -452,12 +519,27 @@ function resolveRoleSwapActions(room) {
         if (!actor || !target || actor.role !== "swapper" || actor.alive === false || actor.connected === false || target.alive === false || target.connected === false || actor.id === target.id) continue;
         // A felhasználtságot a beküldéskor jelöljük; itt ezért nem szabad újra elutasítani.
 
-        // A Szerepcserélő vakon átveszi a kiválasztott játékos szerepét; a célpont Falusi lesz.
+        // Az Árnycserélő vakon átveszi a kiválasztott játékos szerepét; a célpont Falusi lesz.
         const takenRole = target.role;
         const takenSpecialSpirit = takenRole === "spirits" && Boolean(target.specialSpirit);
+        const targetSpousePartnerId = target.spousePartnerId || null;
+        const actorOldPartnerId = actor.spousePartnerId || null;
+        if (actorOldPartnerId) {
+            const oldPartner = room.players.get(actorOldPartnerId);
+            if (oldPartner?.spousePartnerId === actor.id) {
+                oldPartner.spousePartnerId = null;
+                if (oldPartner.role === "spouses" && actor.role === "swapper") oldPartner.role = "villagers";
+            }
+        }
+        if (targetSpousePartnerId) {
+            const partner = room.players.get(targetSpousePartnerId);
+            if (partner?.spousePartnerId === target.id) partner.spousePartnerId = actor.id;
+        }
         actor.role = takenRole;
         actor.specialSpirit = takenSpecialSpirit;
+        actor.spousePartnerId = takenRole === "spouses" ? targetSpousePartnerId : null;
         target.role = "villagers";
+        target.spousePartnerId = null;
         target.specialSpirit = false;
         target.publicAlias = null;
         target.publicAliasTargetId = null;
@@ -614,6 +696,7 @@ function resolveNight(room) {
         }
     }
 
+    cascadeSpouseDeaths(room, deadIds);
     const deaths = [];
     for (const playerId of deadIds) {
         const player = room.players.get(playerId);
@@ -648,8 +731,9 @@ function resolveVotes(room) {
     const counts = new Map([["skip", 0]]);
     for (const player of living) {
         const vote = game.votes.has(player.id) ? game.votes.get(player.id) : "skip";
+        const voteWeight = player.role === "landlord" ? 2 : 1;
         if (vote === "skip") {
-            counts.set("skip", (counts.get("skip") || 0) + 1);
+            counts.set("skip", (counts.get("skip") || 0) + voteWeight);
             continue;
         }
         const target = room.players.get(vote);
@@ -657,17 +741,24 @@ function resolveVotes(room) {
             counts.set("skip", (counts.get("skip") || 0) + 1);
             continue;
         }
-        counts.set(vote, (counts.get(vote) || 0) + 1);
+        counts.set(vote, (counts.get(vote) || 0) + voteWeight);
     }
     for (const player of living) if (!counts.has(player.id)) counts.set(player.id, 0);
     const highest = Math.max(0, ...counts.values());
     const top = [...counts.entries()].filter(([, count]) => count === highest && count > 0);
 
     let expelled = null;
+    const expelledIds = new Set();
     if (top.length === 1 && top[0][0] !== "skip") {
         expelled = room.players.get(top[0][0]) || null;
-        if (expelled && expelled.alive !== false) expelled.alive = false;
-        else expelled = null;
+        if (expelled && expelled.alive !== false) {
+            expelledIds.add(expelled.id);
+            cascadeSpouseDeaths(room, expelledIds);
+            for (const id of expelledIds) {
+                const player = room.players.get(id);
+                if (player) player.alive = false;
+            }
+        } else expelled = null;
     }
 
     const results = [...counts.entries()]
@@ -677,8 +768,15 @@ function resolveVotes(room) {
 
     // A nap végén csak az összesített eredmény kerül ki; nem tárolunk és nem küldünk nyilvános voter-target párokat.
     if (expelled) {
-        game.lastVoteResult = { expelledId: expelled.id, counts: results };
-        game.message = "A falu kiszavazta a legtöbb szavazatot kapó játékost.";
+        const linkedDeaths = [...expelledIds].filter((id) => id !== expelled.id);
+        game.lastVoteResult = { expelledId: expelled.id, additionalExpelledIds: linkedDeaths, counts: results };
+        game.message = linkedDeaths.length
+            ? "A falu kiszavazott valakit, és a házastársi kötelék miatt a párja is kiesett."
+            : "A falu kiszavazta a legtöbb szavazatot kapó játékost.";
+        for (const id of linkedDeaths) {
+            const partner = room.players.get(id);
+            if (partner) game.lastNightLog.push({ id: crypto.randomUUID(), type: "spouse-bond", text: "A házastársi kötelék miatt egy másik játékos is kiesett.", at: Date.now() });
+        }
     } else {
         game.lastVoteResult = { expelledId: null, counts: results };
         game.message = top.length > 1
@@ -691,6 +789,27 @@ function resolveVotes(room) {
     else winner = getWinner(room);
     game.pendingWinner = winner;
     startPhase(room, "vote-result", 5, game.message);
+}
+
+function startAdventurerPhaseOrResolve(room) {
+    const game = room.game;
+    const pending = livingRolePlayers(room, "adventurer").some((player) => {
+        const tasks = game.adventurerObjectiveRoles?.get(player.id) || [];
+        const progress = game.adventurerProgress?.get(player.id) || new Map();
+        return tasks.some((roleKey) => !progress.has(roleKey));
+    });
+    if (pending) startPhase(room, "night-adventurer", room.settings.adventurerSeconds, "A Kalandor egy szerepet próbál meg beazonosítani.");
+    else resolveNight(room);
+}
+
+function startRemainingNightActions(room) {
+    if (livingRolePlayers(room, "fool").length > 0) {
+        startPhase(room, "night-fool", room.settings.foolSeconds, "A bolond kivárja az éjszakát.");
+    } else if (livingRolePlayers(room, "infectious").length > 0) {
+        startPhase(room, "night-infectious", room.settings.infectiousSeconds, "A Fertőző kiválasztja a következő célpontját.");
+    } else {
+        startAdventurerPhaseOrResolve(room);
+    }
 }
 
 function advanceGamePhase(room) {
@@ -720,45 +839,31 @@ function advanceGamePhase(room) {
                     : "A gyógyító kiválaszthat egy játékost, akit megvéd. Még két egyéni védési alkalma van összesen.");
             } else if (livingRolePlayers(room, "hunters").length > 0) {
                 startHuntersPhase(room);
-            } else if (livingRolePlayers(room, "fool").length > 0) {
-                startPhase(room, "night-fool", room.settings.foolSeconds, "A bolond kivárja az éjszakát.");
-            } else if (livingRolePlayers(room, "infectious").length > 0) {
-                startPhase(room, "night-infectious", room.settings.infectiousSeconds, "A Fertőző kiválasztja a következő célpontját.");
             } else {
-                resolveNight(room);
+                startRemainingNightActions(room);
             }
             break;
         }
         case "night-healer":
             resolveHealerActions(room);
-            if (livingRolePlayers(room, "hunters").length > 0) {
-                startHuntersPhase(room);
-            } else if (livingRolePlayers(room, "fool").length > 0) {
-                startPhase(room, "night-fool", room.settings.foolSeconds, "A bolond kivárja az éjszakát.");
-            } else if (livingRolePlayers(room, "infectious").length > 0) {
-                startPhase(room, "night-infectious", room.settings.infectiousSeconds, "A Fertőző kiválasztja a következő célpontját.");
-            } else {
-                resolveNight(room);
-            }
+            if (livingRolePlayers(room, "hunters").length > 0) startHuntersPhase(room);
+            else startRemainingNightActions(room);
             break;
         case "night-hunters":
-            if (livingRolePlayers(room, "fool").length > 0) {
-                startPhase(room, "night-fool", room.settings.foolSeconds, "A bolond kivárja az éjszakát.");
-            } else if (livingRolePlayers(room, "infectious").length > 0) {
-                startPhase(room, "night-infectious", room.settings.infectiousSeconds, "A Fertőző kiválasztja a következő célpontját.");
-            } else {
-                resolveNight(room);
-            }
+            startRemainingNightActions(room);
             break;
         case "night-fool":
             if (livingRolePlayers(room, "infectious").length > 0) {
                 startPhase(room, "night-infectious", room.settings.infectiousSeconds, "A Fertőző kiválasztja a következő célpontját.");
             } else {
-                resolveNight(room);
+                startAdventurerPhaseOrResolve(room);
             }
             break;
         case "night-infectious":
             resolveInfectiousActions(room);
+            startAdventurerPhaseOrResolve(room);
+            break;
+        case "night-adventurer":
             resolveNight(room);
             break;
         case "dawn-result":
@@ -784,9 +889,15 @@ function advanceGamePhase(room) {
 
 function sendPrivateRole(socket, room, player) {
     // A gyógyítók nem kapják meg egymás azonosítóját vagy nevét.
-    const teamMembers = ["spirits", "hunters"].includes(player.role)
+    let teamMembers = ["spirits", "hunters"].includes(player.role)
         ? livingRolePlayers(room, player.role).map((member) => ({ id: member.id, username: member.username }))
         : [];
+    if (player.role === "spouses" && player.spousePartnerId) {
+        const partner = room.players.get(player.spousePartnerId);
+        teamMembers = partner && partner.role === "spouses" && partner.alive !== false
+            ? [{ id: partner.id, username: partner.username }]
+            : [];
+    }
     const roleDescriptions = {
         spirits: "Éjszaka válasszatok közös célpontot. Több lidérc esetén mindenkinek ugyanazt a célpontot kell választania. Ha egyedül maradsz, támadhatsz vagy a teljes játék során egyszer megvizsgálhatod egy másik élő játékos szerepét. Minden lidérc külön, 50% eséllyel lehet Bohóc lidérc.",
         healer: "Ha több gyógyító él, mindegyik külön választ egy célpontot; csak azonos választás esetén sikerül a védelem. Nincs köztetek chat vagy ping. Ha egyedüli gyógyító maradsz, összesen két éjszakán védhetsz, éjszakánként egyszer.",
@@ -794,7 +905,11 @@ function sendPrivateRole(socket, room, player) {
         hunters: "Éjszaka egyszer lőhetsz egy élő játékosra, vagy passzolhatsz. A vadász nem vizsgálhat szerepet. Több vadász a saját éjszakai körében privát hangon és szöveges chaten egyeztethet. Ha a lidércek ugyanazon az éjszakán megölnek, nem támadhatsz vissza. Ha ártatlant lősz le, te is meghalsz.",
         fool: "Próbáld elérni, hogy a falu nappali szavazással kiszavazzon. Ha így esel ki, a bolond nyer.",
         swapper: "Éjszaka egyszer, vakon válassz ki egy másik élő játékost. Megkapod az ő szerepét, ő pedig Falusi lesz. Nem látod előre a szerepét, és a célpont nem tud visszacserélni.",
-        infectious: "Minden éjszaka megfertőzhetsz egy még nem fertőzött, élő játékost. Csak te látod, kik fertőződtek meg; a nyilvános napló csak annyit ír, hogy valaki megfertőződött. Akkor nyersz, ha minden más életben lévő játékos fertőzött."
+        infectious: "Minden éjszaka megfertőzhetsz egy még nem fertőzött, élő játékost. Csak te látod, kik fertőződtek meg; a nyilvános napló csak annyit ír, hogy valaki megfertőződött. Akkor nyersz, ha minden más életben lévő játékos fertőzött.",
+        seer: "Látnokként a halott játékosokkal beszélgethetsz titkos csatornán. Kérhetsz tőlük segítséget, de a játékban élők többi tagja nem látja ezt a beszélgetést.",
+        landlord: "A nappali szavazásod két szavazatot ér. Egy célpontot választasz, és a voksod kétszer számít bele az eredménybe.",
+        spouses: "Van egy házastársad, akit a titkos szerepkártyádon látsz. Éjszaka privát chaten és hangon kommunikálhattok. Ha egyikőtök meghal, a másik is kiesik.",
+        adventurer: "Három, a szobában ténylegesen beállított szerepet kell megtalálnod. Minden éjszaka egy játékos szerepére tippelhetsz. A célpont halála nem törli a feladatot. Ha mindhárom helyes találatod megvan, azonnal nyersz."
     };
     if (player.specialSpirit) {
         roleDescriptions.spirits = "Bohóc lidérc vagy: továbbra is a lidércek csapatában játszol és részt veszel a közös támadásban. A különleges körödben 20 másodperccel választhatsz egyszeri képességet: vakon felveheted egy élő játékos nevét, vagy lenémíthatod őt nappalra. Ha egyedüli lidérc vagy, a szabotázs helyett egyszer megvizsgálhatsz egy másik élő játékost. A különleges képesség a teljes játék során egyszer használható. A névfelvétel célpontja a saját eredeti nevét látja; mindenki más téged a kiválasztott játékos neve alatt lát.";
@@ -811,6 +926,7 @@ function sendPrivateRole(socket, room, player) {
         swapperUsed: Boolean(room.game?.swapperUsedIds?.has(player.id)),
         roleSwapUsed: Boolean(room.game?.roleSwapUsedIds?.has(player.id)),
         infectedPlayerIds: player.role === "infectious" ? [...(room.game?.infectedPlayerIds || new Set())] : [],
+        adventurerTasks: player.role === "adventurer" ? (room.game?.adventurerObjectiveRoles?.get(player.id) || []).map((roleKey) => ({ role: roleKey, label: ROLE_LABELS[roleKey], solved: Boolean(room.game?.adventurerProgress?.get(player.id)?.has(roleKey)), targetId: room.game?.adventurerProgress?.get(player.id)?.get(roleKey) || null })) : [],
         roleDescription: roleDescriptions[player.role] || "A szereped titkos."
     });
 }
@@ -839,6 +955,14 @@ function leaveRoom(socket, notifyClient = false) {
         if (room.started && room.game && room.game.phase !== "game-over" && player) {
             player.connected = false;
             player.alive = false;
+            if (player.role === "spouses" && player.spousePartnerId) {
+                const partner = room.players.get(player.spousePartnerId);
+                if (partner && partner.role === "spouses" && partner.alive !== false) {
+                    partner.alive = false;
+                    room.game.lastNightLog = Array.isArray(room.game.lastNightLog) ? room.game.lastNightLog : [];
+                    room.game.lastNightLog.push({ id: crypto.randomUUID(), type: "spouse-bond", text: "A házastársi kötelék miatt egy másik játékos is kiesett.", at: Date.now() });
+                }
+            }
             const winner = getWinner(room);
             if (winner) endGame(room, winner);
             else emitGameState(room);
@@ -888,7 +1012,7 @@ io.on("connection", (socket) => {
         if (username.length < 2) return sendRoomError(socket, "A játékosneved legalább 2 karakter legyen.");
         if (nameIsInActiveRoom(username)) return sendRoomError(socket, "Ezt a nevet már használja egy aktív játékos. Válassz másik nevet a kezdőoldalon.");
         if (roomName.length < 3) return sendRoomError(socket, "A szoba neve legalább 3 karakter legyen.");
-        if (!roleData) return sendRoomError(socket, `A szerepkörök összege ${MIN_PLAYERS} és ${MAX_PLAYERS} játékos között legyen.`);
+        if (!roleData) return sendRoomError(socket, `Ellenőrizd a beállításokat: ${MIN_PLAYERS}–${MAX_PLAYERS} játékos lehet, a Házastársak száma páros legyen, és a Kalandorhoz legalább 3 különböző szerepkör legyen beállítva.`);
         if (!settings) return sendRoomError(socket, "Minden időtartam 5 és 3600 másodperc közötti egész szám legyen.");
         const code = makeRoomCode();
         const room = {
@@ -956,6 +1080,10 @@ io.on("connection", (socket) => {
         if ([...room.players.values()].some((player) => !player.ready)) return sendRoomError(socket, "A játék csak akkor indulhat, ha minden játékos készen áll.");
         if (room.roles.spirits < 1) return sendRoomError(socket, "Legalább 1 Lidércet állíts be. A Bohóc lidérc csak véletlenszerű különleges változata egy Lidércnek.");
 
+        if (room.roles.spouses % 2 !== 0) return sendRoomError(socket, "A Házastársak száma páros legyen (2, 4, 6…).");
+        if (room.roles.adventurer > 0 && ROLE_KEYS.filter((key) => key !== "adventurer" && room.roles[key] > 0).length < 3) {
+            return sendRoomError(socket, "A Kalandorhoz legalább három különböző, beállított szerepkör kell.");
+        }
         const roleList = [];
         for (const role of ROLE_KEYS) for (let i = 0; i < room.roles[role]; i++) roleList.push(role);
         if (roleList.length !== room.players.size) return sendRoomError(socket, "A szerepkörök összege nem egyezik a játékosok számával.");
@@ -965,13 +1093,22 @@ io.on("connection", (socket) => {
         shuffledPlayers.forEach((player, index) => {
             const selectedSlot = shuffledRoleSlots[index];
             player.role = selectedSlot;
+            player.originalRole = selectedSlot;
             player.specialSpirit = selectedSlot === "spirits" && crypto.randomInt(2) === 0;
+            player.spousePartnerId = null;
             player.publicAlias = null;
             player.publicAliasTargetId = null;
             player.voiceSabotage = null;
             player.alive = true;
             player.connected = true;
         });
+
+        // A Házastársak párokba kerülnek. Egy beállított szerep-pár két játékosból áll.
+        const spouses = shuffle(shuffledPlayers.filter((player) => player.role === "spouses"));
+        for (let i = 0; i + 1 < spouses.length; i += 2) {
+            spouses[i].spousePartnerId = spouses[i + 1].id;
+            spouses[i + 1].spousePartnerId = spouses[i].id;
+        }
 
         room.started = true;
         room.game = {
@@ -981,8 +1118,15 @@ io.on("connection", (socket) => {
             healerTargetId: null, healerActions: new Map(), healerDisagreement: false,
             healerUsesRemaining: 2, hunterActions: new Map(), nightAttackTargetId: null,
             votes: new Map(), lastNightDeaths: [], lastNightLog: [], lastVoteResult: null, pendingWinner: null, winner: null,
-            rematchReady: new Set()
+            rematchReady: new Set(),
+            adventurerObjectiveRoles: new Map(), adventurerProgress: new Map(), adventurerAttempts: new Map()
         };
+        const availableAdventurerRoles = ROLE_KEYS.filter((roleKey) => roleKey !== "adventurer" && room.roles[roleKey] > 0);
+        for (const adventurer of livingRolePlayers(room, "adventurer")) {
+            room.game.adventurerObjectiveRoles.set(adventurer.id, shuffle(availableAdventurerRoles).slice(0, 3));
+            room.game.adventurerProgress.set(adventurer.id, new Map());
+            room.game.adventurerAttempts.set(adventurer.id, new Set());
+        }
 
         io.to(room.code).emit("game-started", { room: publicRoom(room) });
         for (const player of room.players.values()) {
@@ -1191,25 +1335,78 @@ io.on("connection", (socket) => {
         socket.emit("game-action-ack", { message: "A fertőzési célpont rögzítve. A nyilvános napló nem fogja felfedni, kit választottál." });
     });
 
-    // Privát gépes chat kizárólag a lidérceknek, a saját éjszakai körükben.
+    socket.on("adventurer-guess", (payload = {}) => {
+        const room = rooms.get(socket.data.roomId);
+        const player = room?.players.get(socket.id);
+        const game = room?.game;
+        if (!game || game.phase !== "night-adventurer" || !player || player.role !== "adventurer" || player.alive === false || player.connected === false) {
+            socket.emit("game-action-error", "Most nem használhatod a Kalandor képességét."); return;
+        }
+        const roleKey = String(payload.roleKey || "");
+        const targetId = String(payload.targetId || "");
+        const objectives = game.adventurerObjectiveRoles?.get(player.id) || [];
+        const progress = game.adventurerProgress?.get(player.id) || new Map();
+        const attempts = game.adventurerAttempts?.get(player.id) || new Set();
+        const target = room.players.get(targetId);
+        if (!objectives.includes(roleKey)) { socket.emit("game-action-error", "Ez nem a Kalandor egyik feladata."); return; }
+        if (progress.has(roleKey)) { socket.emit("game-action-error", "Ezt a szerepet már sikeresen megtaláltad."); return; }
+        if (attempts.has(roleKey)) { socket.emit("game-action-error", "Erre a feladatra ebben az éjszakában már tippeltél. Próbáld újra a következő éjszaka."); return; }
+        if (!target || target.id === player.id || target.connected === false) { socket.emit("game-action-error", "Válassz egy másik csatlakozott játékost. Kiesett játékosra is tippelhetsz."); return; }
+        attempts.add(roleKey);
+        game.adventurerAttempts.set(player.id, attempts);
+        if (target.originalRole === roleKey) {
+            progress.set(roleKey, target.id);
+            game.adventurerProgress.set(player.id, progress);
+            socket.emit("adventurer-guess-result", { correct: true, roleKey, targetId: target.id, message: `Helyes! ${displayNameForPlayer(target, player.id)} valóban ${ROLE_LABELS[roleKey]}.` });
+            const allSolved = objectives.length === 3 && objectives.every((key) => progress.has(key));
+            if (allSolved) {
+                emitGameState(room);
+                endGame(room, "adventurer");
+                return;
+            }
+        } else {
+            socket.emit("adventurer-guess-result", { correct: false, roleKey, targetId: target.id, message: "Nem talált. Erre a feladatra csak a következő éjszakában próbálkozhatsz újra." });
+        }
+        emitGameState(room);
+    });
+
+    // Privát gépes chat: lidércek/vadászok a saját éjszakai körükben, házastársak éjszaka, a Látnok és a halottak külön csatornán.
     socket.on("team-chat-send", (payload = {}) => {
         const room = rooms.get(socket.data.roomId);
         const player = room?.players.get(socket.id);
-        if (!room?.game || !player || player.alive === false || player.connected === false) return;
+        if (!room?.game || !player || player.connected === false || room.game.phase === "game-over") return;
         const role = player.role;
-        const correctPhase = role === "spirits"
+        const isDead = player.alive === false;
+        const isSeanceSender = (role === "seer" && !isDead) || (isDead && livingRolePlayers(room, "seer").length > 0);
+        const correctPhase = role === "spirits" && !isDead
             ? ["night-special-spirit", "night-spirits"].includes(room.game.phase)
-            : role === "hunters" && room.game.phase === "night-hunters";
-        if (!correctPhase) { socket.emit("game-action-error", "Titkos hang- és szöveges csatornát csak a lidércek vagy a vadászok használhatnak a saját éjszakai körükben."); return; }
+            : role === "hunters" && !isDead && room.game.phase === "night-hunters"
+                ? true
+                : role === "spouses" && !isDead && NIGHT_PHASES.has(room.game.phase)
+                    ? true
+                    : isSeanceSender;
+        if (!correctPhase) { socket.emit("game-action-error", "Ebben a körben nincs hozzáférésed ehhez a titkos csatornához."); return; }
         const text = cleanText(payload.text, 240);
         if (!text) return;
         const now = Date.now();
         if (player.lastTeamMessageAt && now - player.lastTeamMessageAt < 350) return;
         player.lastTeamMessageAt = now;
-        const teammates = livingRolePlayers(room, role);
+        let channel = role;
+        let teammates = [];
+        if (isSeanceSender) {
+            channel = "seance";
+            teammates = [...room.players.values()].filter((entry) => entry.connected !== false && (
+                (entry.role === "seer" && entry.alive !== false) || entry.alive === false
+            ));
+        } else if (role === "spouses") {
+            const partner = player.spousePartnerId ? room.players.get(player.spousePartnerId) : null;
+            teammates = partner && partner.role === "spouses" && partner.alive !== false && partner.connected !== false ? [player, partner] : [player];
+        } else {
+            teammates = livingRolePlayers(room, role);
+        }
         for (const teammate of teammates) {
             io.to(teammate.id).emit("team-chat-message", {
-                team: role,
+                team: channel,
                 fromId: player.id,
                 fromName: player.username,
                 text,
@@ -1227,8 +1424,11 @@ io.on("connection", (socket) => {
         if (!room?.game || !player || !target || !payload.data || player.alive === false || target.alive === false || player.connected === false || target.connected === false) return;
         const permitted = player.role === "spirits"
             ? ["night-special-spirit", "night-spirits"].includes(room.game.phase)
-            : player.role === "hunters" && room.game.phase === "night-hunters";
-        if (!permitted || target.role !== player.role || target.id === player.id) return;
+            : player.role === "hunters" && room.game.phase === "night-hunters"
+                ? true
+                : player.role === "spouses" && NIGHT_PHASES.has(room.game.phase);
+        const spousePairValid = player.role !== "spouses" || player.spousePartnerId === target.id;
+        if (!permitted || !spousePairValid || target.role !== player.role || target.id === player.id) return;
         const targetSocket = io.sockets.sockets.get(targetId);
         if (!targetSocket || targetSocket.data.roomId !== room.code) return;
         targetSocket.emit("team-voice-signal", { from: socket.id, data: payload.data });
@@ -1260,7 +1460,9 @@ io.on("connection", (socket) => {
         const role = player.role;
         const permitted = role === "spirits"
             ? ["night-special-spirit", "night-spirits"].includes(room.game.phase)
-            : role === "hunters" && room.game.phase === "night-hunters";
+            : role === "hunters" && room.game.phase === "night-hunters"
+                ? true
+                : role === "spouses" && NIGHT_PHASES.has(room.game.phase);
         if (!permitted) return;
         if (!payload.speaking) {
             if (room.speakingChannels.get(socket.id) === role) clearPlayerSpeaking(room, socket.id);
@@ -1313,6 +1515,8 @@ io.on("connection", (socket) => {
         for (const entry of room.players.values()) {
             entry.ready = true;
             entry.role = null;
+            entry.originalRole = null;
+            entry.spousePartnerId = null;
             entry.alive = true;
             entry.connected = true;
             delete entry.lastTeamMessageAt;

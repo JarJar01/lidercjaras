@@ -108,7 +108,7 @@
                         <div class="number-control"><button type="button" data-step="-1" data-target="roleFool" aria-label="Bolondok számának csökkentése">−</button><input id="roleFool" name="fool" type="number" min="0" max="16" value="1"><button type="button" data-step="1" data-target="roleFool" aria-label="Bolondok számának növelése">+</button></div>
                     </div>
                     <div class="role-field role-swapper">
-                        <label for="roleSwapper">Szerepcserélő</label>
+                        <label for="roleSwapper">Árnycserélő</label>
                         <p>Éjszaka egyszer vakon szerepet cserél egy másik élő játékossal; a kiválasztott Falusi lesz.</p>
                         <div class="number-control"><button type="button" data-step="-1" data-target="roleSwapper" aria-label="Szerepcserélők számának csökkentése">−</button><input id="roleSwapper" name="swapper" type="number" min="0" max="16" value="0"><button type="button" data-step="1" data-target="roleSwapper" aria-label="Szerepcserélők számának növelése">+</button></div>
                     </div>
@@ -116,6 +116,26 @@
                         <label for="roleInfectious">Fertőző</label>
                         <p>Éjszakánként terjeszti a fertőzést</p>
                         <div class="number-control"><button type="button" data-step="-1" data-target="roleInfectious" aria-label="Fertőzők számának csökkentése">−</button><input id="roleInfectious" name="infectious" type="number" min="0" max="16" value="0"><button type="button" data-step="1" data-target="roleInfectious" aria-label="Fertőzők számának növelése">+</button></div>
+                    </div>
+                    <div class="role-field role-seer">
+                        <label for="roleSeer">Látnok</label>
+                        <p>Privát csatornán beszélhet a halott játékosokkal.</p>
+                        <div class="number-control"><button type="button" data-step="-1" data-target="roleSeer" aria-label="Látnokok számának csökkentése">−</button><input id="roleSeer" name="seer" type="number" min="0" max="16" value="0"><button type="button" data-step="1" data-target="roleSeer" aria-label="Látnokok számának növelése">+</button></div>
+                    </div>
+                    <div class="role-field role-landlord">
+                        <label for="roleLandlord">Földesúr</label>
+                        <p>A nappali szavazata két szavazatot ér.</p>
+                        <div class="number-control"><button type="button" data-step="-1" data-target="roleLandlord" aria-label="Földesurak számának csökkentése">−</button><input id="roleLandlord" name="landlord" type="number" min="0" max="16" value="0"><button type="button" data-step="1" data-target="roleLandlord" aria-label="Földesurak számának növelése">+</button></div>
+                    </div>
+                    <div class="role-field role-spouses">
+                        <label for="roleSpouses">Házastársak</label>
+                        <p>Páros számot állíts be (2, 4, 6…). Párokban beszélgetnek éjszaka; egyikük halálakor a párja is kiesik.</p>
+                        <div class="number-control"><button type="button" data-step="-1" data-target="roleSpouses" aria-label="Házastársak számának csökkentése">−</button><input id="roleSpouses" name="spouses" type="number" min="0" max="16" step="2" value="0"><button type="button" data-step="1" data-target="roleSpouses" aria-label="Házastársak számának növelése">+</button></div>
+                    </div>
+                    <div class="role-field role-adventurer">
+                        <label for="roleAdventurer">Kalandor</label>
+                        <p>Három, a szobában beállított szerepet kell megtalálnia. A célpont halála sem törli a feladatot.</p>
+                        <div class="number-control"><button type="button" data-step="-1" data-target="roleAdventurer" aria-label="Kalandorok számának csökkentése">−</button><input id="roleAdventurer" name="adventurer" type="number" min="0" max="16" value="0"><button type="button" data-step="1" data-target="roleAdventurer" aria-label="Kalandorok számának növelése">+</button></div>
                     </div>
                 </div>
 
@@ -161,6 +181,11 @@
                         <div class="room-setting-field">
                             <label for="settingInfectiousSeconds">Fertőző köre (mp)</label>
                             <input id="settingInfectiousSeconds" type="number" min="5" max="3600" step="1" value="10" required>
+                        </div>
+                        <div class="room-setting-field">
+                            <label for="settingAdventurerSeconds">Kalandor köre (mp)</label>
+                            <input id="settingAdventurerSeconds" type="number" min="5" max="3600" step="1" value="20" required>
+                            <small>Egy éjszaka alatt egy szerepre tippelhet.</small>
                         </div>
                     </div>
                     <p class="form-hint">Minden idő 5 és 3600 másodperc közötti egész szám legyen.</p>

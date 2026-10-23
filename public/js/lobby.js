@@ -22,15 +22,19 @@
     const lobbyMessage = document.getElementById("lobbyMessage");
     const modalRoot = document.getElementById("modalRoot");
 
-    const roleKeys = ["spirits", "healer", "villagers", "hunters", "fool", "swapper", "infectious"];
+    const roleKeys = ["spirits", "healer", "villagers", "hunters", "fool", "swapper", "infectious", "seer", "landlord", "spouses", "adventurer"];
     const roleLabels = {
         spirits: "Lidércek",
         healer: "Gyógyító",
         villagers: "Falusiak",
         hunters: "Vadászok",
         fool: "Bolondok",
-        swapper: "Szerepcserélő",
-        infectious: "Fertőző"
+        swapper: "Árnycserélő",
+        infectious: "Fertőző",
+        seer: "Látnok",
+        landlord: "Földesúr",
+        spouses: "Házastársak",
+        adventurer: "Kalandor"
     };
     const roleIds = {
         spirits: "roleSpirits",
@@ -39,7 +43,11 @@
         hunters: "roleHunters",
         fool: "roleFool",
         swapper: "roleSwapper",
-        infectious: "roleInfectious"
+        infectious: "roleInfectious",
+        seer: "roleSeer",
+        landlord: "roleLandlord",
+        spouses: "roleSpouses",
+        adventurer: "roleAdventurer"
     };
     const roleClasses = {
         spirits: "role-color-spirits",
@@ -48,7 +56,11 @@
         hunters: "role-color-hunters",
         fool: "role-color-fool",
         swapper: "role-color-swapper",
-        infectious: "role-color-infectious"
+        infectious: "role-color-infectious",
+        seer: "role-color-seer",
+        landlord: "role-color-landlord",
+        spouses: "role-color-spouses",
+        adventurer: "role-color-adventurer"
     };
 
     let currentRoom = null;
@@ -231,7 +243,7 @@
     function readRoomSettings() {
         const keys = [
             "introSeconds", "daySeconds", "spiritsSeconds",
-            "healerSeconds", "huntersSeconds", "foolSeconds", "swapperSeconds", "infectiousSeconds"
+            "healerSeconds", "huntersSeconds", "foolSeconds", "swapperSeconds", "infectiousSeconds", "adventurerSeconds"
         ];
         const ids = {
             introSeconds: "settingIntroSeconds",
@@ -241,7 +253,8 @@
             huntersSeconds: "settingHuntersSeconds",
             foolSeconds: "settingFoolSeconds",
             swapperSeconds: "settingSwapperSeconds",
-            infectiousSeconds: "settingInfectiousSeconds"
+            infectiousSeconds: "settingInfectiousSeconds",
+            adventurerSeconds: "settingAdventurerSeconds"
         };
         const settings = {};
         for (const key of keys) {
@@ -270,8 +283,18 @@
             hint.textContent = "Legfeljebb 16 játékos lehet. Csökkentsd valamelyik szerepkör számát.";
             hint.classList.add("is-invalid");
         } else {
-            hint.textContent = "Legalább 4, legfeljebb 16 játékost állíts be. A játék akkor indulhat, ha minden férőhely betelt és mindenki készen áll.";
-            hint.classList.remove("is-invalid");
+            const roles = readSelectedRoles();
+            const objectiveRoles = roleKeys.filter((key) => key !== "adventurer" && roles[key] > 0);
+            if (roles.spouses % 2 !== 0) {
+                hint.textContent = "A Házastársak száma páros legyen: 2, 4, 6…";
+                hint.classList.add("is-invalid");
+            } else if (roles.adventurer > 0 && objectiveRoles.length < 3) {
+                hint.textContent = "A Kalandorhoz legalább 3 különböző, beállított szerep szükséges.";
+                hint.classList.add("is-invalid");
+            } else {
+                hint.textContent = "Legalább 4, legfeljebb 16 játékost állíts be. A Házastársak száma páros legyen; a Kalandorhoz 3 különböző szerep kell.";
+                hint.classList.remove("is-invalid");
+            }
         }
     }
 
@@ -433,6 +456,7 @@
         if (!state || !voiceRole || !gamePlayerAlive) return null;
         if (voiceRole === "spirits" && ["night-special-spirit", "night-spirits"].includes(state.phase)) return "spirits";
         if (voiceRole === "hunters" && state.phase === "night-hunters") return "hunters";
+        if (voiceRole === "spouses" && ["night-swapper", "night-special-spirit", "night-spirits", "night-healer", "night-hunters", "night-fool", "night-infectious", "night-adventurer"].includes(state.phase)) return "spouses";
         return null;
     }
 
@@ -468,7 +492,8 @@
             buttonText = "Mikrofon letiltva";
             statusText = "Kiestél · hallgathatsz, de nem beszélhetsz";
         } else if (privateTeamVoice) {
-            const teamName = teamVoiceRole === "hunters" || voiceRole === "hunters" ? "Vadászok" : "Lidércek";
+            const activeRole = teamVoiceRole || voiceRole;
+            const teamName = activeRole === "hunters" ? "Vadászok" : activeRole === "spouses" ? "Házastársak" : "Lidércek";
             buttonText = teamMicEnabled ? `${teamName} mikrofon némítása` : `${teamName} privát mikrofon bekapcsolása`;
             statusText = teamMicEnabled
                 ? `${teamName} privát hangja aktív · csak a csapat hallja`
@@ -522,7 +547,7 @@
         if (!state || !state.phase) return;
         const previousTeamVoicePhase = teamVoicePhaseActive;
         currentGameVoiceState = state;
-        gameVoiceLocked = ["countdown", "night-swapper", "night-special-spirit", "night-spirits", "night-healer", "night-hunters", "night-fool", "night-infectious"].includes(state.phase);
+        gameVoiceLocked = ["countdown", "night-swapper", "night-special-spirit", "night-spirits", "night-healer", "night-hunters", "night-fool", "night-infectious", "night-adventurer"].includes(state.phase);
         const me = Array.isArray(state.players) ? state.players.find((player) => player.id === socket.id) : null;
         // A kiesettek a játék végén újra beszélhetnek; a játék közben csak hallgatók.
         if (me) gamePlayerAlive = Boolean((me.alive && me.connected !== false) || state.phase === "game-over");
@@ -1085,8 +1110,9 @@
     document.querySelectorAll(".number-control button[data-target]").forEach((button) => {
         button.addEventListener("click", () => {
             const input = document.getElementById(button.dataset.target);
-            const step = Number(button.dataset.step);
+            let step = Number(button.dataset.step);
             const current = Number.parseInt(input.value, 10) || 0;
+            if (input.id === "roleSpouses") step *= 2;
             input.value = String(Math.max(0, Math.min(16, current + step)));
             updateRoleTotal();
         });
@@ -1118,6 +1144,14 @@
         }
         if (total < 4 || total > 16) {
             showMessage("A szerepkörök összege legalább 4, legfeljebb 16 játékos legyen.", "error");
+            return;
+        }
+        if (roles.spouses % 2 !== 0) {
+            showMessage("A Házastársak számát párosan állítsd be: 2, 4, 6…", "error");
+            return;
+        }
+        if (roles.adventurer > 0 && roleKeys.filter((key) => key !== "adventurer" && roles[key] > 0).length < 3) {
+            showMessage("A Kalandorhoz legalább három különböző, beállított szerepkörre van szükség.", "error");
             return;
         }
 

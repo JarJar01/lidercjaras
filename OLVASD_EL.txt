@@ -1,5 +1,5 @@
-LIDÉRCJÁRÁS – SZEREPCSERÉLŐ, FERTŐZŐ, GYÓGYÍTÓ ÉS TITKOS SZEREPEK
-Verzió: lidercjaras-bohoc-egyszeri-szabotazs-hangkevero-2026-10-23-7
+LIDÉRCJÁRÁS – LÁTNOK, FÖLDESÚR, HÁZASTÁRSAK ÉS KALANDOR
+Verzió: lidercjaras-roles-seer-landlord-spouses-adventurer-2026-10-24-4
 
 TELEPÍTÉS
 1. Állítsd le a futó szervert Ctrl+C billentyűkkel.
@@ -53,3 +53,12 @@ TESZTELÉS
 - A váróteremben és a nyilvános nappali/éjszakák közti időszakokban a játékoslistán személyenkénti helyi hangerőcsúszka és némítás van. Ez a te böngésződben szabályozza az adott játékos hangját, a mikrofonját nem kapcsolja ki.
 
 További pontosítás: a vadász nem vizsgál szerepet, csak lőhet vagy passzolhat. A Bohóc lidérc pontosan egyszer használhatja fel a névváltás vagy némítás képességének egyikét a teljes játék során. A lobby és a nappali játékoslisták személyenkénti, helyi hangerőcsúszkát és némítógombot tartalmaznak.
+
+
+ÚJ SZEREPKÖRÖK ÉS JAVÍTÁSOK (2026-10-24):
+- A Látnok és az életben lévő Látnok mellett a halott játékosok külön, csak számukra elérhető szöveges csatornán kommunikálhatnak.
+- A Földesúr nappali szavazata két szavazati pontot ér egy kiválasztott célpontra (vagy a SKIP-re).
+- A Házastársak párokba kerülnek. Éjszaka privát hangon és chaten beszélhetnek; egyikük halálakor a párja is kiesik. A lobbyban páros létszám szükséges.
+- A Kalandor a lobbyban beállított szerepek közül három különbözőt kap feladatként. Éjszakánként egy célpontra tippelhet; a célpont halála nem törli a feladatot. Mindhárom sikeres találat után a Kalandor nyer.
+- A Kalandor éjszakai köre külön időkeretet kap (5–3600 másodperc).
+- A Házastársak privát hangkapcsolata az éjszakai fázisokban automatikusan bekapcsol, és a fázis végén lezárul.

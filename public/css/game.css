@@ -354,3 +354,8 @@
     .player-voice-controls { flex: 1 1 100%; min-width: 0; margin-left: 43px; }
 }
 
+
+
+/* Kalandor feladatlista */
+.game-adventurer-task { margin: 7px 0; padding: 10px 12px; border: 1px solid rgba(169, 144, 210, 0.22); border-left: 3px solid #79c6cf; border-radius: 6px; background: rgba(28, 35, 49, 0.7); color: #d7e7f0; font-size: 12px; line-height: 1.5; }
+.game-adventurer-task.is-solved { border-left-color: #8dbb78; color: #a9d89a; background: rgba(35, 56, 39, 0.38); }
