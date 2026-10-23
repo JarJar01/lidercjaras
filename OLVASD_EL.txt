@@ -1,5 +1,5 @@
 LIDÉRCJÁRÁS – SZEREPCSERÉLŐ, FERTŐZŐ, GYÓGYÍTÓ ÉS TITKOS SZEREPEK
-Verzió: lidercjaras-szerepcserelo-fertozo-2026-10-23-6
+Verzió: lidercjaras-bohoc-egyszeri-szabotazs-hangkevero-2026-10-23-7
 
 TELEPÍTÉS
 1. Állítsd le a futó szervert Ctrl+C billentyűkkel.
@@ -22,9 +22,9 @@ TELEPÍTÉS
 - Több lidérc a saját éjszakai körében privát szöveges chatet és külön WebRTC-hangkapcsolatot használhat. A böngésző mikrofonengedélyével a privát lidérchang automatikusan indul a megfelelő fázisban, és a fázis végén automatikusan leáll. A gyógyítók nem kapnak privát hangot vagy szöveges chatet; a vadászok csak a saját éjszakai körükben kommunikálhatnak privát csatornán.
 - A játékoslistán beszélőjelzés jelenik meg. A szerver jelzi, amikor valaki beszél; a jelzés minden játékosnak látható. A lidércek és a vadászok privát hangja továbbra is csak a saját csapatukhoz jut el.
 - Ha a lidércek ugyanazon az éjszakán megölik a vadászt, az adott vadász nem lőhet vissza ugyanabban az éjszakában.
-- Ha egyedül marad egy lidérc, megtámadhat egy élő játékost vagy megvizsgálhatja egy másik élő játékos szerepét. Ha egyedül marad egy vadász, lőhet/passzolhat vagy megvizsgálhatja egy másik élő játékos szerepét.
+- Ha egyedül marad egy normál lidérc, megtámadhat egy élő játékost vagy a teljes játék során egyszer megvizsgálhatja egy másik élő játékos szerepét. A Bohóc lidérc nem vizsgálhat szerepet. A vadász csak lőhet vagy passzolhat, szerepet nem vizsgálhat.
 - A szavazás alatt látható, ki adott le szavazatot és kire. Az eredményben a le nem adott szavazat SKIP-ként szerepel.
-- A Bohóc lidérc-esély a szobalétrehozásnál beállított extra lidérchely. Ha legalább egy ilyen hely van, 50% eséllyel egy véletlen lidérc Bohóc lidérc lesz. Éjszakánként egy célpont nevét megváltoztathatja, elvékonyíthatja a hangját vagy lenémíthatja a hangját; a hatás reggel jelenik meg.
+- A Bohóc lidérc a szobalétrehozásnál közvetlenül beállítható különleges szerephely, nem százalékos esély. A játékos a lidércek csapatához tartozik. A teljes játék során egyszer választhat névváltást vagy némítást; szerepet nem vizsgálhat.
 - A Fertőző éjszakánként megfertőzhet egy még nem fertőzött élő játékost. Csak a Fertőző látja a fertőzöttek jelölését; a nyilvános napló csak annyit ír, hogy valaki megfertőződött. A Fertőző akkor nyer, ha minden más életben lévő játékos fertőzött.
 - Játék végén a hangkapcsolat minden játékosnak újra elérhető, a kiesetteknek is. Játék közben a kiesettek nem beszélhetnek, de nappal hallgathatják az életben lévő játékosokat.
 
@@ -44,3 +44,12 @@ TESZTELÉS
 - Az egyedüli lidérc szerepvizsgálata egyetlen alkalommal használható a teljes játékban.
 - A Fertőző a reggel kezdetén kapja meg az aktuális fertőzöttlistát; a fertőzött játékos saját jelzést kap, a többiek csak általános naplóüzenetet látnak.
 - A Bohóc lidérc névváltoztatása nem látszik a célpont saját felületén. A hangtorzítás a többiek oldalán működik a következő éjszakáig.
+
+
+Új javítások (2026-10-23):
+- A Bohóc lidérc pontosan annyi fővel kerül kiosztásra, amennyit a lobbyban beállítottak; nincs 50%-os véletlen dobás.
+- A Bohóc lidérc egyetlen szabotázst használhat a teljes játék alatt: névváltás vagy némítás. Nem vizsgálhat szerepet. A névváltásnál a Bohóc a célpont nevén jelenik meg mindenki másnak, kivéve a Bohócot és a célpontot.
+- A vadász többé nem kap szerepvizsgálati képességet; csak lőhet vagy passzolhat.
+- A váróteremben és a nyilvános nappali/éjszakák közti időszakokban a játékoslistán személyenkénti helyi hangerőcsúszka és némítás van. Ez a te böngésződben szabályozza az adott játékos hangját, a mikrofonját nem kapcsolja ki.
+
+További pontosítás: a vadász nem vizsgál szerepet, csak lőhet vagy passzolhat. A Bohóc lidérc pontosan egyszer használhatja fel a névváltás vagy némítás képességének egyikét a teljes játék során. A lobby és a nappali játékoslisták személyenkénti, helyi hangerőcsúszkát és némítógombot tartalmaznak.

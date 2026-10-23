@@ -1,938 +1,1270 @@
-(() => {
-    "use strict";
-    const $ = (id) => document.getElementById(id);
-    const screen = $("k-lobby-screen");
-    const scene = document.querySelector(".k-scene");
-    const socket = window.kiiszikSocket || null;
-    const titleScreen = document.querySelector(".k-center");
-    const settingsButton = $("k-settings-button");
+"use strict";
 
-    if (!screen || !scene || !titleScreen) {
-        console.error("[Kiiszik lobby] Hiányzó fő lobby-elem.");
+(() => {
+    const socket = window.lidercSocket;
+    let playerName = (localStorage.getItem("ljPlayerName") || "").trim();
+
+    if (!playerName || playerName.length < 2) {
+        window.location.replace("/");
         return;
     }
 
-    const ui = {
-        backMain: $("lobby-back-main"),
-        connection: $("lobby-connection-status"),
-        title: $("lobby-title"),
-        greeting: $("lobby-greeting"),
-        tabOnline: $("lobby-tab-online"),
-        tabLocal: $("lobby-tab-local"),
-        onlinePage: $("lobby-online-page"),
-        localPage: $("lobby-local-page"),
-        feedback: $("lobby-feedback"),
-        createForm: $("lobby-create-form"),
-        roomName: $("lobby-room-name"),
-        maxPlayers: $("lobby-max-players"),
-        waitMinutes: $("lobby-wait-minutes"),
-        roomPassword: $("lobby-room-password"),
-        search: $("lobby-room-search"),
-        refresh: $("lobby-refresh-rooms"),
-        roomList: $("lobby-room-list"),
-        passwordPanel: $("lobby-password-panel"),
-        passwordRoomLabel: $("lobby-password-room-label"),
-        passwordForm: $("lobby-password-form"),
-        joinPassword: $("lobby-join-password"),
-        passwordCancel: $("lobby-password-cancel"),
-        setup: $("lobby-online-setup"),
-        onlineRoom: $("lobby-online-room"),
-        onlineRoomTitle: $("lobby-online-room-title"),
-        leaveRoom: $("lobby-leave-room"),
-        roomCount: $("lobby-room-count"),
-        countdown: $("lobby-countdown"),
-        readySummary: $("lobby-ready-summary"),
-        playerList: $("lobby-player-list"),
-        readyButton: $("lobby-ready-button"),
-        startButton: $("lobby-start-button"),
-        startHint: $("lobby-start-hint"),
-        voiceToggle: $("lobby-voice-enabled"),
-        voiceStatus: $("lobby-voice-status"),
-        cameraToggle: $("lobby-camera-enabled"),
-        localCameraPreview: $("lobby-local-camera-preview"),
-        remoteMedia: $("lobby-remote-media"),
-        localForm: $("lobby-local-form"),
-        localCount: $("lobby-local-player-count"),
-        localNameFields: $("lobby-local-name-fields"),
-        localSetup: $("lobby-local-setup"),
-        localResult: $("lobby-local-result"),
-        localResultTitle: $("lobby-local-result-title"),
-        localPlayers: $("lobby-local-player-list"),
-        localEdit: $("lobby-local-edit"),
-        localStartButton: $("lobby-local-start-button"),
-        localGameStarted: $("lobby-local-game-started")
+    const views = {
+        home: document.getElementById("lobbyHomeView"),
+        create: document.getElementById("createView"),
+        search: document.getElementById("searchView"),
+        waiting: document.getElementById("waitingRoomView"),
+        game: document.getElementById("gameStartedView")
     };
 
-    let profile = { playerName: "Játékos", avatarUrl: null };
-    let rooms = [];
+    const roomList = document.getElementById("roomList");
+    const roomSearchInput = document.getElementById("roomSearchInput");
+    const lobbyMessage = document.getElementById("lobbyMessage");
+    const modalRoot = document.getElementById("modalRoot");
+
+    const roleKeys = ["spirits", "healer", "villagers", "hunters", "fool", "swapper", "infectious"];
+    const roleLabels = {
+        spirits: "Lidércek",
+        healer: "Gyógyító",
+        villagers: "Falusiak",
+        hunters: "Vadászok",
+        fool: "Bolondok",
+        swapper: "Bohóc lidérc",
+        infectious: "Fertőző"
+    };
+    const roleIds = {
+        spirits: "roleSpirits",
+        healer: "roleHealer",
+        villagers: "roleVillagers",
+        hunters: "roleHunters",
+        fool: "roleFool",
+        swapper: "roleSwapper",
+        infectious: "roleInfectious"
+    };
+    const roleClasses = {
+        spirits: "role-color-spirits",
+        healer: "role-color-healer",
+        villagers: "role-color-villagers",
+        hunters: "role-color-hunters",
+        fool: "role-color-fool",
+        swapper: "role-color-swapper",
+        infectious: "role-color-infectious"
+    };
+
     let currentRoom = null;
-    let currentMode = "online";
-    let pendingJoinCode = null;
-    let roomCountdownTimer = null;
-    let createRoomTimeout = null;
-    let refreshTimer = null;
-    let localSession = null;
-    let onlineGameLaunchedRoomCode = null;
+    let availableRooms = [];
+    let messageTimeout = null;
 
-
-    if (window.KiiszikGame && typeof window.KiiszikGame.setMediaControls === "function") {
-        window.KiiszikGame.setMediaControls({
-            microphone: ui.voiceToggle, camera: ui.cameraToggle,
-            localPreview: ui.localCameraPreview, remoteMedia: ui.remoteMedia
-        });
-    }
-
-    // Voice chat peer connections (peer-to-peer WebRTC).
-    let voiceEnabled = false;
-    let cameraEnabled = false;
-    let localMediaStream = null;
+    // WebRTC hangkapcsolatok. A hanghoz a böngésző mikrofonengedélye szükséges.
     const voicePeers = new Map();
+    const teamVoicePeers = new Map();
+    const speakingPlayerIds = new Set();
+    // Kliensoldali hangkeverő: csak ezen a gépen állítja egy-egy játékos hangerejét.
+    const remoteVoiceSettings = new Map();
 
-    // A profilnál felvett büntetőhang bekerül a szoba szerverének memóriájába.
-    let uploadedPenaltyRecordingRoomCode = null;
-    let lastPenaltyAudio = null;
-
-    function setFeedback(message, type = "info") {
-        ui.feedback.textContent = message || "";
-        ui.feedback.className = `lobby-feedback${message ? ` is-${type}` : ""}`;
+    function getRemoteVoiceSetting(peerId) {
+        if (!remoteVoiceSettings.has(peerId)) remoteVoiceSettings.set(peerId, { volume: 1, muted: false });
+        return remoteVoiceSettings.get(peerId);
     }
 
-    function connectedStatus(connected) {
-        ui.connection.classList.toggle("is-online", Boolean(connected));
-        ui.connection.classList.toggle("is-offline", !connected);
-        ui.connection.lastChild.textContent = connected ? " Online" : " Offline";
-    }
-
-    function showLobby() {
-        screen.hidden = false;
-        screen.classList.add("is-active");
-        titleScreen.hidden = true;
-        if (settingsButton) settingsButton.hidden = true;
-        scene.classList.add("k-lobby-active");
-        ui.greeting.textContent = `Szia, ${profile.playerName}! Válassz, hogyan szeretnétek játszani.`;
-        selectMode(currentMode);
-        if (socket && socket.connected) requestRooms();
-    }
-
-    function returnToTitle() {
-        if (currentRoom && socket) {
-            disableMedia(true);
-            socket.emit("room:leave");
-        } else {
-            disableMedia(false);
-        }
-        currentRoom = null;
-        uploadedPenaltyRecordingRoomCode = null;
-        onlineGameLaunchedRoomCode = null;
-        screen.hidden = true;
-        screen.classList.remove("is-active", "has-active-room");
-        titleScreen.hidden = false;
-        if (settingsButton) settingsButton.hidden = false;
-        scene.classList.remove("k-lobby-active");
-    }
-
-    function selectMode(mode) {
-        currentMode = mode === "local" ? "local" : "online";
-        const online = currentMode === "online";
-        ui.tabOnline.classList.toggle("is-active", online);
-        ui.tabLocal.classList.toggle("is-active", !online);
-        ui.tabOnline.setAttribute("aria-selected", String(online));
-        ui.tabLocal.setAttribute("aria-selected", String(!online));
-        ui.onlinePage.hidden = !online;
-        ui.localPage.hidden = online;
-        ui.title.textContent = online ? "Többjátékos online" : "Egy készüléken játszotok";
-        ui.greeting.textContent = online
-            ? "Hozz létre egy online szobát, vagy csatlakozz egyhez."
-            : "Adjátok meg a játékosok neveit. Ez a helyi játék nem jelenik meg az online szobakeresőben.";
-        setFeedback("");
-        if (online && socket && socket.connected && !currentRoom) requestRooms();
-        if (!online) makeLocalNameInputs();
-    }
-
-    ui.tabOnline.addEventListener("click", () => selectMode("online"));
-    ui.tabLocal.addEventListener("click", () => selectMode("local"));
-    ui.backMain.addEventListener("click", returnToTitle);
-
-    window.addEventListener("kiiszik:profile-ready", (event) => {
-        profile = event.detail || profile;
-        showLobby();
-    });
-    window.addEventListener("kiiszik:open-lobby", (event) => {
-        if (event.detail) profile = event.detail;
-        showLobby();
-    });
-
-    // ---- Local, pass-and-play session. This is deliberately not sent to the server. ----
-    function makeLocalNameInputs() {
-        if (!ui.localNameFields || !ui.localCount) return;
-        const count = Math.max(1, Math.min(8, Number(ui.localCount.value) || 1));
-        const oldValues = [...ui.localNameFields.querySelectorAll("input")].map((input) => input.value);
-        ui.localNameFields.replaceChildren();
-        for (let index = 0; index < count; index += 1) {
-            const wrap = document.createElement("div");
-            wrap.className = "lobby-local-name-field";
-            const label = document.createElement("label");
-            const input = document.createElement("input");
-            const id = `lobby-local-name-${index + 1}`;
-            label.htmlFor = id;
-            label.textContent = index === 0 ? "1. játékos (te)" : `${index + 1}. játékos`;
-            input.id = id;
-            input.name = `localPlayer${index + 1}`;
-            input.type = "text";
-            input.maxLength = 20;
-            input.required = true;
-            input.autocomplete = "off";
-            input.placeholder = index === 0 ? profile.playerName : `Játékos ${index + 1}`;
-            input.value = oldValues[index] || (index === 0 ? profile.playerName : `Játékos ${index + 1}`);
-            wrap.append(label, input);
-            ui.localNameFields.append(wrap);
-        }
-    }
-
-    ui.localCount.addEventListener("change", makeLocalNameInputs);
-    ui.localForm.addEventListener("submit", (event) => {
-        event.preventDefault();
-        const names = [...ui.localNameFields.querySelectorAll("input")].map((input) => input.value.trim().replace(/\s+/g, " "));
-        if (names.some((name) => [...name].length < 2 || [...name].length > 20)) {
-            setFeedback("Minden játékosnév legyen 2–20 karakter hosszú.", "error");
+    function applyRemoteAudioSetting(peerId, channel = "public") {
+        const setting = getRemoteVoiceSetting(peerId);
+        const audioId = channel === "team" ? `team-voice-audio-${peerId}` : `voice-audio-${peerId}`;
+        const audio = document.getElementById(audioId);
+        if (!audio) return;
+        audio.volume = Math.max(0, Math.min(1, setting.volume));
+        if (channel === "team") {
+            audio.muted = Boolean(setting.muted);
             return;
         }
-        localSession = { names, createdAt: Date.now() };
-        ui.localPlayers.replaceChildren();
-        names.forEach((name, index) => {
-            const card = document.createElement("div");
-            card.className = "lobby-local-player-chip";
-            const token = document.createElement("span");
-            token.textContent = ["🎲", "🍀", "⭐", "🍋", "🃏", "🍒", "🌼", "🎯"][index];
-            const text = document.createElement("strong");
-            text.textContent = name;
-            card.append(token, text);
-            ui.localPlayers.append(card);
+        const playerState = (currentGameVoiceState?.players || []).find((player) => player.id === peerId);
+        const sabotagedMute = playerState?.voiceEffect === "mute";
+        audio.muted = Boolean(setting.muted || gameVoiceLocked || sabotagedMute);
+        const effect = playerState?.voiceEffect;
+        if (effect === "thin" && !gameVoiceLocked) {
+            audio.playbackRate = 1.18;
+            if ("preservesPitch" in audio) audio.preservesPitch = false;
+            if ("webkitPreservesPitch" in audio) audio.webkitPreservesPitch = false;
+        } else {
+            audio.playbackRate = 1;
+            if ("preservesPitch" in audio) audio.preservesPitch = true;
+            if ("webkitPreservesPitch" in audio) audio.webkitPreservesPitch = true;
+        }
+    }
+
+    function renderPlayerVoiceControls(player, scope = "lobby") {
+        if (!player || player.id === socket.id) return null;
+        const setting = getRemoteVoiceSetting(player.id);
+        const wrapper = makeElement("div", "player-voice-controls");
+        wrapper.dataset.peerId = player.id;
+        const label = makeElement("label", "player-voice-volume-label", "Hang");
+        const input = document.createElement("input");
+        input.type = "range";
+        input.min = "0";
+        input.max = "100";
+        input.step = "5";
+        input.value = String(Math.round(setting.volume * 100));
+        input.className = "player-voice-volume-slider";
+        input.setAttribute("aria-label", `${player.username} hangereje`);
+        const output = makeElement("span", "player-voice-volume-value", `${input.value}%`);
+        label.append(input, output);
+        const muteButton = makeElement("button", `player-voice-mute-button${setting.muted ? " is-muted" : ""}`, setting.muted ? "Hang vissza" : "Némítás");
+        muteButton.type = "button";
+        muteButton.setAttribute("aria-pressed", String(Boolean(setting.muted)));
+        muteButton.setAttribute("aria-label", setting.muted ? `${player.username} hangjának visszakapcsolása` : `${player.username} némítása csak nálad`);
+        input.addEventListener("input", () => {
+            setting.volume = Number(input.value) / 100;
+            output.textContent = `${input.value}%`;
+            applyRemoteAudioSetting(player.id, "public");
+            applyRemoteAudioSetting(player.id, "team");
         });
-        ui.localResultTitle.textContent = names.length === 1 ? `Egyjátékos parti: ${names[0]}` : `Helyi társaság: ${names.length} játékos`;
-        ui.localGameStarted.hidden = true;
-        ui.localStartButton.disabled = false;
-        ui.localStartButton.textContent = "Játék indítása";
-        ui.localSetup.hidden = true;
-        ui.localResult.hidden = false;
-        setFeedback("A helyi szoba elkészült. Nem lett közzétéve az online szobakeresőben.", "success");
-    });
-    ui.localEdit.addEventListener("click", () => {
-        ui.localResult.hidden = true;
-        ui.localSetup.hidden = false;
-        setFeedback("");
-    });
-    ui.localStartButton.addEventListener("click", () => {
-        if (!localSession) {
-            setFeedback("Előbb add meg a játékosok neveit.", "error");
-            return;
-        }
-        if (!window.KiiszikGame || typeof window.KiiszikGame.start !== "function") {
-            setFeedback("A játéktábla nem töltődött be. Frissíts Ctrl + F5-tel.", "error");
-            return;
-        }
-        window.KiiszikGame.start({ mode: "local", players: localSession.names, avatarUrl: profile.avatarUrl || null, penaltyAudioDataUrl: profile.penaltyAudioDataUrl || null });
-    });
-
-    window.addEventListener("kiiszik:game-exit", (event) => {
-        const mode = event.detail?.mode;
-        if (mode === "online") {
-            disableMedia(true);
-            if (socket && currentRoom) socket.emit("room:leave");
-            currentRoom = null;
-            uploadedPenaltyRecordingRoomCode = null;
-            onlineGameLaunchedRoomCode = null;
-            pendingJoinCode = null;
-            showOnlineSetup();
-            setFeedback("Kiléptél az online játékból.");
-            requestRooms();
-        } else {
-            if (localSession) {
-                ui.localResult.hidden = false;
-                ui.localGameStarted.hidden = true;
-                ui.localStartButton.disabled = false;
-                ui.localStartButton.textContent = "Játék indítása";
-            }
-            setFeedback("Visszatértél a helyi lobbyba.");
-        }
-    });
-
-    // ---- Online room list & create/join ----
-    function requestRooms() {
-        if (!socket || !socket.connected || currentRoom || currentMode !== "online") return;
-        socket.emit("room:list");
+        muteButton.addEventListener("click", () => {
+            setting.muted = !setting.muted;
+            muteButton.textContent = setting.muted ? "Hang vissza" : "Némítás";
+            muteButton.classList.toggle("is-muted", setting.muted);
+            muteButton.setAttribute("aria-pressed", String(setting.muted));
+            muteButton.setAttribute("aria-label", setting.muted ? `${player.username} hangjának visszakapcsolása` : `${player.username} némítása csak nálad`);
+            applyRemoteAudioSetting(player.id, "public");
+            applyRemoteAudioSetting(player.id, "team");
+        });
+        wrapper.append(label, muteButton);
+        return wrapper;
     }
 
-    function renderRooms() {
-        const query = (ui.search.value || "").trim().toLowerCase();
-        const visible = rooms.filter((room) =>
-            `${room.name} ${room.hostName}`.toLowerCase().includes(query)
+    // A játékképernyő ugyanazt a helyi hangkeverő-szabályt használja.
+    window.lidercRenderPlayerVoiceControls = renderPlayerVoiceControls;
+    let localAudioStream = null;
+    let micEnabled = false;
+    let gameVoiceLocked = false;
+    let gamePlayerAlive = true;
+    let currentGameVoiceState = null;
+    let voiceRole = null;
+    let voiceTeamMembers = [];
+    let teamVoicePhaseActive = false;
+    let teamVoiceRole = null;
+    let teamMicEnabled = false;
+    let teamAudioTrack = null;
+    let teamAudioStream = null;
+    let speechDetection = null;
+
+    document.getElementById("playerNameLabel").textContent = playerName;
+
+    function setView(viewName) {
+        Object.entries(views).forEach(([name, element]) => {
+            element.hidden = name !== viewName;
+            element.classList.toggle("is-active", name === viewName);
+        });
+        clearMessage();
+        window.scrollTo({ top: 0, behavior: "smooth" });
+    }
+
+    function showMessage(message, type = "info", timeout = 6500) {
+        window.clearTimeout(messageTimeout);
+        lobbyMessage.textContent = message;
+        lobbyMessage.className = `lobby-message ${type}`;
+        lobbyMessage.hidden = false;
+        if (timeout > 0) {
+            messageTimeout = window.setTimeout(() => {
+                lobbyMessage.hidden = true;
+            }, timeout);
+        }
+    }
+
+    function clearMessage() {
+        window.clearTimeout(messageTimeout);
+        lobbyMessage.hidden = true;
+        lobbyMessage.textContent = "";
+        lobbyMessage.className = "lobby-message";
+    }
+
+    function makeElement(tag, className, text) {
+        const element = document.createElement(tag);
+        if (className) element.className = className;
+        if (text !== undefined) element.textContent = text;
+        return element;
+    }
+
+    function totalSelectedPlayers() {
+        return roleKeys.reduce((total, key) => {
+            const input = document.getElementById(roleIds[key]);
+            return total + (Number.parseInt(input.value, 10) || 0);
+        }, 0);
+    }
+
+    function readSelectedRoles() {
+        const roles = {};
+        for (const key of roleKeys) {
+            const value = Number.parseInt(document.getElementById(roleIds[key]).value, 10);
+            roles[key] = Number.isInteger(value) ? value : 0;
+        }
+        return roles;
+    }
+
+    function readRoomSettings() {
+        const keys = [
+            "introSeconds", "daySeconds", "spiritsSeconds",
+            "healerSeconds", "huntersSeconds", "foolSeconds", "swapperSeconds", "infectiousSeconds"
+        ];
+        const ids = {
+            introSeconds: "settingIntroSeconds",
+            daySeconds: "settingDaySeconds",
+            spiritsSeconds: "settingSpiritsSeconds",
+            healerSeconds: "settingHealerSeconds",
+            huntersSeconds: "settingHuntersSeconds",
+            foolSeconds: "settingFoolSeconds",
+            swapperSeconds: "settingSwapperSeconds",
+            infectiousSeconds: "settingInfectiousSeconds"
+        };
+        const settings = {};
+        for (const key of keys) {
+            const input = document.getElementById(ids[key]);
+            const value = Number.parseInt(input.value, 10);
+            if (!Number.isInteger(value) || value < 5 || value > 3600) {
+                input.focus();
+                showMessage("Minden időtartam 5 és 3600 másodperc közötti egész szám legyen.", "error");
+                return null;
+            }
+            settings[key] = value;
+        }
+        return settings;
+    }
+
+    function updateRoleTotal() {
+        const total = totalSelectedPlayers();
+        document.getElementById("playerTotal").textContent = String(total);
+        const totalDisplay = document.querySelector(".player-total");
+        const hint = document.getElementById("roleHint");
+        totalDisplay.classList.toggle("is-invalid", total < 4 || total > 16);
+        if (total < 4) {
+            hint.textContent = "Legalább 4 játékost kell beállítanod.";
+            hint.classList.add("is-invalid");
+        } else if (total > 16) {
+            hint.textContent = "Legfeljebb 16 játékos lehet. Csökkentsd valamelyik szerepkör számát.";
+            hint.classList.add("is-invalid");
+        } else {
+            hint.textContent = "Legalább 4, legfeljebb 16 játékost állíts be. A játék akkor indulhat, ha minden férőhely betelt és mindenki készen áll.";
+            hint.classList.remove("is-invalid");
+        }
+    }
+
+    function renderRoomList() {
+        roomList.replaceChildren();
+        const searchTerm = (roomSearchInput.value || "").trim().toLocaleLowerCase("hu-HU");
+        const filteredRooms = availableRooms.filter((room) =>
+            room.name.toLocaleLowerCase("hu-HU").includes(searchTerm)
         );
-        ui.roomList.replaceChildren();
-        if (!visible.length) {
-            const empty = document.createElement("div");
-            empty.className = "lobby-empty-state";
-            const icon = document.createElement("span");
-            icon.textContent = "🎲";
-            const heading = document.createElement("strong");
-            heading.textContent = query ? "Nincs ilyen szoba" : "Még nincs nyitott szoba";
-            const small = document.createElement("small");
-            small.textContent = query ? "Próbálj másik szobanevet." : "Hozz létre egyet, vagy frissítsd a listát.";
-            empty.append(icon, heading, small);
-            ui.roomList.append(empty);
+
+        if (filteredRooms.length === 0) {
+            const empty = makeElement("div", "empty-rooms");
+            empty.append(
+                makeElement("strong", "", searchTerm ? "Nincs találat" : "Jelenleg nincs elérhető szoba"),
+                makeElement("p", "", searchTerm
+                    ? "Próbálj másik szobanevet."
+                    : "Hozz létre egy szobát, vagy kérd meg a barátodat, hogy nyisson egyet.")
+            );
+            roomList.appendChild(empty);
             return;
         }
-        visible.forEach((room) => {
-            const card = document.createElement("article");
-            card.className = "lobby-room-list-card";
-            const description = document.createElement("div");
-            description.className = "lobby-room-list-info";
-            const title = document.createElement("strong");
-            title.textContent = room.name;
-            const meta = document.createElement("small");
-            meta.textContent = `${room.playerCount}/${room.maxPlayers} játékos · vezető: ${room.hostName}`;
-            description.append(title, meta);
-            const join = document.createElement("button");
-            join.className = "lobby-join-button";
-            join.type = "button";
-            join.textContent = "Belépés";
-            join.disabled = !socket || !socket.connected;
-            join.addEventListener("click", () => attemptJoin(room.code, ""));
-            card.append(description, join);
-            ui.roomList.append(card);
-        });
-    }
 
-    function attemptJoin(code, password) {
-        if (!socket || !socket.connected) {
-            setFeedback("Nem csatlakozik a szerver. Ellenőrizd, hogy fut-e a Kiiszik szerver.", "error");
-            return;
-        }
-        pendingJoinCode = code;
-        socket.emit("room:join", { code, password, playerName: profile.playerName, avatarUrl: profile.avatarUrl || null });
-    }
+        filteredRooms.forEach((room) => {
+            const card = makeElement("article", "room-card");
+            const top = makeElement("div", "room-card-top");
+            const titleGroup = makeElement("div", "room-card-title-group");
+            titleGroup.appendChild(makeElement("h3", "", room.name));
+            top.append(
+                titleGroup,
+                makeElement("span", `room-card-count${room.playerCount >= room.capacity ? " is-full" : ""}`, `${room.playerCount} / ${room.capacity} fő`)
+            );
 
-    ui.search.addEventListener("input", renderRooms);
-    ui.refresh.addEventListener("click", requestRooms);
+            const host = room.players.find((player) => player.isHost);
+            const hostLine = makeElement("p", "room-card-host", `Házigazda: ${host ? host.username : "Ismeretlen"}`);
+            const rolesLine = makeElement("p", "room-card-roles", roleKeys
+                .filter((key) => room.roles[key] > 0)
+                .map((key) => `${roleLabels[key]}: ${room.roles[key]}`)
+                .join(" · "));
+            const bottom = makeElement("div", "room-card-bottom");
+            bottom.appendChild(makeElement("span", "public-room-label", "Nyitott szoba · Jelszó nélkül"));
 
-    ui.createForm.addEventListener("submit", (event) => {
-        event.preventDefault();
-        if (!socket || !socket.connected) {
-            setFeedback("Az online szobához szerverkapcsolat kell. Indítsd el a Kiiszik szervert.", "error");
-            return;
-        }
-        if (createRoomTimeout) {
-            clearTimeout(createRoomTimeout);
-            createRoomTimeout = null;
-        }
-        setFeedback("Szoba létrehozása…");
-        socket.emit("room:create", {
-            name: ui.roomName.value.trim(),
-            playerName: profile.playerName,
-            avatarUrl: profile.avatarUrl || null,
-            maxPlayers: Number(ui.maxPlayers.value),
-            waitMinutes: Number(ui.waitMinutes.value),
-            password: ui.roomPassword.value
-        });
-        // Ne maradjon örökké a „Szoba létrehozása…” üzenet, ha a szerver
-        // nem válaszol (például rossz vagy régi szerverpéldány fut).
-        createRoomTimeout = window.setTimeout(() => {
-            createRoomTimeout = null;
-            if (!currentRoom) {
-                setFeedback("A szerver nem válaszolt a szobalétrehozásra. Állítsd le a futó Kiiszik-szervert (Ctrl+C), majd indítsd újra ebből a ZIP mappából: npm start.", "error");
-            }
-        }, 8000);
-    });
-
-    ui.passwordCancel.addEventListener("click", () => {
-        ui.passwordPanel.hidden = true;
-        ui.joinPassword.value = "";
-        pendingJoinCode = null;
-    });
-    ui.passwordForm.addEventListener("submit", (event) => {
-        event.preventDefault();
-        if (!pendingJoinCode) return;
-        attemptJoin(pendingJoinCode, ui.joinPassword.value);
-    });
-
-    ui.leaveRoom.addEventListener("click", () => {
-        disableMedia(true);
-        if (socket) socket.emit("room:leave");
-        currentRoom = null;
-        uploadedPenaltyRecordingRoomCode = null;
-        onlineGameLaunchedRoomCode = null;
-        showOnlineSetup();
-        setFeedback("Kiléptél a szobából.");
-        requestRooms();
-    });
-
-    function showOnlineSetup() {
-        screen.classList.remove("has-active-room");
-        ui.setup.hidden = false;
-        ui.passwordPanel.hidden = false;
-        // Only show password panel if a password entry is pending; otherwise hide it.
-        ui.passwordPanel.hidden = !pendingJoinCode;
-        ui.onlineRoom.hidden = true;
-    }
-
-    ui.readyButton.addEventListener("click", () => {
-        if (!socket || !currentRoom) return;
-        const own = currentRoom.players.find((player) => player.id === socket.id);
-        socket.emit("room:ready", { ready: !(own && own.ready) });
-    });
-
-    ui.startButton.addEventListener("click", () => {
-        if (!socket || !currentRoom) return;
-        socket.emit("room:start");
-    });
-
-    function escapeText(value) {
-        return String(value).replace(/[&<>"']/g, (char) => ({
-            "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;"
-        })[char]);
-    }
-
-    function syncProfilePenaltyRecording() {
-        if (!socket || !socket.connected || !currentRoom) return;
-        const dataUrl = profile && typeof profile.penaltyAudioDataUrl === "string" ? profile.penaltyAudioDataUrl : "";
-        if (!dataUrl || !dataUrl.startsWith("data:audio/") || uploadedPenaltyRecordingRoomCode === currentRoom.code) return;
-        // Egy profilfelvételt szobánként egyszer töltünk fel. A szerver a szoba memóriájában tartja.
-        uploadedPenaltyRecordingRoomCode = currentRoom.code;
-        const comma = dataUrl.indexOf(",");
-        const header = comma > 0 ? dataUrl.slice(0, comma) : "";
-        const mimeType = (header.match(/^data:([^;]+)/i) || [])[1] || "audio/webm";
-        socket.emit("penalty:recording-save", { dataUrl, mimeType });
-    }
-
-    function launchOnlineGame(room) {
-        if (!room || !room.started || !socket) return;
-        if (onlineGameLaunchedRoomCode === room.code) return;
-        if (!window.KiiszikGame || typeof window.KiiszikGame.start !== "function") {
-            setFeedback("A játéktábla JavaScriptje nem töltődött be. Ellenőrizd a szerver mappáját, majd frissíts Ctrl + F5-tel.", "error");
-            return;
-        }
-        onlineGameLaunchedRoomCode = room.code;
-        // A játék indulásakor az online váró teljesen eltűnik a játék fölül.
-        ui.setup.hidden = true;
-        ui.passwordPanel.hidden = true;
-        ui.onlineRoom.hidden = true;
-        screen.classList.remove("has-active-room");
-        setFeedback("");
-        try {
-            const result = window.KiiszikGame.start({ mode: "online", socket, roomCode: room.code, avatarUrl: profile.avatarUrl || null });
-            Promise.resolve(result).catch((error) => {
-                console.error("Kiiszik online game start error:", error);
-                onlineGameLaunchedRoomCode = null;
-                ui.onlineRoom.hidden = false;
-                screen.classList.add("has-active-room");
-                setFeedback("Nem sikerült elindítani a játékot. Nézd meg, hogy a játéktábla fájljai is megvannak-e, majd frissíts Ctrl + F5-tel.", "error");
+            const joinButton = makeElement("button", "primary-button room-join-button", room.playerCount >= room.capacity ? "MEGTELT" : "CSATLAKOZÁS →");
+            joinButton.type = "button";
+            joinButton.disabled = room.playerCount >= room.capacity;
+            joinButton.addEventListener("click", () => {
+                joinButton.disabled = true;
+                joinButton.textContent = "CSATLAKOZÁS...";
+                autoEnableVoiceFromUserAction();
+                socket.emit("join-room", { roomId: room.code, username: playerName });
             });
-        } catch (error) {
-            console.error("Kiiszik online game start error:", error);
-            onlineGameLaunchedRoomCode = null;
-            ui.onlineRoom.hidden = false;
-            screen.classList.add("has-active-room");
-            setFeedback("Nem sikerült elindítani a játékot. Frissíts Ctrl + F5-tel, és ellenőrizd a szerver mappáját.", "error");
-        }
+            bottom.appendChild(joinButton);
+            card.append(top, hostLine, rolesLine, bottom);
+            roomList.appendChild(card);
+        });
     }
 
-    function renderRoomState(room) {
+    function renderWaitingRoom(room) {
         currentRoom = room;
-        pendingJoinCode = null;
-        if (room.started) {
-            launchOnlineGame(room);
-            return;
-        }
-        screen.classList.add("has-active-room");
-        ui.passwordPanel.hidden = true;
-        ui.setup.hidden = true;
-        ui.onlineRoom.hidden = false;
-        ui.onlineRoomTitle.textContent = room.name;
-        ui.roomCount.textContent = `${room.players.length} / ${room.maxPlayers}`;
-        ui.readySummary.textContent = room.players.every((p) => p.ready) ? "Mindenki kész!" : "Várakozás a játékosokra…";
-        ui.readySummary.classList.toggle("is-ready", room.players.every((p) => p.ready));
+        if (views.game.hidden && views.waiting.hidden) setView("waiting");
 
-        const isHost = socket && room.hostId === socket.id;
-        const own = socket ? room.players.find((p) => p.id === socket.id) : null;
-        ui.readyButton.textContent = own && own.ready ? "Mégsem vagyok kész" : "Kész vagyok";
-        ui.readyButton.disabled = Boolean(room.started || !own);
-        ui.startButton.hidden = !isHost;
-        ui.startButton.disabled = Boolean(room.started || room.players.length < 2 || !room.players.every((p) => p.ready));
-        ui.startHint.textContent = room.started
-            ? "A szoba elindult."
-            : room.players.length < 2
-                ? "Legalább 2 játékos szükséges."
-                : !room.players.every((p) => p.ready)
-                    ? "Minden játékosnak készen kell állnia."
-                    : isHost ? "Mindenki kész. Indíthatod a partit!" : "Mindenki kész. Várakozás a vezetőre.";
+        document.getElementById("waitingRoomName").textContent = room.name;
+        document.getElementById("waitingPlayersCount").textContent = `${room.playerCount} / ${room.capacity} fő`;
+        document.getElementById("waitingCapacity").textContent = `${room.capacity} fő`;
 
-        ui.playerList.replaceChildren();
+        const isHost = room.hostId === socket.id;
+        const self = room.players.find((player) => player.id === socket.id);
+        const everyoneReady = room.players.length === room.capacity && room.players.every((player) => player.ready);
+        const full = room.players.length === room.capacity;
+
+        const playersList = document.getElementById("playersList");
+        playersList.replaceChildren();
         room.players.forEach((player) => {
-            const card = document.createElement("article");
-            card.className = "lobby-player-card" + (player.ready ? " is-ready" : "");
-            const avatar = document.createElement("div");
-            avatar.className = "lobby-player-avatar";
-            avatar.textContent = player.name === profile.playerName && profile.avatarUrl ? "📸" : "🙂";
-            const details = document.createElement("div");
-            details.className = "lobby-player-details";
-            const name = document.createElement("strong");
-            name.textContent = player.name + (socket && player.id === socket.id ? " (te)" : "");
-            const labels = document.createElement("small");
-            const mediaLabels = [player.voice ? "🎙 Mikrofon" : "", player.camera ? "📷 Webkamera" : "", player.hasPenaltyRecording ? "🔊 Büntetőhang kész" : ""].filter(Boolean);
-            const roleLabel = player.isHost ? "👑 Alkoholista király" : "Játékos";
-            labels.textContent = mediaLabels.length ? `${roleLabel} · ${mediaLabels.join(" · ")}` : roleLabel;
-            const ready = document.createElement("span");
-            ready.className = "lobby-ready-badge" + (player.ready ? " is-ready" : "");
-            ready.textContent = player.ready ? "✓ KÉSZ" : "VÁRAKOZIK";
-            details.append(name, labels);
-            card.append(avatar, details, ready);
+            const row = makeElement("div", "player-row");
+            const avatar = makeElement("span", "player-avatar", player.username.slice(0, 1).toLocaleUpperCase("hu-HU"));
+            const info = makeElement("div", "player-info");
+            info.appendChild(makeElement("strong", "player-name", player.username));
+            const detail = player.isHost ? "Házigazda" : (player.ready ? "Készen áll" : "Még nem kész");
+            info.appendChild(makeElement("span", "player-position", detail));
+            if (speakingPlayerIds.has(player.id)) {
+                info.appendChild(makeElement("span", "player-speaking-badge", "🎙 Éppen beszél"));
+            }
+            const marker = makeElement("span", player.isHost ? "host-marker" : (player.ready ? "player-marker is-ready" : "player-marker"), player.isHost ? "✦" : (player.ready ? "✓" : "●"));
+            row.append(avatar, info, marker);
+            const voiceControls = renderPlayerVoiceControls(player, "lobby");
+            if (voiceControls) row.appendChild(voiceControls);
 
             if (isHost && player.id !== socket.id && !room.started) {
-                const actions = document.createElement("div");
-                actions.className = "lobby-player-actions";
-                const transfer = document.createElement("button");
-                transfer.type = "button";
-                transfer.textContent = "Vezető átadása";
-                transfer.addEventListener("click", () => {
-                    if (window.confirm(`Átadod az Alkoholista király címét ${player.name} játékosnak?`)) {
-                        socket.emit("room:transfer-leader", { targetId: player.id });
+                const controls = makeElement("div", "player-row-actions");
+                const transferButton = makeElement("button", "small-control-button transfer-button", "Leader átadása");
+                transferButton.type = "button";
+                transferButton.title = `A házigazdai jog átadása neki: ${player.username}`;
+                transferButton.addEventListener("click", () => {
+                    if (window.confirm(`Átadod a házigazdai szerepet ennek a játékosnak: ${player.username}?`)) {
+                        socket.emit("transfer-host", { targetId: player.id });
                     }
                 });
-                const kick = document.createElement("button");
-                kick.type = "button";
-                kick.textContent = "Kirúgás";
-                kick.className = "is-danger";
-                kick.addEventListener("click", () => {
-                    if (window.confirm(`Biztosan kirúgod ${player.name} játékost?`)) {
-                        socket.emit("room:kick", { targetId: player.id });
+                const kickButton = makeElement("button", "small-control-button kick-button", "Kirúgás");
+                kickButton.type = "button";
+                kickButton.title = `Játékos eltávolítása: ${player.username}`;
+                kickButton.addEventListener("click", () => {
+                    if (window.confirm(`Biztosan kirúgod a szobából ${player.username} játékost?`)) {
+                        socket.emit("kick-player", { targetId: player.id });
                     }
                 });
-                actions.append(transfer, kick);
-                card.append(actions);
+                controls.append(transferButton, kickButton);
+                row.appendChild(controls);
             }
-            ui.playerList.append(card);
+            playersList.appendChild(row);
         });
-        updateCountdown();
-        syncProfilePenaltyRecording();
-    }
 
-    function updateCountdown() {
-        if (!currentRoom || !currentRoom.expiresAt || currentRoom.started) {
-            ui.countdown.textContent = currentRoom && currentRoom.started ? "elindult" : "--:--";
-            return;
+        const rolesList = document.getElementById("selectedRolesList");
+        rolesList.replaceChildren();
+        roleKeys.forEach((key) => {
+            const row = makeElement("div", `selected-role-row ${roleClasses[key]}`);
+            row.append(
+                makeElement("span", "selected-role-name", roleLabels[key]),
+                makeElement("strong", "selected-role-count", `${room.roles[key]} fő`)
+            );
+            rolesList.appendChild(row);
+        });
+
+        const readyButton = document.getElementById("readyButton");
+        readyButton.disabled = room.started || !self;
+        readyButton.classList.toggle("is-ready", Boolean(self && self.ready));
+        readyButton.textContent = self && self.ready ? "VISSZAVONOM A KÉSZENLÉTET" : "KÉSZEN ÁLLOK";
+
+        const startButton = document.getElementById("startGameButtonLobby");
+        startButton.hidden = !isHost;
+        startButton.disabled = !isHost || room.started || !full || !everyoneReady;
+        startButton.textContent = room.started ? "A JÁTÉK ELINDULT" : "JÁTÉK INDÍTÁSA ✦";
+
+        const startHint = document.getElementById("startHint");
+        if (room.started) {
+            startHint.textContent = "A játék már elindult.";
+        } else if (!full) {
+            startHint.textContent = `Még ${room.capacity - room.playerCount} játékos szükséges. A beállított szerepekhez minden helynek be kell telnie.`;
+        } else if (!everyoneReady) {
+            const notReadyCount = room.players.filter((player) => !player.ready).length;
+            startHint.textContent = `Már minden hely betelt. Még ${notReadyCount} játékosnak készen kell állnia.`;
+        } else if (isHost) {
+            startHint.textContent = "Mindenki készen áll! Elindíthatod a játékot.";
+        } else {
+            startHint.textContent = "Mindenki készen áll. A házigazda elindíthatja a játékot.";
         }
-        const seconds = Math.max(0, Math.floor((currentRoom.expiresAt - Date.now()) / 1000));
-        const minutes = Math.floor(seconds / 60);
-        const remainingSeconds = seconds % 60;
-        ui.countdown.textContent = `${String(minutes).padStart(2, "0")}:${String(remainingSeconds).padStart(2, "0")}`;
-    }
-    roomCountdownTimer = window.setInterval(updateCountdown, 1000);
 
-    // ---- Hang + webkamera WebRTC ----
-    function voiceSetStatus(message, error = false) {
-        ui.voiceStatus.textContent = message;
-        ui.voiceStatus.classList.toggle("is-error", error);
+        document.getElementById("waitingNoteText").textContent = isHost
+            ? "Te vagy a házigazda. A játékoslistában átadhatod a vezetést vagy kirúghatsz valakit."
+            : "A KÉSZEN ÁLLOK gombbal jelezd a házigazdának, hogy indulhattok.";
+
+        syncVoicePeers(room);
+        updateVoiceUI();
     }
 
-    function hasLocalMedia() {
-        return Boolean(localMediaStream && localMediaStream.getTracks().some((track) => track.readyState === "live"));
+    // -----------------------------------------------
+    // WEBRTC VOICE CHAT
+    // -----------------------------------------------
+
+    function getPrivateTeamRole(state = currentGameVoiceState) {
+        if (!state || !voiceRole || !gamePlayerAlive) return null;
+        if (voiceRole === "spirits" && state.phase === "night-spirits") return "spirits";
+        if (voiceRole === "hunters" && state.phase === "night-hunters") return "hunters";
+        return null;
     }
 
-    function updateLocalPreview() {
-        const show = cameraEnabled && localMediaStream && localMediaStream.getVideoTracks().some((track) => track.readyState === "live");
-        ui.localCameraPreview.hidden = !show;
-        if (show) ui.localCameraPreview.srcObject = localMediaStream;
-        else ui.localCameraPreview.srcObject = null;
+    function getLivingTeamPeerIds(state = currentGameVoiceState, role = getPrivateTeamRole(state)) {
+        if (!state || !role) return [];
+        const livingIds = new Set((state.players || [])
+            .filter((player) => player.alive && player.connected !== false)
+            .map((player) => player.id));
+        return voiceTeamMembers
+            .filter((member) => member.id !== socket.id && livingIds.has(member.id))
+            .map((member) => member.id);
     }
 
-    function updateRemoteMediaVisibility() {
-        ui.remoteMedia.hidden = ui.remoteMedia.children.length === 0;
+    function canUsePrivateTeamVoice(state = currentGameVoiceState) {
+        const role = getPrivateTeamRole(state);
+        return Boolean(role && getLivingTeamPeerIds(state, role).length > 0);
     }
 
-    async function syncPeerTracks(entry, stream) {
-        const pc = entry.pc;
-        const tracks = stream ? stream.getTracks().filter((track) => track.readyState === "live") : [];
-        for (const kind of ["audio", "video"]) {
-            const track = tracks.find((item) => item.kind === kind) || null;
-            let sender = pc.getSenders().find((item) => item.__kiiszikKind === kind || item.track?.kind === kind);
-            if (sender) {
-                sender.__kiiszikKind = kind;
-                try { await sender.replaceTrack(track); }
-                catch (error) { console.warn(`[Kiiszik media] ${kind} sáv frissítési hiba:`, error); }
-            } else if (track) {
-                sender = pc.addTrack(track, stream);
-                sender.__kiiszikKind = kind;
+    function updateVoiceUI() {
+        const buttons = [
+            document.getElementById("voiceToggleButton"),
+            document.getElementById("gameVoiceToggleButton")
+        ].filter(Boolean);
+        const statuses = [
+            document.getElementById("voiceStatus"),
+            document.getElementById("gameVoiceStatus")
+        ].filter(Boolean);
+        const privateTeamVoice = canUsePrivateTeamVoice();
+        let buttonText;
+        let statusText;
+
+        if (!gamePlayerAlive) {
+            buttonText = "Mikrofon letiltva";
+            statusText = "Kiestél · hallgathatsz, de nem beszélhetsz";
+        } else if (privateTeamVoice) {
+            const teamName = teamVoiceRole === "hunters" || voiceRole === "hunters" ? "Vadászok" : "Lidércek";
+            buttonText = teamMicEnabled ? `${teamName} mikrofon némítása` : `${teamName} privát mikrofon bekapcsolása`;
+            statusText = teamMicEnabled
+                ? `${teamName} privát hangja aktív · csak a csapat hallja`
+                : `${teamName} privát hangja némítva`;
+        } else if (gameVoiceLocked) {
+            buttonText = "Éjszakai csend";
+            statusText = "Éjszaka · a normál voice chat automatikusan némítva";
+        } else if (!localAudioStream) {
+            buttonText = "Mikrofon bekapcsolása";
+            statusText = "Hangkapcsolat · mikrofon nincs engedélyezve";
+        } else if (micEnabled) {
+            buttonText = "Mikrofon némítása";
+            statusText = "Mikrofon aktív";
+        } else {
+            buttonText = "Mikrofon visszakapcsolása";
+            statusText = "Mikrofon némítva · a többieket hallhatod";
+        }
+
+        buttons.forEach((button) => {
+            button.textContent = buttonText;
+            button.disabled = !gamePlayerAlive || (gameVoiceLocked && !privateTeamVoice);
+            button.classList.toggle("is-active", Boolean(
+                privateTeamVoice ? teamMicEnabled : (localAudioStream && micEnabled && !gameVoiceLocked)
+            ));
+        });
+        statuses.forEach((status) => { status.textContent = statusText; });
+    }
+
+    function applyRemoteVoiceEffects(state = currentGameVoiceState) {
+        document.querySelectorAll("#remoteAudioContainer audio[id^='voice-audio-']").forEach((audio) => {
+            const peerId = audio.id.slice("voice-audio-".length);
+            const peerState = (state?.players || []).find((player) => player.id === peerId);
+            const effect = peerState?.voiceEffect || null;
+            const preference = getRemoteVoiceSetting(peerId);
+            const mutedByGame = gameVoiceLocked || effect === "mute";
+            audio.muted = Boolean(preference.muted || mutedByGame);
+            audio.volume = Math.max(0, Math.min(1, preference.volume));
+            if (effect === "thin" && !gameVoiceLocked) {
+                audio.playbackRate = 1.18;
+                if ("preservesPitch" in audio) audio.preservesPitch = false;
+                if ("webkitPreservesPitch" in audio) audio.webkitPreservesPitch = false;
+            } else {
+                audio.playbackRate = 1;
+                if ("preservesPitch" in audio) audio.preservesPitch = true;
+                if ("webkitPreservesPitch" in audio) audio.webkitPreservesPitch = true;
+            }
+        });
+    }
+
+    function applyGameVoiceState(state) {
+        if (!state || !state.phase) return;
+        const previousTeamVoicePhase = teamVoicePhaseActive;
+        currentGameVoiceState = state;
+        gameVoiceLocked = ["countdown", "night-swapper", "night-spirits", "night-healer", "night-hunters", "night-fool", "night-infectious"].includes(state.phase);
+        const me = Array.isArray(state.players) ? state.players.find((player) => player.id === socket.id) : null;
+        // A kiesettek a játék végén újra beszélhetnek; a játék közben csak hallgatók.
+        if (me) gamePlayerAlive = Boolean((me.alive && me.connected !== false) || state.phase === "game-over");
+
+        const nextTeamRole = getPrivateTeamRole(state);
+        const nextTeamVoicePhase = Boolean(nextTeamRole && getLivingTeamPeerIds(state, nextTeamRole).length > 0);
+
+        if (nextTeamVoicePhase && !previousTeamVoicePhase) {
+            // Ha a mikrofonengedély megvan, a lidércek privát mikrofonja automatikusan bekapcsol.
+            teamMicEnabled = Boolean(localAudioStream);
+            teamVoiceRole = nextTeamRole;
+            teamVoicePhaseActive = true;
+        } else if (!nextTeamVoicePhase && previousTeamVoicePhase) {
+            teamMicEnabled = false;
+            teamVoicePhaseActive = false;
+            teamVoiceRole = null;
+            if (speechDetection?.channel === "team") stopSpeechDetection();
+            closeTeamVoiceConnections(true);
+        } else {
+            teamVoicePhaseActive = nextTeamVoicePhase;
+            teamVoiceRole = nextTeamVoicePhase ? nextTeamRole : null;
+        }
+
+        // Ha már kaptunk mikrofonengedélyt, a külön csapatsávot azelőtt klónozzuk,
+        // hogy a mindenki felé menő normál sávot éjszakára elnémítanánk.
+        if (teamVoicePhaseActive && localAudioStream && !teamAudioTrack) createTeamAudioTrack();
+        if (teamVoicePhaseActive && localAudioStream) {
+            teamMicEnabled = true;
+            if (teamAudioTrack) teamAudioTrack.enabled = Boolean(gamePlayerAlive);
+        }
+        const muted = gameVoiceLocked || !gamePlayerAlive || teamVoicePhaseActive;
+        if (localAudioStream) {
+            localAudioStream.getAudioTracks().forEach((track) => { track.enabled = Boolean(micEnabled && !muted); });
+        }
+        // A normál hangcsatorna éjszaka némítva marad. A csapatnak külön WebRTC-kapcsolata van.
+        applyRemoteVoiceEffects(state);
+        if (teamVoicePhaseActive) {
+            syncTeamVoicePeers();
+            if (!localAudioStream) {
+                ensureLocalAudio().then(() => {
+                    micEnabled = true;
+                    teamMicEnabled = true;
+                    if (teamVoicePhaseActive) {
+                        createTeamAudioTrack();
+                        if (teamAudioTrack) teamAudioTrack.enabled = true;
+                        syncTeamVoicePeers();
+                    }
+                    if (currentRoom) syncVoicePeers(currentRoom);
+                    refreshSpeechDetection();
+                    updateVoiceUI();
+                }).catch((error) => {
+                    showMessage("A privát lidérchanghoz engedélyezd a mikrofont a böngészőben.", "error", 9000);
+                    console.warn(error);
+                });
             }
         }
+        refreshSpeechDetection();
+        updateVoiceUI();
     }
 
-    async function refreshLocalMedia() {
-        const wantAudio = Boolean(ui.voiceToggle.checked);
-        const wantVideo = Boolean(ui.cameraToggle.checked);
-
-        if (!socket || !socket.connected || !currentRoom) {
-            ui.voiceToggle.checked = false;
-            ui.cameraToggle.checked = false;
-            voiceSetStatus("A mikrofon és a webkamera online lobbyban használható.", true);
-            return;
-        }
-        if (!wantAudio && !wantVideo) {
-            disableMedia(true);
-            return;
-        }
+    async function ensureLocalAudio() {
+        if (localAudioStream) return localAudioStream;
         if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-            ui.voiceToggle.checked = voiceEnabled;
-            ui.cameraToggle.checked = cameraEnabled;
-            voiceSetStatus("A mikrofonhoz és a kamerához localhost vagy HTTPS szükséges.", true);
-            return;
+            throw new Error("A böngésző itt nem engedélyezi a mikrofont. Használj localhostot vagy HTTPS-kapcsolatot.");
         }
+        localAudioStream = await navigator.mediaDevices.getUserMedia({
+            audio: {
+                echoCancellation: true,
+                noiseSuppression: true,
+                autoGainControl: true
+            },
+            video: false
+        });
+        micEnabled = true;
+        return localAudioStream;
+    }
 
-        let nextStream = null;
+    async function autoEnableVoiceFromUserAction() {
         try {
-            nextStream = await navigator.mediaDevices.getUserMedia({
-                audio: wantAudio,
-                video: wantVideo ? { width: { ideal: 640 }, height: { ideal: 360 }, facingMode: "user" } : false
+            await ensureLocalAudio();
+            micEnabled = true;
+            localAudioStream?.getAudioTracks().forEach((track) => {
+                track.enabled = Boolean(!gameVoiceLocked && gamePlayerAlive && !teamVoicePhaseActive);
             });
-            const previousStream = localMediaStream;
-            localMediaStream = nextStream;
-            voiceEnabled = wantAudio;
-            cameraEnabled = wantVideo;
-            updateLocalPreview();
-
-            // A már létrejött kapcsolatban is frissítjük a sávokat, amikor a kamera/mikrofon változik.
-            for (const entry of voicePeers.values()) await syncPeerTracks(entry, localMediaStream);
-            if (previousStream) previousStream.getTracks().forEach((track) => track.stop());
-
-            socket.emit("voice:toggle", { enabled: voiceEnabled, cameraEnabled });
-            const active = [voiceEnabled ? "mikrofon" : "", cameraEnabled ? "webkamera" : ""].filter(Boolean).join(" és ");
-            voiceSetStatus(`Bekapcsolva: ${active}. A böngésző engedélye szükséges.`);
+            if (currentRoom) syncVoicePeers(currentRoom);
+            if (currentGameVoiceState) applyGameVoiceState(currentGameVoiceState);
+            refreshSpeechDetection();
+            updateVoiceUI();
         } catch (error) {
-            if (nextStream) nextStream.getTracks().forEach((track) => track.stop());
-            ui.voiceToggle.checked = voiceEnabled;
-            ui.cameraToggle.checked = cameraEnabled;
-            const denied = error?.name === "NotAllowedError" || error?.name === "PermissionDeniedError";
-            voiceSetStatus(denied ? "Nem kaptunk mikrofon-/kameraengedélyt. Engedélyezd a böngészőben." : "Nem sikerült elindítani a mikrofont vagy a webkamerát.", true);
+            // A szobába belépés mikrofonengedély nélkül is működjön.
+            showMessage("A szobába beléptél, de a mikrofon nem kapott engedélyt. A böngésző címsoránál engedélyezd a mikrofont.", "info", 9000);
+            console.warn("Automatikus mikrofonengedély nem sikerült:", error);
         }
     }
 
-    function disableMedia(sendEvent = true) {
-        if (sendEvent && socket && currentRoom) socket.emit("voice:toggle", { enabled: false, cameraEnabled: false });
-        voiceEnabled = false;
-        cameraEnabled = false;
-        if (localMediaStream) {
-            localMediaStream.getTracks().forEach((track) => track.stop());
-            localMediaStream = null;
+    function signalPeer(peerId, data) {
+        if (socket.connected && currentRoom) {
+            socket.emit("voice-signal", { to: peerId, data });
         }
-        ui.localCameraPreview.srcObject = null;
-        ui.localCameraPreview.hidden = true;
-        for (const id of [...voicePeers.keys()]) closeVoicePeer(id);
-        if (ui.voiceToggle) ui.voiceToggle.checked = false;
-        if (ui.cameraToggle) ui.cameraToggle.checked = false;
-        if (ui.voiceStatus) voiceSetStatus("A mikrofon és a webkamera ki van kapcsolva.");
     }
 
-    async function ensureVoicePeer(peerId, peerName) {
-        if ((!voiceEnabled && !cameraEnabled) || !hasLocalMedia() || !peerId || peerId === socket.id) return null;
+    function ensureVoicePeer(peerId) {
+        if (!peerId || peerId === socket.id) return null;
         if (voicePeers.has(peerId)) return voicePeers.get(peerId);
 
         const pc = new RTCPeerConnection({
             iceServers: [{ urls: "stun:stun.l.google.com:19302" }]
         });
-        const entry = {
+        const record = {
             pc,
-            peerName: peerName || "Játékos",
-            polite: socket.id.localeCompare(peerId) > 0,
+            polite: String(socket.id).localeCompare(String(peerId)) > 0,
             makingOffer: false,
             ignoreOffer: false,
-            isSettingRemoteAnswerPending: false,
-            pendingCandidates: [],
-            remoteStream: null,
-            mediaCard: null,
-            audioElement: null,
-            videoElement: null
+            settingRemoteAnswerPending: false,
+            pendingCandidates: []
         };
-        voicePeers.set(peerId, entry);
+        voicePeers.set(peerId, record);
 
-        localMediaStream.getTracks().forEach((track) => {
-            const sender = pc.addTrack(track, localMediaStream);
-            sender.__kiiszikKind = track.kind;
-        });
         pc.onicecandidate = (event) => {
-            if (event.candidate) socket.emit("voice:signal", { targetId: peerId, signal: { type: "candidate", candidate: event.candidate.toJSON() } });
+            if (event.candidate) signalPeer(peerId, { candidate: event.candidate });
+        };
+
+        pc.ontrack = (event) => {
+            let audio = document.getElementById(`voice-audio-${peerId}`);
+            if (!audio) {
+                audio = document.createElement("audio");
+                audio.id = `voice-audio-${peerId}`;
+                audio.autoplay = true;
+                audio.playsInline = true;
+                audio.setAttribute("aria-label", "Másik játékos hangja");
+                document.getElementById("remoteAudioContainer").appendChild(audio);
+            }
+            if (event.streams && event.streams[0]) {
+                audio.srcObject = event.streams[0];
+            } else {
+                audio.srcObject = new MediaStream([event.track]);
+            }
+            applyRemoteVoiceEffects(currentGameVoiceState);
+            audio.play().catch(() => {
+                showMessage("A hang lejátszását a böngésző letiltotta. Kattints az oldalra, majd engedélyezd a hangot.", "info");
+            });
+        };
+
+        pc.onconnectionstatechange = () => {
+            if (pc.connectionState === "failed") {
+                showMessage("Egy hangkapcsolat nem jött létre. Más hálózaton TURN-szerverre is szükség lehet.", "error");
+            }
+        };
+
+        pc.onnegotiationneeded = async () => {
+            try {
+                record.makingOffer = true;
+                await pc.setLocalDescription();
+                signalPeer(peerId, { description: pc.localDescription });
+            } catch (error) {
+                console.warn("A hangkapcsolat egyeztetése nem sikerült:", error);
+            } finally {
+                record.makingOffer = false;
+            }
+        };
+
+        // Fogadó audio sáv már mikrofonengedély előtt is létrejön.
+        pc.addTransceiver("audio", { direction: localAudioStream ? "sendrecv" : "recvonly" });
+        if (localAudioStream) attachLocalAudio(pc).catch((error) => console.warn(error));
+        return record;
+    }
+
+    async function attachLocalAudio(pc) {
+        if (!localAudioStream) return;
+        const audioTrack = localAudioStream.getAudioTracks()[0];
+        if (!audioTrack) return;
+
+        let transceiver = pc.getTransceivers().find((item) => item.receiver && item.receiver.track && item.receiver.track.kind === "audio");
+        if (!transceiver) transceiver = pc.addTransceiver("audio", { direction: "sendrecv" });
+        await transceiver.sender.replaceTrack(audioTrack);
+        transceiver.direction = "sendrecv";
+    }
+
+    function signalTeamPeer(peerId, data) {
+        if (socket.connected && currentRoom) socket.emit("team-voice-signal", { to: peerId, data });
+    }
+
+    function createTeamAudioTrack() {
+        if (!localAudioStream || teamAudioTrack) return teamAudioTrack;
+        const original = localAudioStream.getAudioTracks()[0];
+        if (!original || typeof original.clone !== "function") return null;
+        const wasEnabled = original.enabled;
+        // A klónozáskor röviden legyen aktív a forrássáv; utána azonnal visszaállítjuk.
+        // A klónozott sáv ezután külön némítható, nem szivárog át a normál hangcsatornába.
+        if (!wasEnabled) original.enabled = true;
+        teamAudioTrack = original.clone();
+        original.enabled = wasEnabled;
+        teamAudioTrack.enabled = Boolean(teamMicEnabled && teamVoicePhaseActive && gamePlayerAlive);
+        teamAudioStream = new MediaStream([teamAudioTrack]);
+        return teamAudioTrack;
+    }
+
+    async function attachTeamAudio(pc) {
+        if (!teamAudioTrack) return;
+        let transceiver = pc.getTransceivers().find((item) => item.receiver && item.receiver.track && item.receiver.track.kind === "audio");
+        if (!transceiver) transceiver = pc.addTransceiver(teamAudioTrack, { direction: "sendrecv", streams: [teamAudioStream] });
+        else {
+            await transceiver.sender.replaceTrack(teamAudioTrack);
+            if (transceiver.direction !== "sendrecv") transceiver.direction = "sendrecv";
+        }
+    }
+
+    function ensureTeamVoicePeer(peerId) {
+        if (!peerId || peerId === socket.id) return null;
+        if (teamVoicePeers.has(peerId)) return teamVoicePeers.get(peerId);
+        const pc = new RTCPeerConnection({
+            iceServers: [{ urls: "stun:stun.l.google.com:19302" }]
+        });
+        const record = {
+            pc,
+            polite: String(socket.id).localeCompare(String(peerId)) > 0,
+            makingOffer: false,
+            ignoreOffer: false,
+            settingRemoteAnswerPending: false,
+            pendingCandidates: []
+        };
+        teamVoicePeers.set(peerId, record);
+        pc.onicecandidate = (event) => {
+            if (event.candidate) signalTeamPeer(peerId, { candidate: event.candidate });
+        };
+        pc.ontrack = (event) => {
+            const container = document.getElementById("remoteAudioContainer");
+            if (!container) return;
+            let audio = document.getElementById(`team-voice-audio-${peerId}`);
+            if (!audio) {
+                audio = document.createElement("audio");
+                audio.id = `team-voice-audio-${peerId}`;
+                audio.autoplay = true;
+                audio.playsInline = true;
+                audio.setAttribute("aria-label", "Titkos csapattárs hangja");
+                container.appendChild(audio);
+            }
+            audio.srcObject = event.streams?.[0] || new MediaStream([event.track]);
+            applyRemoteAudioSetting(peerId, "team");
+            audio.play().catch(() => showMessage("A privát csapathang lejátszásához kattints az oldalra, majd engedélyezd a hangot.", "info"));
         };
         pc.onnegotiationneeded = async () => {
             try {
-                entry.makingOffer = true;
+                record.makingOffer = true;
                 await pc.setLocalDescription();
-                socket.emit("voice:signal", { targetId: peerId, signal: { type: pc.localDescription.type, sdp: pc.localDescription.sdp } });
+                signalTeamPeer(peerId, { description: pc.localDescription });
             } catch (error) {
-                console.warn("[Kiiszik media] Kapcsolategyeztetési hiba:", error);
-                voiceSetStatus("Nem sikerült a hang-/videókapcsolatot egyeztetni.", true);
+                console.warn("A privát csapathang egyeztetése nem sikerült:", error);
             } finally {
-                entry.makingOffer = false;
+                record.makingOffer = false;
             }
         };
-        pc.ontrack = (event) => {
-            const incoming = event.streams && event.streams[0] ? event.streams[0] : new MediaStream([event.track]);
-            entry.remoteStream = incoming;
-            if (!entry.mediaCard) {
-                entry.mediaCard = document.createElement("article");
-                entry.mediaCard.className = "lobby-remote-media-card";
-                entry.mediaCard.dataset.playerName = entry.peerName;
-                entry.mediaCard.dataset.playerId = peerId;
-                const name = document.createElement("strong");
-                name.className = "lobby-remote-media-name";
-                name.textContent = entry.peerName;
-                entry.videoElement = document.createElement("video");
-                entry.videoElement.autoplay = true;
-                entry.videoElement.playsInline = true;
-                entry.videoElement.muted = true;
-                entry.videoElement.hidden = true;
-                entry.audioElement = document.createElement("audio");
-                entry.audioElement.autoplay = true;
-                entry.audioElement.playsInline = true;
-                entry.mediaCard.append(name, entry.videoElement, entry.audioElement);
-                ui.remoteMedia.append(entry.mediaCard);
-            }
-            if (event.track.kind === "video") {
-                entry.videoElement.hidden = false;
-                entry.videoElement.srcObject = incoming;
-                entry.videoElement.play().catch(() => {});
-            } else if (event.track.kind === "audio") {
-                entry.audioElement.srcObject = incoming;
-                entry.audioElement.play().catch(() => voiceSetStatus("A hang lejátszásához kattints az oldalon vagy ellenőrizd a böngésző hangbeállításait."));
-            }
-            updateRemoteMediaVisibility();
-        };
-        pc.onconnectionstatechange = () => {
-            if (["failed", "closed"].includes(pc.connectionState)) closeVoicePeer(peerId);
-        };
-        return entry;
+        pc.addTransceiver("audio", { direction: teamAudioTrack ? "sendrecv" : "recvonly" });
+        if (teamAudioTrack) attachTeamAudio(pc).catch((error) => console.warn(error));
+        return record;
     }
 
-    async function receiveVoiceSignal(data) {
-        if ((!voiceEnabled && !cameraEnabled) || !data || !data.from || !data.signal) return;
-        const peerId = data.from;
-        const signal = data.signal;
-        const entry = voicePeers.get(peerId) || await ensureVoicePeer(peerId, "Játékos");
-        if (!entry) return;
+    function syncTeamVoicePeers() {
+        if (!window.RTCPeerConnection || !teamVoicePhaseActive || !currentRoom || !currentGameVoiceState) return;
+        const expectedIds = new Set(getLivingTeamPeerIds(currentGameVoiceState, teamVoiceRole));
+        for (const [peerId, record] of teamVoicePeers.entries()) {
+            if (!expectedIds.has(peerId)) {
+                record.pc.close();
+                teamVoicePeers.delete(peerId);
+                document.getElementById(`team-voice-audio-${peerId}`)?.remove();
+            }
+        }
+        expectedIds.forEach((peerId) => {
+            const record = ensureTeamVoicePeer(peerId);
+            if (record && teamAudioTrack) attachTeamAudio(record.pc).catch((error) => console.warn(error));
+        });
+    }
 
+    async function handleTeamVoiceSignal({ from, data } = {}) {
+        if (!from || !data || !teamVoicePhaseActive || !voiceTeamMembers.some((member) => member.id === from)) return;
+        const record = ensureTeamVoicePeer(from);
+        if (!record) return;
+        const pc = record.pc;
         try {
-            if (signal.type === "offer" || signal.type === "answer") {
-                const readyForOffer = !entry.makingOffer && (entry.pc.signalingState === "stable" || entry.isSettingRemoteAnswerPending);
-                const offerCollision = signal.type === "offer" && !readyForOffer;
-                entry.ignoreOffer = !entry.polite && offerCollision;
-                if (entry.ignoreOffer) return;
-                entry.isSettingRemoteAnswerPending = signal.type === "answer";
-                if (offerCollision && entry.polite) await entry.pc.setLocalDescription({ type: "rollback" });
-                await entry.pc.setRemoteDescription({ type: signal.type, sdp: signal.sdp });
-                entry.isSettingRemoteAnswerPending = false;
-                for (const candidate of entry.pendingCandidates.splice(0)) await entry.pc.addIceCandidate(candidate);
-                if (signal.type === "offer") {
-                    await entry.pc.setLocalDescription();
-                    socket.emit("voice:signal", { targetId: peerId, signal: { type: entry.pc.localDescription.type, sdp: entry.pc.localDescription.sdp } });
+            if (data.description) {
+                const description = data.description;
+                const readyForOffer = !record.makingOffer && (pc.signalingState === "stable" || record.settingRemoteAnswerPending);
+                const offerCollision = description.type === "offer" && !readyForOffer;
+                record.ignoreOffer = !record.polite && offerCollision;
+                if (record.ignoreOffer) return;
+                record.settingRemoteAnswerPending = description.type === "answer";
+                if (offerCollision) {
+                    await Promise.all([pc.setLocalDescription({ type: "rollback" }), pc.setRemoteDescription(description)]);
+                } else {
+                    await pc.setRemoteDescription(description);
                 }
-            } else if (signal.type === "candidate" && signal.candidate) {
-                if (entry.ignoreOffer) return;
-                const candidate = new RTCIceCandidate(signal.candidate);
-                if (entry.pc.remoteDescription) await entry.pc.addIceCandidate(candidate);
-                else entry.pendingCandidates.push(candidate);
+                record.settingRemoteAnswerPending = false;
+                while (record.pendingCandidates.length > 0) {
+                    const candidate = record.pendingCandidates.shift();
+                    try { await pc.addIceCandidate(candidate); } catch (candidateError) { console.warn("Privát ICE jelölt hiba:", candidateError); }
+                }
+                if (description.type === "offer") {
+                    await pc.setLocalDescription();
+                    signalTeamPeer(from, { description: pc.localDescription });
+                }
+            } else if (data.candidate) {
+                if (!pc.remoteDescription) record.pendingCandidates.push(data.candidate);
+                else {
+                    try { await pc.addIceCandidate(data.candidate); }
+                    catch (error) { if (!record.ignoreOffer) throw error; }
+                }
             }
         } catch (error) {
-            console.warn("[Kiiszik media] Jelzési hiba:", error);
+            console.warn("A privát csapathang jelzésének feldolgozása sikertelen:", error);
         }
     }
 
-    function closeVoicePeer(peerId) {
-        const entry = voicePeers.get(peerId);
-        if (!entry) return;
-        try { entry.pc.close(); } catch {}
-        if (entry.mediaCard) entry.mediaCard.remove();
-        voicePeers.delete(peerId);
-        updateRemoteMediaVisibility();
-    }
-
-    ui.voiceToggle.addEventListener("change", refreshLocalMedia);
-    ui.cameraToggle.addEventListener("change", refreshLocalMedia);
-
-    function playPenaltyRecording(data) {
-        if (!data || !data.dataUrl) return;
-        if (lastPenaltyAudio) {
-            lastPenaltyAudio.pause();
-            lastPenaltyAudio = null;
+    function closeTeamVoiceConnections(stopTrack = false) {
+        for (const [peerId, record] of teamVoicePeers.entries()) {
+            record.pc.close();
+            document.getElementById(`team-voice-audio-${peerId}`)?.remove();
         }
-        const message = data.isTest
-            ? `🔊 Próba: ${data.playerName} büntető hangfelvétele.`
-            : `🔊 ${data.playerName} visszalép ${data.spacesBack} mezőt. ${data.reason || "Büntetés"}.`;
-        setFeedback(message, "success");
-        const audio = new Audio(data.dataUrl);
-        audio.volume = 1;
-        lastPenaltyAudio = audio;
-        audio.addEventListener("ended", () => { if (lastPenaltyAudio === audio) lastPenaltyAudio = null; }, { once: true });
-        audio.play().catch(() => {
-            setFeedback(`${message} A böngésző blokkolta a hang automatikus lejátszását. Kattints egyszer az oldalon, és ellenőrizd a hangerőt.`, "error");
+        teamVoicePeers.clear();
+        if (stopTrack && teamAudioTrack) {
+            teamAudioTrack.stop();
+            teamAudioTrack = null;
+            teamAudioStream = null;
+        }
+    }
+
+    function emitSpeaking(channel, isSpeaking) {
+        if (!socket.connected) return;
+        socket.emit(channel === "team" ? "team-voice-speaking" : "voice-speaking", { speaking: Boolean(isSpeaking) });
+    }
+
+    function stopSpeechDetection() {
+        if (!speechDetection) return;
+        const detector = speechDetection;
+        speechDetection = null;
+        if (detector.raf) cancelAnimationFrame(detector.raf);
+        if (detector.speaking) emitSpeaking(detector.channel, false);
+        try { detector.source.disconnect(); } catch {}
+        try { detector.analyser.disconnect(); } catch {}
+        if (detector.context && detector.context.state !== "closed") detector.context.close().catch(() => {});
+    }
+
+    function startSpeechDetection(stream, channel) {
+        if (!stream) return;
+        if (speechDetection && speechDetection.stream === stream && speechDetection.channel === channel) return;
+        stopSpeechDetection();
+        const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+        if (!AudioContextClass) return;
+        try {
+            const context = new AudioContextClass();
+            const source = context.createMediaStreamSource(stream);
+            const analyser = context.createAnalyser();
+            analyser.fftSize = 512;
+            analyser.smoothingTimeConstant = 0.35;
+            source.connect(analyser);
+            const samples = new Uint8Array(analyser.fftSize);
+            const detector = { stream, channel, context, source, analyser, samples, raf: 0, speaking: false, above: 0, below: 0 };
+            speechDetection = detector;
+            const tick = () => {
+                if (speechDetection !== detector) return;
+                analyser.getByteTimeDomainData(samples);
+                let total = 0;
+                for (let i = 0; i < samples.length; i++) {
+                    const value = (samples[i] - 128) / 128;
+                    total += value * value;
+                }
+                const rms = Math.sqrt(total / samples.length);
+                const tracksEnabled = stream.getAudioTracks().some((track) => track.enabled && track.readyState === "live");
+                const voice = tracksEnabled && rms > 0.035;
+                if (voice) { detector.above += 1; detector.below = 0; }
+                else { detector.below += 1; detector.above = 0; }
+                if (!detector.speaking && detector.above >= 3) {
+                    detector.speaking = true;
+                    emitSpeaking(channel, true);
+                } else if (detector.speaking && detector.below >= 10) {
+                    detector.speaking = false;
+                    emitSpeaking(channel, false);
+                }
+                detector.raf = requestAnimationFrame(tick);
+            };
+            detector.raf = requestAnimationFrame(tick);
+            context.resume().catch(() => {});
+        } catch (error) {
+            console.warn("A beszédjelzés nem indítható el:", error);
+        }
+    }
+
+    function refreshSpeechDetection() {
+        if (teamVoicePhaseActive && teamMicEnabled && teamAudioStream && teamAudioTrack?.enabled) {
+            startSpeechDetection(teamAudioStream, "team");
+            return;
+        }
+        const publicTrackEnabled = localAudioStream && localAudioStream.getAudioTracks().some((track) => track.enabled && track.readyState === "live");
+        const gameOver = currentGameVoiceState?.phase === "game-over";
+        if (!gameVoiceLocked && (gamePlayerAlive || gameOver) && micEnabled && publicTrackEnabled) {
+            startSpeechDetection(localAudioStream, "public");
+            return;
+        }
+        stopSpeechDetection();
+    }
+
+    function syncVoicePeers(room) {
+        if (!window.RTCPeerConnection || !room) return;
+        const expectedIds = new Set(room.players.map((player) => player.id).filter((id) => id !== socket.id));
+
+        for (const [peerId, record] of voicePeers.entries()) {
+            if (!expectedIds.has(peerId)) {
+                record.pc.close();
+                voicePeers.delete(peerId);
+                const audio = document.getElementById(`voice-audio-${peerId}`);
+                if (audio) audio.remove();
+            }
+        }
+
+        expectedIds.forEach((peerId) => {
+            const record = ensureVoicePeer(peerId);
+            if (record && localAudioStream) attachLocalAudio(record.pc).catch((error) => console.warn(error));
         });
     }
 
-    // A készülő játéktábla innen tudja jelezni, ha egy játékos hátralép.
-    // Ezt a műveletet csak a szoba vezetőjének böngészője küldheti a szervernek.
-    window.KiiszikGameEffects = window.KiiszikGameEffects || {};
-    window.KiiszikGameEffects.playerKnockedBack = (targetPlayerId, spacesBack = 3, reason = "Kiütötték") => {
-        if (!socket || !socket.connected || !currentRoom) return false;
-        socket.emit("game:penalty-trigger", { targetId: String(targetPlayerId), spacesBack, reason });
-        return true;
-    };
-    window.addEventListener("kiiszik:player-knocked-back", (event) => {
-        const detail = event.detail || {};
-        window.KiiszikGameEffects.playerKnockedBack(detail.targetPlayerId, detail.spacesBack || 3, detail.reason || "Kiütötték");
-    });
-
-    // ---- Socket responses ----
-    if (socket) {
-        socket.on("connect", () => {
-            connectedStatus(true);
-            requestRooms();
-        });
-        socket.on("disconnect", () => {
-            connectedStatus(false);
-            rooms = [];
-            renderRooms();
-            if (currentRoom) setFeedback("A szerverkapcsolat megszakadt. Próbál újracsatlakozni…", "error");
-        });
-        socket.on("room:list-result", (list) => {
-            rooms = Array.isArray(list) ? list : [];
-            renderRooms();
-        });
-        socket.on("room:list-updated", requestRooms);
-        socket.on("room:create-result", (result) => {
-            if (createRoomTimeout) {
-                clearTimeout(createRoomTimeout);
-                createRoomTimeout = null;
-            }
-            if (!result || !result.ok) {
-                setFeedback(result?.message || "Nem sikerült létrehozni a szobát.", "error");
-                return;
-            }
-            pendingJoinCode = null;
-            ui.roomPassword.value = "";
-            if (result.room) {
-                // Azonnali, biztos átváltás a várószobára.
-                renderRoomState(result.room);
+    async function toggleVoice() {
+        const button = document.getElementById("voiceToggleButton");
+        const privateTeamVoice = canUsePrivateTeamVoice();
+        if (gameVoiceLocked && !privateTeamVoice) {
+            showMessage("Éjszaka a normál voice chat automatikusan kikapcsol.", "info");
+            return;
+        }
+        if (!gamePlayerAlive && currentGameVoiceState?.phase !== "game-over") {
+            showMessage("Kiesett játékosként a mikrofonod a játék végéig letiltva marad.", "info");
+            return;
+        }
+        if (button) button.disabled = true;
+        try {
+            if (privateTeamVoice) {
+                const publicMicPreference = micEnabled;
+                if (!localAudioStream) {
+                    await ensureLocalAudio();
+                    // A mikrofonengedély megszerzése nem kapcsolja be automatikusan a nappali mikrofont.
+                    micEnabled = publicMicPreference;
+                }
+                if (!teamAudioTrack) createTeamAudioTrack();
+                teamMicEnabled = !teamMicEnabled;
+                if (teamAudioTrack) teamAudioTrack.enabled = Boolean(teamMicEnabled && teamVoicePhaseActive && gamePlayerAlive);
+                // A normál, mindenki számára elérhető mikrofoncsatorna éjszaka némítva marad.
+                localAudioStream?.getAudioTracks().forEach((track) => { track.enabled = false; });
+                syncTeamVoicePeers();
+                if (teamMicEnabled) showMessage("A privát csapathang bekapcsolt. Csak az életben lévő csapattársaid hallanak.", "success");
+            } else if (!localAudioStream) {
+                await ensureLocalAudio();
+                if (currentRoom) syncVoicePeers(currentRoom);
+                showMessage("A mikrofon bekapcsolt. Ha a böngésző kérte, engedélyezd a mikrofon használatát.", "success");
             } else {
-                // Kompatibilitási tartalék, ha régebbi szerverválasz érkezik.
-                socket.emit("room:state-request");
+                micEnabled = !micEnabled;
+                localAudioStream.getAudioTracks().forEach((track) => { track.enabled = Boolean(micEnabled && !gameVoiceLocked && gamePlayerAlive); });
             }
-            setFeedback("Szoba létrehozva! Várjuk a többi játékost.", "success");
-        });
-        socket.on("room:join-result", (result) => {
-            if (result?.ok) {
-                ui.passwordPanel.hidden = true;
-                ui.joinPassword.value = "";
-                pendingJoinCode = null;
-                if (result.room) renderRoomState(result.room);
-                else socket.emit("room:state-request");
-                setFeedback("Sikeresen csatlakoztál a szobához.", "success");
-                return;
-            }
-            const reason = result?.reason;
-            if (reason === "PASSWORD_REQUIRED" || reason === "BAD_PASSWORD") {
-                ui.passwordPanel.hidden = false;
-                ui.passwordRoomLabel.textContent = "Add meg a kiválasztott szoba jelszavát a belépéshez.";
-                ui.joinPassword.value = "";
-                ui.joinPassword.focus();
-                setFeedback(reason === "BAD_PASSWORD" ? "Hibás jelszó. Próbáld újra." : "Ehhez a szobához jelszó szükséges.", "error");
-            } else {
-                setFeedback(result?.message || "Nem sikerült belépni a szobába.", "error");
-                ui.passwordPanel.hidden = true;
-            }
-        });
-        socket.on("room:state", renderRoomState);
-        socket.on("room:action-result", (result) => {
-            setFeedback(result?.message || (result?.ok ? "Kész." : "A művelet nem sikerült."), result?.ok ? "success" : "error");
-        });
-        socket.on("room:leave-result", () => {
-            currentRoom = null;
-            uploadedPenaltyRecordingRoomCode = null;
-            onlineGameLaunchedRoomCode = null;
-            pendingJoinCode = null;
-            ui.passwordPanel.hidden = true;
-            showOnlineSetup();
-            requestRooms();
-        });
-        socket.on("room:kicked", (data) => {
-            disableMedia(false);
-            currentRoom = null;
-            uploadedPenaltyRecordingRoomCode = null;
-            onlineGameLaunchedRoomCode = null;
-            showOnlineSetup();
-            setFeedback(data?.message || "A szobavezető eltávolított a szobából.", "error");
-            requestRooms();
-        });
-        socket.on("room:expired", (data) => {
-            disableMedia(false);
-            currentRoom = null;
-            uploadedPenaltyRecordingRoomCode = null;
-            onlineGameLaunchedRoomCode = null;
-            showOnlineSetup();
-            setFeedback(data?.message || "A szoba várakozási ideje lejárt.", "error");
-            requestRooms();
-        });
-        socket.on("room:started", (data = {}) => {
-            if (currentRoom) {
-                currentRoom.started = true;
-                if (data.code) currentRoom.code = data.code;
-                launchOnlineGame(currentRoom);
-            } else {
-                // Ha az állapotfrissítés és az indulás eseménye eltérő sorrendben érkezik,
-                // kérjük le a szoba állapotát, és a started mező elindítja a játékot.
-                socket.emit("room:state-request");
-            }
-        });
-        socket.on("penalty:recording-saved", (result) => {
-            if (!result || !result.ok) {
-                uploadedPenaltyRecordingRoomCode = null;
-                if (result?.message) setFeedback(`A büntetőhang nem került a szobába: ${result.message}`, "error");
-                return;
-            }
-            if (currentRoom) {
-                const own = currentRoom.players.find((player) => player.id === socket.id);
-                if (own) own.hasPenaltyRecording = true;
-            }
-        });
-        socket.on("game:penalty-voice", playPenaltyRecording);
-        socket.on("voice:peers", async (list) => {
-            for (const peer of (Array.isArray(list) ? list : [])) {
-                await ensureVoicePeer(peer.id, peer.name);
-            }
-        });
-        socket.on("voice:peer-available", async (peer) => {
-            if ((voiceEnabled || cameraEnabled) && peer?.id) {
-                await ensureVoicePeer(peer.id, peer.name);
-            }
-        });
-        socket.on("voice:peer-left", (data) => {
-            if (data?.id) closeVoicePeer(data.id);
-        });
-        socket.on("voice:signal", receiveVoiceSignal);
-        socket.on("voice:status", (data) => {
-            if (data && data.message) voiceSetStatus(data.message, !data.ok);
-        });
-    } else {
-        connectedStatus(false);
-        setFeedback("Az online módhoz Socket.IO-szerver kell. A helyi játékmód szerver nélkül is előkészíthető.", "error");
+        } catch (error) {
+            showMessage(error && error.message ? error.message : "Nem sikerült bekapcsolni a mikrofont.", "error");
+        } finally {
+            if (button) button.disabled = false;
+            refreshSpeechDetection();
+            updateVoiceUI();
+        }
     }
 
-    if (socket && socket.connected) connectedStatus(true);
-    makeLocalNameInputs();
-    refreshTimer = window.setInterval(() => {
-        if (!currentRoom && currentMode === "online" && screen && !screen.hidden) requestRooms();
-    }, 10000);
+    window.lidercVoiceToggle = toggleVoice;
 
-    window.addEventListener("beforeunload", () => {
-        if (createRoomTimeout) clearTimeout(createRoomTimeout);
-        if (lastPenaltyAudio) lastPenaltyAudio.pause();
-        disableMedia(false);
-        if (refreshTimer) clearInterval(refreshTimer);
-        if (roomCountdownTimer) clearInterval(roomCountdownTimer);
+    async function handleVoiceSignal({ from, data } = {}) {
+        if (!from || !data || !currentRoom || !currentRoom.players.some((player) => player.id === from)) return;
+        const record = ensureVoicePeer(from);
+        if (!record) return;
+        const pc = record.pc;
+
+        try {
+            if (data.description) {
+                const description = data.description;
+                const readyForOffer = !record.makingOffer &&
+                    (pc.signalingState === "stable" || record.settingRemoteAnswerPending);
+                const offerCollision = description.type === "offer" && !readyForOffer;
+                record.ignoreOffer = !record.polite && offerCollision;
+                if (record.ignoreOffer) return;
+
+                record.settingRemoteAnswerPending = description.type === "answer";
+                if (offerCollision) {
+                    await Promise.all([
+                        pc.setLocalDescription({ type: "rollback" }),
+                        pc.setRemoteDescription(description)
+                    ]);
+                } else {
+                    await pc.setRemoteDescription(description);
+                }
+                record.settingRemoteAnswerPending = false;
+                while (record.pendingCandidates.length > 0) {
+                    const candidate = record.pendingCandidates.shift();
+                    try { await pc.addIceCandidate(candidate); } catch (candidateError) { console.warn("ICE jelölt hiba:", candidateError); }
+                }
+
+                if (description.type === "offer") {
+                    await pc.setLocalDescription();
+                    signalPeer(from, { description: pc.localDescription });
+                }
+            } else if (data.candidate) {
+                if (!pc.remoteDescription) {
+                    record.pendingCandidates.push(data.candidate);
+                } else {
+                    try {
+                        await pc.addIceCandidate(data.candidate);
+                    } catch (error) {
+                        if (!record.ignoreOffer) throw error;
+                    }
+                }
+            }
+        } catch (error) {
+            console.warn("A bejövő hangjelzés feldolgozása nem sikerült:", error);
+        }
+    }
+
+    function closeVoiceConnections(stopStream = false) {
+        for (const [peerId, record] of voicePeers.entries()) {
+            record.pc.close();
+            const audio = document.getElementById(`voice-audio-${peerId}`);
+            if (audio) audio.remove();
+        }
+        voicePeers.clear();
+        if (stopStream && localAudioStream) {
+            localAudioStream.getTracks().forEach((track) => track.stop());
+            localAudioStream = null;
+            micEnabled = false;
+        }
+        updateVoiceUI();
+    }
+
+    function resetPrivateVoiceContext() {
+        stopSpeechDetection();
+        closeTeamVoiceConnections(true);
+        currentGameVoiceState = null;
+        voiceRole = null;
+        voiceTeamMembers = [];
+        teamVoicePhaseActive = false;
+        teamVoiceRole = null;
+        teamMicEnabled = false;
+        speakingPlayerIds.clear();
+    }
+
+    // -----------------------------------------------
+    // FELÜLETI ESEMÉNYEK
+    // -----------------------------------------------
+
+    document.getElementById("showCreateViewButton").addEventListener("click", () => {
+        setView("create");
+        updateRoleTotal();
+        document.getElementById("roomNameInput").focus();
     });
+    document.getElementById("showSearchViewButton").addEventListener("click", () => {
+        setView("search");
+        socket.emit("request-rooms");
+        roomSearchInput.focus();
+    });
+    document.getElementById("backFromCreateButton").addEventListener("click", () => setView("home"));
+    document.getElementById("backFromSearchButton").addEventListener("click", () => setView("home"));
+
+    document.querySelectorAll(".number-control button[data-target]").forEach((button) => {
+        button.addEventListener("click", () => {
+            const input = document.getElementById(button.dataset.target);
+            const step = Number(button.dataset.step);
+            const current = Number.parseInt(input.value, 10) || 0;
+            input.value = String(Math.max(0, Math.min(16, current + step)));
+            updateRoleTotal();
+        });
+    });
+    roleKeys.forEach((key) => {
+        const input = document.getElementById(roleIds[key]);
+        input.addEventListener("input", updateRoleTotal);
+        input.addEventListener("change", () => {
+            const value = Number.parseInt(input.value, 10);
+            input.value = String(Number.isInteger(value) ? Math.max(0, Math.min(16, value)) : 0);
+            updateRoleTotal();
+        });
+    });
+
+    document.getElementById("createRoomForm").addEventListener("submit", (event) => {
+        event.preventDefault();
+        clearMessage();
+
+        const roomName = document.getElementById("roomNameInput").value.trim();
+        const roles = readSelectedRoles();
+        const settings = readRoomSettings();
+        if (!settings) return;
+        const total = roleKeys.reduce((sum, key) => sum + roles[key], 0);
+
+        if (roomName.length < 3 || roomName.length > 24) {
+            showMessage("A szoba neve 3–24 karakter hosszú legyen.", "error");
+            document.getElementById("roomNameInput").focus();
+            return;
+        }
+        if (total < 4 || total > 16) {
+            showMessage("A szerepkörök összege legalább 4, legfeljebb 16 játékos legyen.", "error");
+            return;
+        }
+
+        const submit = document.getElementById("createRoomSubmit");
+        submit.disabled = true;
+        submit.textContent = "SZOBA KÉSZÍTÉSE...";
+        autoEnableVoiceFromUserAction();
+        socket.emit("create-room", { roomName, roles, settings, username: playerName });
+        window.setTimeout(() => {
+            if (submit.isConnected) {
+                submit.disabled = false;
+                submit.innerHTML = 'SZOBÁM LÉTREHOZÁSA <span aria-hidden="true">✦</span>';
+            }
+        }, 3000);
+    });
+
+    roomSearchInput.addEventListener("input", renderRoomList);
+    document.getElementById("refreshRoomsButton").addEventListener("click", () => {
+        socket.emit("request-rooms");
+        showMessage("Szobalista frissítése...", "info");
+    });
+
+    document.getElementById("leaveRoomButton").addEventListener("click", () => {
+        stopSpeechDetection();
+        closeTeamVoiceConnections(true);
+        closeVoiceConnections(true);
+        socket.emit("leave-room");
+    });
+
+    document.getElementById("readyButton").addEventListener("click", () => {
+        if (!currentRoom) return;
+        const self = currentRoom.players.find((player) => player.id === socket.id);
+        socket.emit("toggle-ready", { ready: !(self && self.ready) });
+    });
+
+    document.getElementById("startGameButtonLobby").addEventListener("click", () => {
+        if (!currentRoom) return;
+        socket.emit("start-game");
+    });
+
+    document.getElementById("voiceToggleButton").addEventListener("click", toggleVoice);
+
+
+    // -----------------------------------------------
+    // SOCKET.IO VÁLASZOK
+    // -----------------------------------------------
+
+    socket.on("connect", () => {
+        document.getElementById("connectionIndicator").classList.add("is-connected");
+        document.getElementById("connectionLabel").textContent = "Szerverhez kapcsolódva";
+        socket.emit("request-rooms");
+        socket.emit("check-name", playerName, (result) => {
+            if (!result || !result.ok) {
+                showMessage(result?.message || "Ellenőrizd a játékosnevedet.", "error", 0);
+            }
+        });
+    });
+
+    socket.on("disconnect", () => {
+        document.getElementById("connectionIndicator").classList.remove("is-connected");
+        document.getElementById("connectionLabel").textContent = "Kapcsolat megszakadt";
+        showMessage("Megszakadt a kapcsolat a szerverrel. A böngésző megpróbál újracsatlakozni.", "error", 0);
+        gameVoiceLocked = false;
+        gamePlayerAlive = true;
+        resetPrivateVoiceContext();
+        closeVoiceConnections(true);
+        if (currentRoom) {
+            currentRoom = null;
+            setView("home");
+            showMessage("A kapcsolat megszakadt, ezért kiléptél a szobából. Csatlakozz újra.", "error", 0);
+        }
+    });
+
+    socket.on("connect_error", () => {
+        document.getElementById("connectionIndicator").classList.remove("is-connected");
+        document.getElementById("connectionLabel").textContent = "Nem érhető el a szerver";
+    });
+
+    socket.on("rooms-list", (rooms) => {
+        availableRooms = Array.isArray(rooms) ? rooms : [];
+        if (!views.search.hidden) renderRoomList();
+    });
+
+    socket.on("room-joined", (room) => {
+        renderWaitingRoom(room);
+        showMessage(`Sikeresen beléptél a(z) „${room.name}” szobába.`, "success");
+    });
+
+    socket.on("room-updated", (room) => {
+        if (currentRoom && currentRoom.code === room.code) renderWaitingRoom(room);
+    });
+
+    socket.on("return-to-waiting-room", (payload = {}) => {
+        if (!payload.room) return;
+        stopSpeechDetection();
+        closeTeamVoiceConnections(true);
+        currentGameVoiceState = null;
+        voiceRole = null;
+        voiceTeamMembers = [];
+        speakingPlayerIds.clear();
+        teamVoicePhaseActive = false;
+        teamVoiceRole = null;
+        teamMicEnabled = false;
+        currentRoom = payload.room;
+        gameVoiceLocked = false;
+        gamePlayerAlive = true;
+        setView("waiting");
+        renderWaitingRoom(payload.room);
+        showMessage(payload.message || "A szoba készen áll az új menetre.", "success", 9000);
+        updateVoiceUI();
+    });
+
+    socket.on("left-room", () => {
+        currentRoom = null;
+        gameVoiceLocked = false;
+        gamePlayerAlive = true;
+        resetPrivateVoiceContext();
+        closeVoiceConnections(true);
+        setView("home");
+        showMessage("Kiléptél a szobából.", "success");
+    });
+
+    socket.on("kicked-from-room", (details = {}) => {
+        currentRoom = null;
+        gameVoiceLocked = false;
+        gamePlayerAlive = true;
+        resetPrivateVoiceContext();
+        closeVoiceConnections(true);
+        setView("home");
+        showMessage(`A házigazda eltávolított a(z) „${details.roomName || ""}” szobából.`, "error");
+    });
+
+    socket.on("room-error", (message) => {
+        showMessage(message, "error");
+        const submit = document.getElementById("createRoomSubmit");
+        submit.disabled = false;
+        submit.innerHTML = 'SZOBÁM LÉTREHOZÁSA <span aria-hidden="true">✦</span>';
+        if (!views.search.hidden) renderRoomList();
+    });
+
+    socket.on("game-state", applyGameVoiceState);
+
+    socket.on("game-started", (payload = {}) => {
+        if (payload.room) currentRoom = payload.room;
+        currentGameVoiceState = null;
+        voiceRole = null;
+        voiceTeamMembers = [];
+        teamVoicePhaseActive = false;
+        teamVoiceRole = null;
+        teamMicEnabled = false;
+        closeTeamVoiceConnections(true);
+        speakingPlayerIds.clear();
+        document.getElementById("gameStartedRoomName").textContent = payload.room?.name || currentRoom?.name || "A játék elkezdődött";
+        setView("game");
+        showMessage("A házigazda elindította a játékot!", "success");
+    });
+
+    socket.on("private-role", (payload = {}) => {
+        voiceRole = payload.role || null;
+        voiceTeamMembers = Array.isArray(payload.teamMembers) ? payload.teamMembers : [];
+        if (currentGameVoiceState) applyGameVoiceState(currentGameVoiceState);
+    });
+
+    socket.on("team-voice-signal", handleTeamVoiceSignal);
+
+    socket.on("player-speaking", (payload = {}) => {
+        if (!payload.playerId) return;
+        if (payload.speaking) speakingPlayerIds.add(payload.playerId);
+        else speakingPlayerIds.delete(payload.playerId);
+        if (currentRoom && !views.waiting.hidden) renderWaitingRoom(currentRoom);
+        if (currentGameVoiceState && !views.game.hidden && window.lidercGameRefreshPlayers) window.lidercGameRefreshPlayers();
+    });
+
+    socket.on("voice-signal", handleVoiceSignal);
+
+    updateRoleTotal();
+    updateVoiceUI();
 })();

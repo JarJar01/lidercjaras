@@ -234,3 +234,55 @@
 /* Bohóc lidérc szerepkártyája veszélyjelzést kap; a titkos szerep csak a tulajdonosának látszik. */
 .game-role-panel.is-clown-spirit { border-color: rgba(255, 75, 90, .82) !important; box-shadow: 0 0 26px rgba(255, 38, 72, .22); }
 .game-role-panel.is-clown-spirit #gameRoleName { color: #ff737d !important; }
+
+
+/* Egyéni, csak helyben érvényes hangkeverő minden másik játékoshoz */
+.player-voice-controls {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    flex: 0 0 170px;
+    min-width: 150px;
+    padding: 5px 7px;
+    border: 1px solid rgba(173, 141, 229, 0.18);
+    border-radius: 7px;
+    background: rgba(9, 8, 16, 0.55);
+}
+.player-voice-volume-label {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    flex: 1;
+    min-width: 0;
+    color: #b9aecb;
+    font-size: 10px;
+}
+.player-voice-volume-slider {
+    min-width: 35px;
+    width: 65px;
+    accent-color: #b69aff;
+    cursor: pointer;
+}
+.player-voice-volume-value {
+    min-width: 29px;
+    color: #d8c7f4;
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+}
+.player-voice-mute-button {
+    flex: 0 0 auto;
+    border: 1px solid rgba(173, 141, 229, .28);
+    border-radius: 5px;
+    padding: 5px 7px;
+    background: rgba(62, 48, 82, .65);
+    color: #ded1f0;
+    font-size: 10px;
+    cursor: pointer;
+}
+.player-voice-mute-button:hover { background: rgba(101, 73, 138, .7); }
+.player-voice-mute-button.is-muted { border-color: rgba(255, 118, 132, .52); color: #ff9da8; background: rgba(111, 34, 48, .3); }
+@media (max-width: 760px) {
+    .player-row, .game-player-row { flex-wrap: wrap; }
+    .player-voice-controls { flex: 1 1 100%; margin-left: 43px; }
+    .player-voice-volume-slider { width: 100%; }
+}

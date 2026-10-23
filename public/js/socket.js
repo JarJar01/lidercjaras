@@ -1,16 +1,22 @@
-(() => {
-    "use strict";
-    if (typeof window.io !== "function") {
-        console.warn("[Kiiszik] Socket.IO nem érhető el; az online lobby nem használható, a helyi mód igen.");
-        return;
-    }
-    const socket = window.io();
-    window.kiiszikSocket = socket;
-    socket.on("connect", () => {
-        console.info("[Kiiszik] Kapcsolódva a szerverhez.");
-        socket.emit("kiiszik:ping");
+"use strict";
+
+// A lobby és a névellenőrzés közös Socket.IO kapcsolata.
+// Fontos: ezt a fájlt a /socket.io/socket.io.js után kell betölteni.
+if (typeof window.io !== "function") {
+    console.error("A Socket.IO kliens nem töltődött be. Ellenőrizd a /socket.io/socket.io.js útvonalat.");
+} else {
+    window.lidercSocket = window.io({
+        reconnection: true,
+        reconnectionAttempts: 10,
+        reconnectionDelay: 1000,
+        timeout: 10000
     });
-    socket.on("kiiszik:server-ready", (data) => console.info(data?.message || "Kiiszik szerver elérhető."));
-    socket.on("kiiszik:pong", () => console.info("[Kiiszik] Kapcsolat teszt sikeres."));
-    socket.on("connect_error", (error) => console.warn("[Kiiszik] Socket kapcsolat hiba:", error.message));
-})();
+
+    window.lidercSocket.on("connect", () => {
+        console.info("Lidércjárás szerverkapcsolat létrejött:", window.lidercSocket.id);
+    });
+
+    window.lidercSocket.on("connect_error", (error) => {
+        console.error("Lidércjárás Socket.IO kapcsolódási hiba:", error.message);
+    });
+}
