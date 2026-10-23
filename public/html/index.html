@@ -3,38 +3,214 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="theme-color" content="#080910">
-    <title>Lidércjárás</title>
-    <link rel="stylesheet" href="/css/style.css">
+    <meta name="theme-color" content="#a9e8e2">
+    <title>KIISZIK</title>
+    <link rel="stylesheet" href="/css/style.css?v=8">
+    <link rel="stylesheet" href="/css/lobby.css?v=7">
+    <link rel="stylesheet" href="/game/game.css?v=20261023-19">
+    <script src="/socket.io/socket.io.js"></script>
+    <script src="/js/socket.js?v=20261023-2" defer></script>
+    <script src="/js/menu.js?v=10" defer></script>
+    <script src="/game/game.js?v=20261023-19" defer></script>
+    <script src="/js/lobby.js?v=20261023-13" defer></script>
 </head>
 <body>
-    <div class="background" aria-hidden="true">
-        <div class="moon"></div>
-        <div class="mist mist-one"></div>
-        <div class="mist mist-two"></div>
-        <div class="particles"></div>
-        <div class="vignette"></div>
+<main class="k-scene">
+    <div class="k-world" aria-hidden="true">
+        <div class="k-sun"></div>
+        <div class="k-cloud k-cloud--one"></div><div class="k-cloud k-cloud--two"></div><div class="k-cloud k-cloud--three"></div>
+        <div class="k-bubble k-bubble--one"></div><div class="k-bubble k-bubble--two"></div><div class="k-bubble k-bubble--three"></div>
+        <div class="k-hill k-hill--back"></div><div class="k-hill k-hill--middle"></div><div class="k-hill k-hill--front"></div>
+        <div class="k-bottle k-bottle--left"><div class="k-bottle-cap"></div><div class="k-bottle-neck"></div><div class="k-bottle-body"><div class="k-bottle-label">18+</div></div></div>
+        <div class="k-cup k-cup--right"><div class="k-cup-drink"></div><div class="k-cup-straw"></div><div class="k-cup-lemon"></div><div class="k-cup-stem"></div><div class="k-cup-base"></div></div>
     </div>
 
-    <button class="gear-button" id="gearButton" type="button" aria-label="Beállítások" title="Beállítások">
-        <span class="gear-icon" aria-hidden="true">⚙</span>
-    </button>
+    <button class="k-settings-button" id="k-settings-button" type="button" aria-haspopup="dialog" aria-expanded="false"><span class="k-gear" aria-hidden="true">⚙</span><span>Beállítások</span></button>
+    <div class="k-player-badge" id="k-player-badge" hidden><img id="k-player-avatar-img" alt="Játékos profilképe" hidden><span class="k-player-avatar-fallback" id="k-player-avatar-fallback">🙂</span><span class="k-player-badge-name" id="k-player-badge-name"></span></div>
 
-    <main class="main-content">
-        <section class="game-title">
-            <div class="title-symbol" aria-hidden="true">✦</div>
-            <p class="subtitle">A SÖTÉTSÉG MÁR VÁR</p>
-            <h1>LIDÉRCJÁRÁS</h1>
-            <p class="tagline">Amikor kialszik a fény, valami felébred.</p>
-            <div class="title-line"></div>
-            <button class="start-game-button" id="startGameButton" type="button">JÁTÉK INDÍTÁSA</button>
+    <section class="k-center">
+        <div class="k-age">18+</div><h1 class="k-title">KIISZIK</h1><div class="k-title-shadow" aria-hidden="true"></div>
+        <button class="k-play-button" id="k-play-button" type="button"><span aria-hidden="true">▶</span> JÁTÉK</button>
+    </section>
+
+<!-- LOBBY: profil beállítása után ez nyílik meg -->
+    <section class="k-lobby-screen" id="k-lobby-screen" hidden aria-labelledby="lobby-title">
+        <header class="lobby-header">
+            <button class="lobby-back-button" id="lobby-back-main" type="button">← Főmenü</button>
+            <div class="lobby-brand"><span>KIISZIK</span><small>JÁTÉKTÉR</small></div>
+            <div class="lobby-online-indicator" id="lobby-connection-status"><span></span> Kapcsolódás…</div>
+        </header>
+
+        <div class="lobby-content">
+            <div class="lobby-welcome-row">
+                <div>
+                    <p class="lobby-eyebrow">A KÖVETKEZŐ KÖR ELŐTT</p>
+                    <h2 id="lobby-title">Válassz játékmódot</h2>
+                    <p class="lobby-subtitle" id="lobby-greeting">Hozz létre szobát, vagy játsszatok egy készüléken.</p>
+                </div>
+            </div>
+
+            <div class="lobby-mode-tabs" role="tablist" aria-label="Játékmód">
+                <button class="lobby-mode-tab is-active" id="lobby-tab-online" data-mode="online" role="tab" aria-selected="true" type="button"><span>🌐</span> Többjátékos online</button>
+                <button class="lobby-mode-tab" id="lobby-tab-local" data-mode="local" role="tab" aria-selected="false" type="button"><span>🧑‍🤝‍🧑</span> Egyjátékos / egy készüléken</button>
+            </div>
+
+            <p class="lobby-feedback" id="lobby-feedback" role="status" aria-live="polite"></p>
+
+            <!-- ONLINE: szobakészítés és szobakeresés -->
+            <section class="lobby-mode-page" id="lobby-online-page" role="tabpanel" aria-labelledby="lobby-tab-online">
+                <div class="lobby-online-layout" id="lobby-online-setup">
+                    <section class="lobby-card lobby-create-card">
+                        <div class="lobby-card-heading"><span class="lobby-icon">＋</span><div><h3>Szoba készítése</h3><p>Te leszel a szoba vezetője.</p></div></div>
+                        <form id="lobby-create-form" class="lobby-form">
+                            <label for="lobby-room-name">Szoba neve <small>(nem kötelező)</small></label>
+                            <input id="lobby-room-name" name="roomName" maxlength="32" placeholder="Például: Péntek esti társaság">
+
+                            <div class="lobby-form-grid">
+                                <div><label for="lobby-max-players">Játékosok száma</label><select id="lobby-max-players" name="maxPlayers"><option value="2">2 játékos</option><option value="3">3 játékos</option><option value="4" selected>4 játékos</option><option value="5">5 játékos</option><option value="6">6 játékos</option><option value="7">7 játékos</option><option value="8">8 játékos</option></select></div>
+                                <div><label for="lobby-wait-minutes">Várakozási idő</label><select id="lobby-wait-minutes" name="waitMinutes"><option value="5">5 perc</option><option value="10" selected>10 perc</option><option value="15">15 perc</option><option value="30">30 perc</option><option value="60">60 perc</option></select></div>
+                            </div>
+
+                            <label for="lobby-room-password">Szobajelszó <small>(nem kötelező)</small></label>
+                            <input id="lobby-room-password" name="password" type="password" maxlength="64" autocomplete="new-password" placeholder="Üresen hagyva nincs jelszó">
+                            <p class="lobby-form-hint">A szobakereső nem mutatja, hogy van-e jelszó. A jelszót csak csatlakozáskor kéri.</p>
+                            <button class="lobby-primary-button" type="submit">Szoba létrehozása <span>→</span></button>
+                        </form>
+                    </section>
+
+                    <section class="lobby-card lobby-browser-card">
+                        <div class="lobby-card-heading"><span class="lobby-icon">⌕</span><div><h3>Szobák keresése</h3><p>Csatlakozz egy várakozó online szobához.</p></div></div>
+                        <div class="lobby-search-row"><input id="lobby-room-search" type="search" maxlength="40" placeholder="Szobanév keresése…" aria-label="Szobák keresése név alapján"><button id="lobby-refresh-rooms" class="lobby-refresh-button" type="button" aria-label="Szobák frissítése">↻</button></div>
+                        <div class="lobby-room-list" id="lobby-room-list"><div class="lobby-empty-state"><span>🎲</span><strong>Szobák keresése…</strong><small>A nyilvános online szobák itt jelennek meg.</small></div></div>
+                        <p class="lobby-form-hint">A helyi, egy készüléken létrehozott játékok nem jelennek meg ebben a listában.</p>
+                    </section>
+                </div>
+
+                <!-- Jelszó csak akkor jelenik meg, ha egy kiválasztott szoba kéri -->
+                <section class="lobby-card lobby-password-card" id="lobby-password-panel" hidden>
+                    <div class="lobby-card-heading"><span class="lobby-icon">•••</span><div><h3>Szobajelszó szükséges</h3><p id="lobby-password-room-label">Add meg a kiválasztott szoba jelszavát.</p></div></div>
+                    <form id="lobby-password-form" class="lobby-form">
+                        <label for="lobby-join-password">Jelszó</label>
+                        <input id="lobby-join-password" type="password" maxlength="64" autocomplete="current-password" required>
+                        <div class="lobby-inline-actions"><button class="lobby-secondary-button" id="lobby-password-cancel" type="button">Mégse</button><button class="lobby-primary-button" type="submit">Csatlakozás →</button></div>
+                    </form>
+                </section>
+
+                <!-- ONLINE LOBBY -->
+                <section class="lobby-room-panel" id="lobby-online-room" hidden>
+                    <div class="lobby-room-topline">
+                        <div><p class="lobby-eyebrow">ONLINE LOBBY</p><h3 id="lobby-online-room-title">Szoba</h3></div>
+                        <button class="lobby-secondary-button lobby-leave-button" id="lobby-leave-room" type="button">Kilépés a szobából</button>
+                    </div>
+                    <div class="lobby-room-meta"><span>👥 <strong id="lobby-room-count">1 / 4</strong> játékos</span><span>⏳ <strong id="lobby-countdown">--:--</strong> van hátra</span><span id="lobby-ready-summary">Mindenki készülődik…</span></div>
+                    <div class="lobby-room-columns">
+                        <section class="lobby-card"><div class="lobby-card-heading"><span class="lobby-icon">♟</span><div><h3>Játékosok</h3><p>A parti csak akkor indulhat, ha mindenki kész.</p></div></div><div id="lobby-player-list" class="lobby-player-list"></div></section>
+                        <aside class="lobby-card lobby-actions-card"><div class="lobby-card-heading"><span class="lobby-icon">✓</span><div><h3>Indulásra kész?</h3><p>Jelezd a többieknek, ha készen állsz.</p></div></div><button id="lobby-ready-button" class="lobby-primary-button" type="button">Kész vagyok</button><button id="lobby-start-button" class="lobby-start-button" type="button" disabled>Játék indítása</button><p id="lobby-start-hint" class="lobby-form-hint">A vezető akkor indíthat, ha mindenki kész.</p><div class="lobby-voice-box">
+                            <div class="lobby-voice-title"><span>🎙</span><div><strong>Hang és webkamera</strong><small>Mindkettő külön kapcsolható</small></div></div>
+                            <label class="lobby-voice-toggle" for="lobby-voice-enabled"><span>Mikrofon használata</span><input id="lobby-voice-enabled" type="checkbox"></label>
+                            <label class="lobby-voice-toggle" for="lobby-camera-enabled"><span>Webkamera bekapcsolása</span><input id="lobby-camera-enabled" type="checkbox"></label>
+                            <p id="lobby-voice-status" class="lobby-form-hint">A mikrofon és a webkamera alapból ki van kapcsolva.</p>
+                            <video id="lobby-local-camera-preview" class="lobby-local-camera-preview" autoplay playsinline muted hidden></video>
+                            <div id="lobby-remote-media" class="lobby-remote-media" hidden></div>
+                        </div></aside>
+                    </div>
+                </section>
+            </section>
+
+            <!-- HELYI JÁTÉK: NEM ONLINE, NEM JELENIK MEG A SZOBALISTÁBAN -->
+            <section class="lobby-mode-page" id="lobby-local-page" role="tabpanel" aria-labelledby="lobby-tab-local" hidden>
+                <div id="lobby-local-setup" class="lobby-card lobby-local-card">
+                    <div class="lobby-card-heading"><span class="lobby-icon">🎲</span><div><h3>Helyi társaság</h3><p>Egy játékos egyedül is indulhat, vagy 2–8 fő játszhat egy készüléken. Ebben a módban nincs szavazás: a feladatok a kérdésbankból automatikusan választódnak.</p></div></div>
+                    <form id="lobby-local-form" class="lobby-form">
+                        <label for="lobby-local-player-count">Hányan játszotok?</label>
+                        <select id="lobby-local-player-count"><option value="1">1 játékos · egyedül</option><option value="2" selected>2 játékos</option><option value="3">3 játékos</option><option value="4">4 játékos</option><option value="5">5 játékos</option><option value="6">6 játékos</option><option value="7">7 játékos</option><option value="8">8 játékos</option></select>
+                        <div id="lobby-local-name-fields" class="lobby-local-name-fields"></div>
+                        <button class="lobby-primary-button" type="submit">Helyi szoba létrehozása →</button>
+                    </form>
+                </div>
+                <section class="lobby-card lobby-local-result" id="lobby-local-result" hidden>
+                    <div class="lobby-card-heading"><span class="lobby-icon">🎉</span><div><h3 id="lobby-local-result-title">A helyi szoba elkészült</h3><p>Ez a játék csak ezen a készüléken létezik.</p></div></div>
+                    <div id="lobby-local-player-list" class="lobby-local-player-list"></div>
+                    <button class="lobby-secondary-button" id="lobby-local-edit" type="button">Játékosnevek módosítása</button>
+                    <button class="lobby-start-button" id="lobby-local-start-button" type="button">Játék indítása</button>
+                </section>
+            </section>
+        </div>
+    </section>
+
+    <!-- FELUGRÓ ABLAKOK -->
+    <div class="k-modal" id="k-modal" hidden>
+        <button class="k-modal-overlay" type="button" data-close aria-label="Ablak bezárása"></button>
+        <section class="k-modal-box" id="k-modal-box" role="dialog" aria-modal="true" aria-labelledby="k-age-title" tabindex="-1">
+            <button class="k-close" type="button" data-close aria-label="Bezárás">×</button>
+
+            <div class="k-modal-view" data-view="age" hidden>
+                <div class="k-modal-icon" aria-hidden="true">🍹</div><h2 id="k-age-title">Elmúltál már 18 éves?</h2>
+                <p class="k-modal-description">A Kiiszik felnőtteknek szóló, alkoholtémájú társasjáték. A folytatáshoz erősítsd meg, hogy betöltötted a 18. életévedet.</p>
+                <div class="k-privacy-note"><strong>Adatvédelem</strong><p>A megerősítés önbevalláson alapul, nem okmányos ellenőrzés. Használj becenevet: online játékban a becenevedet látják a többiek. A profilképed a böngésződben marad; a büntetőhangot csak online szobába lépéskor küldjük az adott szoba szerverére.</p></div>
+                <div class="k-modal-actions"><button class="k-secondary-button" id="k-age-no" type="button">Nem</button><button class="k-done-button" id="k-age-yes" type="button">Igen, elmúltam 18</button></div>
+            </div>
+
+            <div class="k-modal-view" data-view="name" hidden>
+                <div class="k-modal-icon" aria-hidden="true">😎</div><h2 id="k-name-title">Hogy szólítsunk?</h2>
+                <p class="k-modal-description">Adj meg egy becenevet, amellyel a játékban szerepelsz.</p>
+                <form id="k-name-form"><label class="k-field-label" for="k-player-name">Játékosnév</label><input class="k-name-input" id="k-player-name" name="playerName" type="text" minlength="2" maxlength="16" autocomplete="nickname" placeholder="Például: Kockakirály" required><p class="k-input-hint">2–16 karakter. Teljes nevet nem szükséges megadnod.</p><button class="k-done-button" type="submit">Tovább</button></form>
+            </div>
+
+            <div class="k-modal-view" data-view="avatar" hidden>
+                <div class="k-modal-icon" aria-hidden="true">📸</div><h2 id="k-avatar-title">Készíts képet magadról!</h2>
+                <p class="k-modal-description">A kép később a bábud lehet a társasjátékban. Használhatsz kamerát, feltölthetsz képet, vagy kihagyhatod.</p>
+                <div class="k-avatar-preview-box"><img id="k-avatar-preview-image" alt="Kiválasztott játékoskép" hidden><div id="k-avatar-placeholder" class="k-avatar-placeholder">🙂</div></div>
+                <p class="k-avatar-status" id="k-avatar-status" role="status" aria-live="polite">Még nem választottál képet.</p>
+                <div class="k-avatar-actions"><button class="k-avatar-action-button" id="k-camera-open" type="button">📷 Kamera</button><button class="k-avatar-action-button" id="k-avatar-upload" type="button">🖼 Kép kiválasztása</button></div>
+                <input id="k-avatar-file" type="file" accept="image/*" hidden>
+                <div class="k-camera-panel" id="k-camera-panel" hidden><video id="k-camera-video" autoplay playsinline muted></video><div class="k-avatar-actions"><button class="k-done-button" id="k-camera-capture" type="button">Kép készítése</button><button class="k-secondary-button" id="k-camera-cancel" type="button">Kamera bezárása</button></div></div>
+                <div class="k-avatar-bottom-actions"><button class="k-secondary-button" id="k-avatar-skip" type="button">Kihagyás</button><button class="k-done-button" id="k-avatar-use" type="button" disabled>Ez lesz a bábud</button></div>
+                <p class="k-input-hint">A kép egyelőre csak a böngészőben marad.</p>
+            </div>
+
+            <div class="k-modal-view" data-view="penalty-audio" hidden>
+                <div class="k-modal-icon" aria-hidden="true">🎙</div>
+                <h2 id="k-penalty-audio-title">Rögzítsd a büntetőhangod!</h2>
+                <p class="k-modal-description">Legfeljebb 5 másodperces hangot vehetsz fel. Ha egy többjátékos parti során kiütnek és vissza kell lépned néhány mezőt, ezt a hangot hallják majd a többiek. Ezt a lépést ki is hagyhatod.</p>
+                <div class="k-penalty-audio-card">
+                    <div class="k-audio-meter-heading"><strong>Mikrofon hangszintje</strong><span>Élő jelzés</span></div>
+                    <div id="k-audio-meter" class="k-audio-meter" role="meter" aria-label="Mikrofon hangszintje" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
+                        <div id="k-audio-meter-bars" class="k-audio-meter-bars" aria-hidden="true"></div>
+                    </div>
+                    <div class="k-audio-meter-scale"><span>Csend</span><span>Hangos</span></div>
+                    <div class="k-audio-record-actions">
+                        <button class="k-avatar-action-button" id="k-audio-record-start" type="button">🎤 Felvétel készítése</button>
+                        <button class="k-avatar-action-button" id="k-audio-record-stop" type="button" hidden>■ Felvétel leállítása</button>
+                    </div>
+                    <audio id="k-audio-player" class="k-audio-player" controls preload="metadata" hidden></audio>
+                    <div class="k-audio-play-actions">
+                        <button class="k-secondary-button" id="k-audio-playback" type="button" disabled>▶ Meghallgatás</button>
+                        <button class="k-secondary-button" id="k-audio-delete" type="button" disabled>Felvétel törlése</button>
+                    </div>
+                    <p id="k-audio-status" class="k-avatar-status" role="status" aria-live="polite">Még nincs hangfelvétel. Indítsd el a felvételt, és beszélj a mikrofonba.</p>
+                </div>
+                <div class="k-avatar-bottom-actions k-audio-bottom-actions">
+                    <button class="k-secondary-button" id="k-audio-skip" type="button">Kihagyás</button>
+                    <button class="k-done-button" id="k-audio-continue" type="button" disabled>Mentés és tovább</button>
+                </div>
+                <p class="k-input-hint">A felvétel a böngésződ tartós tárhelyére mentődik, és később is visszahallgatható ezen a készüléken. Online szobába lépéskor a szoba szerverére is felkerül.</p>
+            </div>
+
+            <div class="k-modal-view" data-view="settings" hidden>
+                <div class="k-modal-icon" aria-hidden="true">⚙</div><h2 id="k-settings-title">Beállítások</h2><p class="k-modal-description">Állítsd be a Kiiszik hangulatát!</p>
+                <label class="k-toggle-row" for="k-motion"><span><strong>Mozgó háttér</strong><small>Lebegő, mozgó rajzok</small></span><input id="k-motion" type="checkbox" checked></label>
+                <label class="k-toggle-row" for="k-dizzy"><span><strong>Részeg felirat</strong><small>Hullámzó és homályos cím</small></span><input id="k-dizzy" type="checkbox" checked></label>
+                <label class="k-toggle-row" for="k-music-toggle"><span><strong>Háttérzene</strong><small>Zene lejátszása</small></span><input id="k-music-toggle" type="checkbox"></label>
+                <div class="k-music-select-row"><label for="k-music-track">Zene kiválasztása</label><select id="k-music-track"><option value="zene1">1. zene</option><option value="zene2">2. zene</option></select></div>
+                <div class="k-volume-row"><label for="k-music-volume"><span>Hangerő</span><output id="k-volume-label" for="k-music-volume">30%</output></label><input id="k-music-volume" type="range" min="0" max="100" step="1" value="30"></div>
+                <button class="k-done-button" id="k-settings-done" type="button">Kész</button>
+            </div>
         </section>
-    </main>
+    </div>
 
-    <div class="version">LIDÉRCJÁRÁS · ALFA</div>
-
-    <script src="/socket.io/socket.io.js"></script>
-    <script src="/js/socket.js"></script>
-    <script src="/js/menu.js"></script>
+    <div class="k-toast" id="k-toast" role="status" aria-live="polite"></div><div class="k-version" aria-hidden="true">KIISZIK PROJECT</div>
+    <audio id="k-background-music" loop preload="none"></audio>
+</main>
 </body>
 </html>
