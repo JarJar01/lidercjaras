@@ -1,7 +1,8 @@
-
 {
-  "name": "jatek-barati-jatek",
+  "name": "lidercjaras",
   "version": "1.0.0",
+  "private": true,
+  "description": "Lidércjárás többjátékos böngészős játék",
   "main": "server.js",
   "scripts": {
     "start": "node server.js"

@@ -10,7 +10,7 @@ const app = express();
 const server = http.createServer(app);
 const io = new Server(server);
 const PUBLIC_DIR = path.join(__dirname, "public");
-const APP_VERSION = "lidercjaras-jatekmenet-2026-10-22-1";
+const APP_VERSION = "lidercjaras-jatekmenet-2026-10-23-2";
 
 app.get("/health", (_req, res) => {
     res.json({ ok: true, app: "Lidércjárás", version: APP_VERSION });
@@ -81,6 +81,42 @@ function normalizeRoles(input) {
     return { roles, total };
 }
 
+function normalizeRoomSettings(input) {
+    const defaults = {
+        introSeconds: 30,
+        daySeconds: 45,
+        spiritsSeconds: 20,
+        healerSeconds: 10,
+        huntersSeconds: 10,
+        foolSeconds: 10
+    };
+    const source = input && typeof input === "object" ? input : {};
+    const settings = {};
+    for (const [key, fallback] of Object.entries(defaults)) {
+        const raw = source[key] === undefined || source[key] === null || source[key] === ""
+            ? fallback
+            : Number(source[key]);
+        if (!Number.isInteger(raw) || raw < 5 || raw > 3600) return null;
+        settings[key] = raw;
+    }
+    return settings;
+}
+
+function fitRolesToPlayerCount(currentRoles, count) {
+    const roles = { ...currentRoles };
+    const sum = () => ROLE_KEYS.reduce((total, key) => total + roles[key], 0);
+    roles.spirits = Math.max(1, Number(roles.spirits) || 0);
+
+    while (sum() > count) {
+        const reductionOrder = ["villagers", "fool", "hunters", "healer", "spirits"];
+        const key = reductionOrder.find((candidate) => roles[candidate] > (candidate === "spirits" ? 1 : 0));
+        if (!key) break;
+        roles[key] -= 1;
+    }
+    if (sum() < count) roles.villagers += count - sum();
+    return roles;
+}
+
 function shuffle(items) {
     const list = [...items];
     for (let i = list.length - 1; i > 0; i--) {
@@ -107,6 +143,7 @@ function publicRoom(room) {
         name: room.name,
         hostId: room.hostId,
         roles: { ...room.roles },
+        settings: { ...(room.settings || normalizeRoomSettings()) },
         capacity: room.capacity,
         playerCount: [...room.players.values()].filter((p) => p.connected !== false).length,
         started: room.started,
@@ -226,7 +263,7 @@ function startNightRound(room) {
     room.game.nightAttackTargetId = null;
     room.game.lastNightDeaths = [];
     room.game.pendingWinner = null;
-    startPhase(room, "night-spirits", 15, "A falu elcsendesült. A lidércek titokban döntenek.");
+    startPhase(room, "night-spirits", room.settings.spiritsSeconds, "A falu elcsendesült. A lidércek titokban döntenek.");
 }
 
 function resolveSpiritActions(room) {
@@ -344,19 +381,19 @@ function advanceGamePhase(room) {
     room.game.timer = null;
     switch (room.game.phase) {
         case "countdown":
-            startPhase(room, "intro", 30, "Ismerkedjetek, beszélgessetek! Hamarosan leszáll az éjszaka.");
+            startPhase(room, "intro", room.settings.introSeconds, "Ismerkedjetek, beszélgessetek! Hamarosan leszáll az éjszaka.");
             break;
         case "intro":
             startNightRound(room);
             break;
         case "night-spirits": {
             room.game.nightAttackTargetId = resolveSpiritActions(room);
-            if (livingRolePlayers(room, "healer").length > 0) {
-                startPhase(room, "night-healer", 10, "A gyógyító kiválaszthat egyetlen játékost, akit megvéd.");
+            if (livingRolePlayers(room, "healer").length > 0 && room.game.healerUsesRemaining > 0) {
+                startPhase(room, "night-healer", room.settings.healerSeconds, "A gyógyító kiválaszthat egyetlen játékost, akit megvéd. Két védési lehetősége van a teljes játékra.");
             } else if (livingRolePlayers(room, "hunters").length > 0) {
-                startPhase(room, "night-hunters", 10, "A vadászok köre következik.");
+                startPhase(room, "night-hunters", room.settings.huntersSeconds, "A vadászok köre következik.");
             } else if (livingRolePlayers(room, "fool").length > 0) {
-                startPhase(room, "night-fool", 10, "A bolond kivárja az éjszakát.");
+                startPhase(room, "night-fool", room.settings.foolSeconds, "A bolond kivárja az éjszakát.");
             } else {
                 resolveNight(room);
             }
@@ -364,16 +401,16 @@ function advanceGamePhase(room) {
         }
         case "night-healer":
             if (livingRolePlayers(room, "hunters").length > 0) {
-                startPhase(room, "night-hunters", 10, "A vadászok köre következik.");
+                startPhase(room, "night-hunters", room.settings.huntersSeconds, "A vadászok köre következik.");
             } else if (livingRolePlayers(room, "fool").length > 0) {
-                startPhase(room, "night-fool", 10, "A bolond kivárja az éjszakát.");
+                startPhase(room, "night-fool", room.settings.foolSeconds, "A bolond kivárja az éjszakát.");
             } else {
                 resolveNight(room);
             }
             break;
         case "night-hunters":
             if (livingRolePlayers(room, "fool").length > 0) {
-                startPhase(room, "night-fool", 10, "A bolond kivárja az éjszakát.");
+                startPhase(room, "night-fool", room.settings.foolSeconds, "A bolond kivárja az éjszakát.");
             } else {
                 resolveNight(room);
             }
@@ -387,7 +424,7 @@ function advanceGamePhase(room) {
             } else {
                 room.game.votes = new Map();
                 room.game.lastVoteResult = null;
-                startPhase(room, "day", 45, "Nappal van. Beszéljétek meg a történteket, majd szavazzatok vagy válasszátok a SKIP lehetőséget.");
+                startPhase(room, "day", room.settings.daySeconds, "Nappal van. Beszéljétek meg a történteket, majd szavazzatok vagy válasszátok a SKIP lehetőséget.");
             }
             break;
         case "day":
@@ -412,7 +449,7 @@ function sendPrivateRole(socket, room, player) {
         teamMembers,
         roleDescription: {
             spirits: "Éjszaka titokban válassz célpontot. Több lidérc esetén mindenkinek ugyanazt a célpontot kell választania.",
-            healer: "Éjszakánként egyetlen játékost védhetsz meg, akár saját magadat is.",
+            healer: "A játék során összesen két alkalommal védhetsz meg egy játékost. Éjszakánként legfeljebb egyszer használhatod, és saját magadat is választhatod.",
             villagers: "Nincs éjszakai képességed. Figyelj, beszélgess, és próbáld megtalálni a lidérceket.",
             hunters: "A vadászok körében egyetlen célpontra lőhetsz, vagy passzolhatsz. Ha ártatlant találsz el, te is meghalsz.",
             fool: "Nincs éjszakai képességed. Próbáld elérni, hogy a falu szavazzon ki téged. Akkor te nyersz."
@@ -488,13 +525,15 @@ io.on("connection", (socket) => {
         const username = cleanPlayerName(payload.username);
         const roomName = cleanText(payload.roomName, 24);
         const roleData = normalizeRoles(payload.roles);
+        const settings = normalizeRoomSettings(payload.settings);
         if (username.length < 2) return sendRoomError(socket, "A játékosneved legalább 2 karakter legyen.");
         if (nameIsInActiveRoom(username)) return sendRoomError(socket, "Ezt a nevet már használja egy aktív játékos. Válassz másik nevet a kezdőoldalon.");
         if (roomName.length < 3) return sendRoomError(socket, "A szoba neve legalább 3 karakter legyen.");
         if (!roleData) return sendRoomError(socket, `A szerepkörök összege ${MIN_PLAYERS} és ${MAX_PLAYERS} játékos között legyen.`);
+        if (!settings) return sendRoomError(socket, "Minden időtartam 5 és 3600 másodperc közötti egész szám legyen.");
         const code = makeRoomCode();
         const room = {
-            code, name: roomName, hostId: socket.id, roles: roleData.roles, capacity: roleData.total,
+            code, name: roomName, hostId: socket.id, roles: roleData.roles, settings, capacity: roleData.total,
             players: new Map(), started: false, createdAt: Date.now(), game: null
         };
         rooms.set(code, room);
@@ -572,8 +611,10 @@ io.on("connection", (socket) => {
         room.game = {
             phase: "countdown", endsAt: null, round: 0, timer: null, message: "A sötétség elnyeli a falut...",
             centerCards: Array.from({ length: 3 }, () => ROLE_KEYS[crypto.randomInt(ROLE_KEYS.length)]),
-            spiritActions: new Map(), healerTargetId: null, hunterActions: new Map(), nightAttackTargetId: null,
-            votes: new Map(), lastNightDeaths: [], lastVoteResult: null, pendingWinner: null, winner: null
+            spiritActions: new Map(), healerTargetId: null, healerUsesRemaining: 2,
+            hunterActions: new Map(), nightAttackTargetId: null,
+            votes: new Map(), lastNightDeaths: [], lastVoteResult: null, pendingWinner: null, winner: null,
+            rematchReady: new Set()
         };
 
         io.to(room.code).emit("game-started", { room: publicRoom(room) });
@@ -622,11 +663,16 @@ io.on("connection", (socket) => {
         if (!room?.game || room.game.phase !== "night-healer" || !player || player.role !== "healer" || player.alive === false) {
             socket.emit("game-action-error", "Most nem használhatod a gyógyító képességét."); return;
         }
+        if (room.game.healerUsesRemaining <= 0) { socket.emit("game-action-error", "Elfogyott a gyógyító két védési lehetősége."); return; }
         if (room.game.healerTargetId !== null) { socket.emit("game-action-error", "A gyógyító már kiválasztotta, kit véd meg erre az éjszakára."); return; }
         const target = room.players.get(String(payload.targetId || ""));
         if (!target || target.alive === false || target.connected === false) { socket.emit("game-action-error", "Válassz egy élő játékost."); return; }
         room.game.healerTargetId = target.id;
-        socket.emit("game-action-ack", { message: `Védelem kiválasztva: ${target.username}. Ezen az éjszakán már nem módosítható.` });
+        room.game.healerUsesRemaining -= 1;
+        socket.emit("game-action-ack", { message: `Védelem kiválasztva: ${target.username}. Még ${room.game.healerUsesRemaining} védési lehetőséged maradt.` });
+        for (const healer of livingRolePlayers(room, "healer")) {
+            io.to(healer.id).emit("healer-uses-left", { remaining: room.game.healerUsesRemaining });
+        }
     });
 
     socket.on("hunter-shoot", (payload = {}) => {
@@ -672,6 +718,63 @@ io.on("connection", (socket) => {
                 at: now
             });
         }
+    });
+
+    socket.on("ready-next-game", (payload = {}) => {
+        const room = rooms.get(socket.data.roomId);
+        const player = room?.players.get(socket.id);
+        if (!room?.game || room.game.phase !== "game-over" || !player || player.connected === false) {
+            socket.emit("game-action-error", "A következő játékra csak a játék végén állhatsz készen.");
+            return;
+        }
+        if (!(room.game.rematchReady instanceof Set)) room.game.rematchReady = new Set();
+        if (payload.ready === false) room.game.rematchReady.delete(socket.id);
+        else room.game.rematchReady.add(socket.id);
+
+        const connectedPlayers = [...room.players.values()].filter((entry) =>
+            entry.connected !== false && io.sockets.sockets.has(entry.id)
+        );
+        const readyIds = connectedPlayers
+            .filter((entry) => room.game.rematchReady.has(entry.id))
+            .map((entry) => entry.id);
+        io.to(room.code).emit("rematch-ready-update", {
+            readyCount: readyIds.length,
+            total: connectedPlayers.length,
+            readyIds
+        });
+
+        if (readyIds.length !== connectedPlayers.length) return;
+        if (connectedPlayers.length < MIN_PLAYERS) {
+            io.to(room.code).emit("rematch-ready-update", {
+                readyCount: readyIds.length,
+                total: connectedPlayers.length,
+                readyIds,
+                message: `Legalább ${MIN_PLAYERS} játékos kell az új játékhoz. Hívjatok vissza további játékosokat.`
+            });
+            return;
+        }
+
+        // Ha valaki kilépett a korábbi menetben, a bent maradók ugyanebben a szobában játszhatnak tovább.
+        const activePlayers = new Map(connectedPlayers.map((entry) => [entry.id, entry]));
+        room.players = activePlayers;
+        room.capacity = connectedPlayers.length;
+        room.roles = fitRolesToPlayerCount(room.roles, room.capacity);
+        if (!room.players.has(room.hostId)) room.hostId = room.players.keys().next().value;
+        for (const entry of room.players.values()) {
+            entry.ready = true;
+            entry.role = null;
+            entry.alive = true;
+            entry.connected = true;
+            delete entry.lastTeamMessageAt;
+        }
+        room.started = false;
+        room.game = null;
+        sendRoomState(room);
+        sendRoomList();
+        io.to(room.code).emit("return-to-waiting-room", {
+            room: publicRoom(room),
+            message: "Mindenki készen áll a következő menetre. A házigazda elindíthatja az új játékot."
+        });
     });
 
     socket.on("day-vote", (payload = {}) => {
