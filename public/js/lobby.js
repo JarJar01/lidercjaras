@@ -71,22 +71,11 @@
     const voicePeers = new Map();
     const teamVoicePeers = new Map();
     const speakingPlayerIds = new Set();
-    // A WebRTC-hang effektekhez közös AudioContext és peer-enkénti kimeneti csatorna.
-    // A böngészők az élő MediaStream HTMLMediaElement.playbackRate értékét nem mindig
-    // alkalmazzák megbízhatóan, ezért a hangmagasság-változtatás a Web Audio feldolgozásban történik.
+    // A bejövő WebRTC-hangot alapértelmezetten közvetlenül játsszuk le.
+    // Így az AudioContext/ScriptProcessor nem tudja elnémítani a teljes lobbyhangot.
+    // A Bohóc lidérc hanghatása külön a HTMLAudioElement lejátszásán alkalmazódik.
     const remoteVoicePipelines = new Map();
-    let remoteVoiceAudioContext = null;
-    // Kliensoldali hangkeverő: csak ezen a gépen állítja egy-egy játékos hangerejét.
     const remoteVoiceSettings = new Map();
-
-    function getRemoteVoiceAudioContext() {
-        const AudioContextClass = window.AudioContext || window.webkitAudioContext;
-        if (!AudioContextClass) return null;
-        if (!remoteVoiceAudioContext || remoteVoiceAudioContext.state === "closed") {
-            remoteVoiceAudioContext = new AudioContextClass();
-        }
-        return remoteVoiceAudioContext;
-    }
 
     function remoteVoicePipelineKey(peerId, channel) {
         return `${channel}:${peerId}`;
@@ -96,80 +85,19 @@
         const key = remoteVoicePipelineKey(peerId, channel);
         const pipeline = remoteVoicePipelines.get(key);
         if (!pipeline) return;
-        try { pipeline.source.disconnect(); } catch {}
-        try { pipeline.processor.disconnect(); } catch {}
-        try { pipeline.outputStream.getTracks().forEach((track) => track.stop()); } catch {}
+        try { pipeline.source?.disconnect(); } catch {}
+        try { pipeline.processor?.disconnect(); } catch {}
+        try { pipeline.outputStream?.getTracks().forEach((track) => track.stop()); } catch {}
         remoteVoicePipelines.delete(key);
     }
 
     function connectRemoteAudioOutput(peerId, channel, inputStream, audio) {
+        // A feldolgozott streamet kikapcsoljuk, és a WebRTC bejövő sávját
+        // közvetlenül adjuk az audio elemnek. Ezzel visszaáll a stabil lobbyhang.
         destroyRemoteVoicePipeline(peerId, channel);
-        const context = getRemoteVoiceAudioContext();
-        if (!context || typeof context.createScriptProcessor !== "function") {
-            audio.srcObject = inputStream;
-            return;
-        }
-        try {
-            const source = context.createMediaStreamSource(inputStream);
-            const processor = context.createScriptProcessor(2048, 1, 1);
-            const destination = context.createMediaStreamDestination();
-            const sampleRate = context.sampleRate || 48000;
-            const ringLength = Math.ceil(sampleRate * 0.30);
-            const delayBuffer = new Float32Array(ringLength);
-            const windowSamples = Math.max(512, Math.floor(sampleRate * 0.085));
-            const pitchRatio = 1.55; // jól hallható, „héliumos” hangmagasság-emelés
-            const delayBase = Math.floor(sampleRate * 0.10);
-            const delaySpan = Math.floor(windowSamples * (pitchRatio - 1));
-            let writeIndex = 0;
-            let phase = 0;
-            const pipeline = { source, processor, outputStream: destination.stream, pitchEnabled: false };
-
-            function readDelayed(delay) {
-                let position = writeIndex - delay;
-                while (position < 0) position += ringLength;
-                position %= ringLength;
-                const leftIndex = Math.floor(position);
-                const rightIndex = (leftIndex + 1) % ringLength;
-                const fraction = position - leftIndex;
-                return delayBuffer[leftIndex] * (1 - fraction) + delayBuffer[rightIndex] * fraction;
-            }
-
-            processor.onaudioprocess = (event) => {
-                const input = event.inputBuffer.getChannelData(0);
-                const output = event.outputBuffer.getChannelData(0);
-                for (let i = 0; i < input.length; i++) {
-                    delayBuffer[writeIndex] = input[i];
-                    if (!pipeline.pitchEnabled) {
-                        output[i] = input[i];
-                    } else {
-                        const phaseA = phase;
-                        const phaseB = (phase + 0.5) % 1;
-                        const delayA = delayBase + delaySpan * (1 - phaseA);
-                        const delayB = delayBase + delaySpan * (1 - phaseB);
-                        const sampleA = readDelayed(delayA);
-                        const sampleB = readDelayed(delayB);
-                        const weightA = 0.5 - 0.5 * Math.cos(phaseA * Math.PI * 2);
-                        const weightB = 1 - weightA;
-                        output[i] = (sampleA * weightA + sampleB * weightB) * 0.94;
-                    }
-                    writeIndex = (writeIndex + 1) % ringLength;
-                    phase += 1 / windowSamples;
-                    if (phase >= 1) phase -= 1;
-                }
-            };
-
-            source.connect(processor);
-            processor.connect(destination);
-            remoteVoicePipelines.set(remoteVoicePipelineKey(peerId, channel), pipeline);
-            audio.srcObject = destination.stream;
-            context.resume().catch(() => {});
-            audio.playbackRate = 1;
-            if ("preservesPitch" in audio) audio.preservesPitch = true;
-            if ("webkitPreservesPitch" in audio) audio.webkitPreservesPitch = true;
-        } catch (error) {
-            console.warn("A hangszűrő nem indult el, közvetlen lejátszásra váltok:", error);
-            audio.srcObject = inputStream;
-        }
+        audio.autoplay = true;
+        audio.playsInline = true;
+        audio.srcObject = inputStream;
     }
 
     function getRemoteVoiceSetting(peerId) {

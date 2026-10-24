@@ -91,3 +91,6 @@ JAVITAS: BOHOC NEVCSERE ES VALODI HANGMAGASSAG-EFFEKT (2026-10-24, verziokod: li
 - A nevcsere kulso szemleloknel mindket nev megjeleniteset felcsereli; a Bohoc es a kivalasztott celpont sajat szemelyes nezete tovabbra is az eredeti nevet mutatja. A jatekos sor ikonja es a beszelest jelzo badge az alneves sorral egyutt jelenik meg, mert a sor a szemelyre szabott jatekallapotbol renderelodik.
 - A hang elvekonyitasat nem az elo WebRTC MediaStream HTMLMediaElement playbackRate tulajdonsagara bizza: a tavoli hang Web Audio feldolgozason megy at, egy folyamatosan mukodo granular pitch-shifterrel. Ha a bongeszo ezt nem tamogatja, fallbackkent magasabb playbackRate kerul beallitasra.
 - A Bohoc hanghatasat a tobbi jatekos hallja; a hatas a celszemely sajat hangmonitorozasat nem valtoztatja meg.
+
+
+HANGJAVÍTÁS (2026-10-24): A bejövő WebRTC-hang most közvetlenül a bejövő MediaStreamből szól, nem kötelező AudioContext/ScriptProcessor feldolgozáson keresztül. Ez az alap hangot megbízhatóbbá teszi. A Bohóc lidérc hangmagasság-hatása a HTML audio lejátszási sebességén keresztül működik, és böngészőnként eltérően szólhat.
