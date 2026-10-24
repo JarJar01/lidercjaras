@@ -10,7 +10,7 @@ const app = express();
 const server = http.createServer(app);
 const io = new Server(server);
 const PUBLIC_DIR = path.join(__dirname, "public");
-const APP_VERSION = "lidercjaras-clown-disguise-audio-pitch-2026-10-24-9";
+const APP_VERSION = "lidercjaras-clown-fake-vote-2026-10-24-2";
 
 app.get("/health", (_req, res) => {
     res.json({ ok: true, app: "Lidércjárás", version: APP_VERSION });
@@ -653,49 +653,29 @@ function resolveSwapperActions(room) {
         const target = room.players.get(String(action.targetId || ""));
         const effect = String(action.effect || "");
         if (!target || target.id === clown.id || target.alive === false || target.connected === false) continue;
-        if (!["rename", "mute", "thin"].includes(effect)) continue;
+        // A Bohóc lidérc szabotázsa most Hamis szavazat: a kiválasztott játékos
+        // következő nappali voksát a szerver SKIP-ként számolja el.
+        if (effect !== "fake-vote") continue;
         game.pendingClownEffects.push({ clownId: clown.id, targetId: target.id, effect });
     }
-    // Apply the disguise/effect as soon as the special action phase ends. The public
-    // announcement stays queued until dawn, but every personalized game-state now
-    // contains the same alias mapping before the public voice phase begins.
     applyPendingClownEffects(room);
 }
 
 function applyPendingClownEffects(room) {
     const game = room.game;
     if (!game || !Array.isArray(game.pendingClownEffects)) return;
+    if (!(game.voteSabotageTargetIds instanceof Set)) game.voteSabotageTargetIds = new Set();
     for (const action of game.pendingClownEffects) {
         const target = room.players.get(action.targetId);
         const clown = room.players.get(action.clownId);
         if (!target || !clown || target.alive === false || target.connected === false || clown.alive === false || clown.connected === false) continue;
-        if (action.effect === "rename") {
-            // A Bohóc lidérc felveszi a célpont nevét a többiek nézetében. A célpont a saját nevét látja, és nem kap jelzést a cseréről.
-            // A két név csak a többi játékos nézetében cserélődik fel.
-            // A Bohóc és a kiválasztott játékos saját magát továbbra is az eredeti nevén látja.
-            const clownRealName = clown.username;
-            const targetRealName = target.username;
-            clown.publicAlias = targetRealName;
-            clown.publicAliasTargetId = target.id;
-            clown.publicAliasIsClown = true;
-            target.publicAlias = clownRealName;
-            target.publicAliasTargetId = clown.id;
-            target.publicAliasIsClown = false;
+        if (action.effect === "fake-vote") {
+            game.voteSabotageTargetIds.add(target.id);
             game.pendingPublicEvents.push({
-                id: crypto.randomUUID(), type: "clown-rename",
-                text: "A Bohóc lidérc nevet változtatott.", at: Date.now()
-            });
-        } else if (action.effect === "mute") {
-            target.voiceSabotage = "mute";
-            game.pendingPublicEvents.push({
-                id: crypto.randomUUID(), type: "clown-mute",
-                text: "Egy játékos hangja elnémult erre a napra.", at: Date.now()
-            });
-        } else if (action.effect === "thin") {
-            target.voiceSabotage = "thin";
-            game.pendingPublicEvents.push({
-                id: crypto.randomUUID(), type: "clown-thin",
-                text: "Egy játékos hangja elvékonyodott erre a napra.", at: Date.now()
+                id: crypto.randomUUID(),
+                type: "clown-fake-vote",
+                text: "A szavazást valami megzavarta.",
+                at: Date.now()
             });
         }
     }
@@ -878,6 +858,7 @@ function resolveVotes(room) {
     if (expelled && expelled.role === "fool") winner = "fool";
     else winner = getWinner(room);
     game.pendingWinner = winner;
+    if (game.voteSabotageTargetIds instanceof Set) game.voteSabotageTargetIds.clear();
     startPhase(room, "vote-result", 5, game.message);
 }
 
@@ -1314,7 +1295,7 @@ io.on("connection", (socket) => {
             spiritInspectUsedIds: new Set(), infectiousActions: new Map(), infectedPlayerIds: new Set(), pendingPublicEvents: [],
             healerTargetId: null, healerActions: new Map(), healerDisagreement: false,
             healerUsesRemaining: 2, hunterActions: new Map(), nightAttackTargetId: null,
-            votes: new Map(), lastNightDeaths: [], lastNightLog: [], lastVoteResult: null, pendingWinner: null, winner: null,
+            votes: new Map(), voteSabotageTargetIds: new Set(), lastNightDeaths: [], lastNightLog: [], lastVoteResult: null, pendingWinner: null, winner: null,
             rematchReady: new Set(),
             adventurerObjectiveRoles: new Map(), adventurerProgress: new Map(), adventurerAttempts: new Map(), adventurerFailedThisRound: new Set()
         };
@@ -1378,15 +1359,14 @@ io.on("connection", (socket) => {
         if (!target || target.id === player.id || target.alive === false || target.connected === false) {
             socket.emit("game-action-error", "Válassz egy másik, élő játékost."); return;
         }
-        if (!["rename", "mute", "thin"].includes(effect)) {
-            socket.emit("game-action-error", "Válassz névfelvételt vagy némítást."); return;
+        if (effect !== "fake-vote") {
+            socket.emit("game-action-error", "Válaszd a Hamis szavazat szabotázst."); return;
         }
         room.game.swapperActions.set(socket.id, { clownId: player.id, targetId: target.id, effect });
         room.game.clownSabotageLastUsedRound.set(socket.id, room.game.round);
         socket.emit("swapper-used", { used: true, cooldownRounds: 3 });
         emitGameState(room);
-        const actionText = effect === "rename" ? "névcsere" : effect === "mute" ? "hang némítása" : "hang elvékonyítása";
-        socket.emit("game-action-ack", { message: `A szabotázsod rögzítve (${actionText}). A következő használatig 3 kör telik el.` });
+        socket.emit("game-action-ack", { message: "A Hamis szavazat szabotázs rögzítve. A kiválasztott játékos következő nappali voksát a rendszer SKIP-ként számolja el. A következő használatig 3 kör telik el." });
         maybeAdvanceActionPhase(room);
     });
 
@@ -1767,15 +1747,19 @@ io.on("connection", (socket) => {
             socket.emit("game-action-error", "Most nem szavazhatsz."); return;
         }
         if (room.game.votes.has(socket.id)) { socket.emit("game-action-error", "Ebben a szavazásban már leadtad a voksodat."); return; }
-        const targetId = String(payload.targetId || "skip");
-        if (targetId !== "skip") {
+        const requestedTargetId = String(payload.targetId || "skip");
+        const voteWasSabotaged = room.game.voteSabotageTargetIds instanceof Set && room.game.voteSabotageTargetIds.has(socket.id);
+        // A játékos bármely gombot nyomja meg, a Bohóc szabotázsa alatt a szerver
+        // titokban SKIP-ként tárolja a voksát. Nem küldünk a kliensnek árulkodó választ.
+        const targetId = voteWasSabotaged ? "skip" : requestedTargetId;
+        if (!voteWasSabotaged && targetId !== "skip") {
             const target = room.players.get(targetId);
             if (!target || target.alive === false || target.connected === false) {
                 socket.emit("game-action-error", "Válassz egy élő játékost, akár saját magadat is, vagy a SKIP lehetőséget."); return;
             }
         }
         room.game.votes.set(socket.id, targetId);
-        socket.emit("game-action-ack", { message: targetId === "skip" ? "Leadva: SKIP." : "A szavazatod rögzítve." });
+        socket.emit("game-action-ack", { message: "A szavazatod rögzítve." });
         emitGameState(room); // Csak a leadott voksok száma látható, a választás nem.
         if (room.game.votes.size >= livingPlayers(room).length) resolveVotes(room);
     });

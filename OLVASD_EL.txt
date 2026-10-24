@@ -1,5 +1,5 @@
 LIDÉRCJÁRÁS – LÁTNOK, FÖLDESÚR, HÁZASTÁRSAK ÉS KALANDOR
-Verzió: lidercjaras-cooldown-adventurer-seer-vote-count-2026-10-24-6
+Verzió: lidercjaras-clown-fake-vote-2026-10-24-1
 
 TELEPÍTÉS
 1. Állítsd le a futó szervert Ctrl+C billentyűkkel.
@@ -24,7 +24,7 @@ TELEPÍTÉS
 - Ha a lidércek ugyanazon az éjszakán megölik a vadászt, az adott vadász nem lőhet vissza ugyanabban az éjszakában.
 - Ha egyedül marad egy normál lidérc, megtámadhat egy élő játékost vagy a teljes játék során egyszer megvizsgálhatja egy másik élő játékos szerepét. A Bohóc lidérc egy lidérc 50%-os eséllyel kapott különleges változata. A vadász csak lőhet vagy passzolhat, szerepet nem vizsgálhat.
 - A szavazás titkos: a játékosok csak azt látják, ki adta le már a szavazatát. A szavazat célpontja nem látható. A játékosikonok felett az összesített beérkezett szavazatszám jelenik meg; a Földesúr két szavazati ponttal számít. Önszavazás minden szerepnél megengedett.
-- A Bohóc lidérc nem külön lobby-szerep: minden kiosztott lidérc külön 50% eséllyel kapja meg ezt a változatot. A játékos a lidércek csapatában marad. A külön 20 másodperces körben névfelvételt vagy némítást választhat, ha a szabotázs újra használható; a szabotázs használat után a 3 körös várakozás lejártával válik újra elérhetővé. Ha egyedüli lidérc, a teljes játék során egyszer szerepet is vizsgálhat.
+- A Bohóc lidérc nem külön lobby-szerep: minden kiosztott lidérc külön 50% eséllyel kapja meg ezt a változatot. A játékos a lidércek csapatában marad. A külön 20 másodperces körben Hamis szavazat szabotázst választhat, ha újra használható; a képesség használat után három kör elteltével válik újra elérhetővé. Ha egyedüli lidérc, a teljes játék során egyszer szerepet is vizsgálhat.
 - A Fertőző éjszakánként megfertőzhet egy még nem fertőzött élő játékost. Csak a Fertőző látja a fertőzöttek jelölését; a nyilvános napló csak annyit ír, hogy valaki megfertőződött. A Fertőző akkor nyer, ha minden más életben lévő játékos fertőzött.
 - Játék végén a hangkapcsolat minden játékosnak újra elérhető, a kiesetteknek is. Játék közben a kiesettek nem beszélhetnek, de nappal hallgathatják az életben lévő játékosokat.
 
@@ -43,7 +43,7 @@ TESZTELÉS
 - A gyógyítók nem kapják meg egymás nevét vagy azonosítóját. Több gyógyítónál mindenki külön szavaz; a védelem csak egyhangú választás esetén sikerül.
 - Az egyedüli lidérc szerepvizsgálata egyetlen alkalommal használható a teljes játékban.
 - A Fertőző a reggel kezdetén kapja meg az aktuális fertőzöttlistát; a fertőzött játékos saját jelzést kap, a többiek csak általános naplóüzenetet látnak.
-- A Bohóc lidérc névváltoztatása nem látszik a célpont saját felületén. A hangtorzítás a többiek oldalán működik a következő éjszakáig.
+- A Bohóc lidérc korábbi név- és hangszabotázsát a Hamis szavazat váltja fel: kiválaszt egy játékost, akinek a következő nappali voksát a szerver SKIP-ként számolja el.
 
 
 Új javítások (2026-10-23):
@@ -82,7 +82,7 @@ FRISSITES: GYORSABB AKCIOKOROK ES KALANDOR IDOTULLEPES (2026-10-24)
 ÚJ JAVÍTÁS (2026-10-24):
 - A Bohóc lidérc névfelvételénél a Bohóc és a célpont neve a többi játékos nézetében felcserélődik; mindketten a saját nevüket látják. A beszélőjelzés is a megjelenített álneves soron marad.
 - A nyilvános napló csak annyit ír: „A Bohóc lidérc nevet változtatott.”
-- A Bohóc lidérc hangelvékonyító szabotázst is választhat; a hatás a többi játékos hangját magasabb hangúra állítja a nappali hangcsatornán.
+- A Bohóc lidérc Hamis szavazatot választhat; a kiválasztott játékos következő nappali szavazatát a szerver titokban SKIP-ként számolja el.
 - A lidércek éjszakai körében van SKIP, amellyel ki lehet hagyni a támadást. Több lidércnél csak azonos támadási célpont esetén sikerül a támadás; ha nem egyeznek, nem történik támadás.
 - Egyetlen játékban legfeljebb egy Bohóc lidérc lehet; minden lidérc 50%-os véletlen esélyt dob, az esetleges több találatból csak egyet tartunk meg.
 
@@ -103,3 +103,10 @@ FRISSÍTÉS A BOHÓC LIDÉRC HANG ÉS NÉVÁLCA HIBÁJÁHOZ
 
 
 FRISSÍTÉS: A Bohóc lidérc névcseréjének aktív időszakában minden nyilvános zöld beszélőjelzés rejtve marad, így abból nem derülhet ki, ki kinek az álcáját viseli. A normál beszélőjelzés a névcsere lezárása után visszatér.
+
+
+LEGÚJABB MÓDOSÍTÁS – HAMIS SZAVAZAT (2026-10-24):
+- A Bohóc lidérc szabotázsa a névcsere, némítás és hangelvékonyítás helyett „Hamis szavazat”.
+- A különleges körben kiválaszt egy élő játékost. A célpont következő nappali szavazásán a szerver bármilyen kiválasztott célpont helyett titokban SKIP-ként tárolja a voksot. A játékosnak leadottnak látszó szavazata ettől még nem nevezi meg a tényleges célpontját. Ha nem kattint semmire, a szavazás lejártakor az alapértelmezett SKIP érvényesül.
+- A nyilvános reggeli napló csak ezt jelzi: „A szavazást valami megzavarta.” Nem árulja el, ki volt a célpont.
+- A szabotázs a korábbi szabály szerint három kör elteltével használható újra; a Bohóc lidérc egyszeri szerepvizsgálata külön képességként megmarad.

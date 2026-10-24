@@ -217,22 +217,15 @@
                 const cooldown = Math.max(0, Number(gameState.specialSpiritSabotageRoundsRemaining) || 0);
                 appendSectionDescription(panel, `Bohóc lidércként 20 másodperced van. A szabotázsod 3 körönként használható újra; a szerepvizsgálatot legfeljebb egyszer használhatod a teljes játékban. Ezután a rendes lidérckörben még támadhatsz.`);
                 if (sabotageReady) {
+                    appendSectionDescription(panel, "Hamis szavazat: válassz egy élő játékost. A következő nappali szavazásánál bármire kattint, a szerver titokban SKIP-ként számolja el a voksát. A nyilvános napló csak annyit jelez, hogy a szavazást valami megzavarta.");
                     otherPlayers.forEach((player) => {
-                        addChoiceButton(panel, `🎭 Felveszem ezt a nevet: ${player.username}`, () => {
-                            setActionStatus("Névfelvétel rögzítve. A két név a többi játékos nézetében felcserélődik; ti ketten a saját eredeti neveteket látjátok.");
-                            sendAction("swapper-action", { targetId: player.id, effect: "rename" });
-                        }, "is-neutral");
-                        addChoiceButton(panel, `🔇 Lenémítom: ${player.username}`, () => {
-                            setActionStatus("A némítás rögzítve. Három kör múlva használhatod újra a szabotázst.");
-                            sendAction("swapper-action", { targetId: player.id, effect: "mute" });
-                        }, "is-danger");
-                        addChoiceButton(panel, `🎈 Elvékonyítom a hangját: ${player.username}`, () => {
-                            setActionStatus("A hang elvékonyítása rögzítve. A hatás reggeltől hallható.");
-                            sendAction("swapper-action", { targetId: player.id, effect: "thin" });
+                        addChoiceButton(panel, `🎭 Hamis szavazat erre a játékosra: ${player.username}`, () => {
+                            setActionStatus("A szabotázs rögzítve. A célpont következő nappali voksát a rendszer titokban SKIP-ként számolja el.");
+                            sendAction("swapper-action", { targetId: player.id, effect: "fake-vote" });
                         }, "is-neutral");
                     });
                 } else {
-                    panel.appendChild(makeElement("p", "game-muted", `A szabotázs még ${cooldown} körig nem használható.`));
+                    panel.appendChild(makeElement("p", "game-muted", `A Hamis szavazat még ${cooldown} körig nem használható.`));
                 }
                 if (livingTeammates.length <= 1 && !mySpiritInspectUsed) {
                     appendSectionDescription(panel, "Mivel egyedüli lidérc vagy, egyszer a teljes játékban megvizsgálhatod egy másik élő játékos szerepét. Ez a szabotázs időzítésétől független képesség.");
@@ -389,7 +382,7 @@
             players.forEach((player) => {
                 const label = player.id === socket.id ? "Magamra szavazok" : `Szavazok rá: ${player.username}`;
                 addChoiceButton(panel, label, () => {
-                    setActionStatus(`A szavazatod elküldve: ${player.id === socket.id ? "magadra" : player.username}.`);
+                    setActionStatus("A szavazatodat elküldtük.");
                     sendAction("day-vote", { targetId: player.id });
                 });
             });

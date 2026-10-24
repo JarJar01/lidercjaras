@@ -215,7 +215,7 @@ function openSettings() {
         ["Falusi", "Nincs éjszakai képessége. Nappal a beszélgetés és a szavazás segít felderíteni a lidérceket."],
         ["Vadász", "Éjszaka egyszer lőhet egy élő játékosra vagy passzolhat. Nem vizsgál szerepet. Több vadász a saját éjszakai körében privát hangon és szöveges chaten egyeztethet. Ha a lidércek ugyanazon az éjszakán megölik, nem támadhat vissza."],
         ["Bolond", "A célja, hogy a falu nappali szavazással kiszavazza. Ha így esik ki, ő nyeri a játékot."],
-        ["Bohóc lidérc", "Nem külön beállítható kaszt: minden kiosztott Lidérc 50% eséllyel válhat Bohóc lidérccé. A lidércek csapatában marad. A külön 20 másodperces körben egyszer névfelvételt vagy némítást választhat; ha egyedüli lidérc, a szabotázs helyett egyszer szerepet is vizsgálhat."],
+        ["Bohóc lidérc", "Nem külön beállítható kaszt: a lidércek közül legfeljebb egy válik Bohóc lidérccé. A külön 20 másodperces körében Hamis szavazatot használhat: kiválaszt egy élő játékost, akinek a következő nappali voksát a szerver titokban SKIP-ként számolja el. A szabotázs három körönként használható újra; az egyedüli lidérc egyszeri szerepvizsgálata külön képesség marad."],
         ["Fertőző", "Éjszakánként megfertőzhet egy még nem fertőzött, élő játékost. Csak ő látja a fertőzött személyeket; a nyilvános napló nem nevezi meg őket. Akkor nyer, ha minden más életben lévő játékos megfertőződött."],
         ["Látnok", "A halott játékosokkal külön szöveges csatornán beszélhet, és segítséget kérhet tőlük. Az élők többi tagja nem látja ezt a beszélgetést."],
         ["Földesúr", "A nappali szavazata két szavazati pontot ér. Egy célpontot vagy a SKIP lehetőséget választja, és a voks kétszer számít."],
