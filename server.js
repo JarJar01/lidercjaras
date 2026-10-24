@@ -10,7 +10,7 @@ const app = express();
 const server = http.createServer(app);
 const io = new Server(server);
 const PUBLIC_DIR = path.join(__dirname, "public");
-const APP_VERSION = "lidercjaras-cooldown-adventurer-seer-vote-count-2026-10-24-6";
+const APP_VERSION = "lidercjaras-dynamic-action-timers-kalandor-timeout-reset-2026-10-24-7";
 
 app.get("/health", (_req, res) => {
     res.json({ ok: true, app: "Lidércjárás", version: APP_VERSION });
@@ -403,7 +403,7 @@ function startPhase(room, phase, seconds, message = "") {
     });
     emitGameState(room);
     if (seconds !== null) {
-        room.game.timer = setTimeout(() => advanceGamePhase(room), seconds * 1000);
+        room.game.timer = setTimeout(() => advanceGamePhase(room, { timedOut: true, expectedPhase: phase }), seconds * 1000);
     }
 }
 
@@ -415,7 +415,11 @@ function startHuntersPhase(room) {
         io.to(target.id).emit("hunter-action-locked", {
             message: "Ebben az éjszakában nem használhatod a vadász képességedet. Várd meg a reggelt."
         });
+        // A célpont vadász akciója már érvénytelen, ne kelljen a teljes időt kivárni miatta.
+        if (!(room.game.hunterActions instanceof Map)) room.game.hunterActions = new Map();
+        room.game.hunterActions.set(target.id, null);
     }
+    maybeAdvanceActionPhase(room);
 }
 
 function getWinner(room) {
@@ -872,10 +876,93 @@ function startRemainingNightActions(room) {
     }
 }
 
-function advanceGamePhase(room) {
+function actionPhaseIsComplete(room) {
+    const game = room?.game;
+    if (!game || game.phase === "game-over") return false;
+    switch (game.phase) {
+        case "night-swapper": {
+            const eligible = livingRolePlayers(room, "swapper").filter((p) => !game.roleSwapUsedIds?.has(p.id));
+            return eligible.every((p) => game.roleSwapActions?.has(p.id));
+        }
+        case "night-special-spirit": {
+            const spirits = livingRolePlayers(room, "spirits");
+            const eligible = spirits.filter((p) => p.specialSpirit && (
+                canClownSabotage(room, p.id) || (spirits.length === 1 && !game.spiritInspectUsedIds?.has(p.id))
+            ));
+            return eligible.every((p) => game.swapperActions?.has(p.id));
+        }
+        case "night-spirits": {
+            const actors = livingRolePlayers(room, "spirits");
+            return actors.every((p) => game.spiritActions?.has(p.id));
+        }
+        case "night-healer": {
+            const actors = livingRolePlayers(room, "healer");
+            if (actors.length === 0) return true;
+            if (actors.length > 1) return actors.every((p) => game.healerActions?.has(p.id));
+            return Number(game.healerUsesRemaining) > 0 && game.healerTargetId !== null;
+        }
+        case "night-hunters": {
+            const actors = livingRolePlayers(room, "hunters");
+            return actors.every((p) => game.hunterActions?.has(p.id));
+        }
+        case "night-infectious": {
+            const actors = livingRolePlayers(room, "infectious");
+            return actors.every((p) => game.infectiousActions?.has(p.id));
+        }
+        case "night-adventurer": {
+            const actors = livingRolePlayers(room, "adventurer");
+            return actors.every((p) => {
+                if (game.adventurerFailedThisRound?.has(p.id)) return true;
+                const tasks = game.adventurerObjectiveRoles?.get(p.id) || [];
+                const progress = game.adventurerProgress?.get(p.id) || new Map();
+                return tasks.length === 3 && tasks.every((roleKey) => progress.has(roleKey));
+            });
+        }
+        default:
+            return false;
+    }
+}
+
+function maybeAdvanceActionPhase(room) {
+    if (!actionPhaseIsComplete(room)) return false;
+    const phase = room.game.phase;
+    clearGameTimer(room);
+    // A rövidített fázis ugyanazon a szerveroldali átmeneten megy keresztül, mint az időzítő.
+    advanceGamePhase(room, { timedOut: false, expectedPhase: phase });
+    return true;
+}
+
+function advanceGamePhase(room, options = {}) {
     if (!room || rooms.get(room.code) !== room || !room.game || room.game.phase === "game-over") return;
+    if (options.expectedPhase && room.game.phase !== options.expectedPhase) return;
+    const phaseAtAdvance = room.game.phase;
+    const timedOut = options.timedOut === true;
     room.game.timer = null;
-    switch (room.game.phase) {
+
+    // A Kalandor több részből álló feladata csak akkor sikeres, ha mindhárom célt eltalálja.
+    // Hibás tippnél vagy időtúllépésnél a teljes addigi haladás törlődik.
+    if (phaseAtAdvance === "night-adventurer" && timedOut) {
+        for (const adventurer of livingRolePlayers(room, "adventurer")) {
+            const objectives = room.game.adventurerObjectiveRoles?.get(adventurer.id) || [];
+            const progress = room.game.adventurerProgress?.get(adventurer.id) || new Map();
+            const completed = objectives.length === 3 && objectives.every((roleKey) => progress.has(roleKey));
+            if (completed || room.game.adventurerFailedThisRound?.has(adventurer.id)) continue;
+            progress.clear();
+            room.game.adventurerProgress.set(adventurer.id, progress);
+            room.game.adventurerFailedThisRound.add(adventurer.id);
+            const adventurerSocket = io.sockets.sockets.get(adventurer.id);
+            if (adventurerSocket) {
+                adventurerSocket.emit("adventurer-guess-result", {
+                    correct: false,
+                    timeout: true,
+                    message: "Lejárt az idő. A Kalandor feladata nem sikerült, ezért mindhárom szerepet újra kell megtalálnod a következő alkalommal."
+                });
+            }
+        }
+        emitGameState(room);
+    }
+
+    switch (phaseAtAdvance) {
         case "countdown":
             startPhase(room, "intro", room.settings.introSeconds, "Ismerkedjetek, beszélgessetek! Hamarosan leszáll az éjszaka.");
             break;
@@ -1030,7 +1117,10 @@ function leaveRoom(socket, notifyClient = false) {
             }
             const winner = getWinner(room);
             if (winner) endGame(room, winner);
-            else emitGameState(room);
+            else {
+                emitGameState(room);
+                maybeAdvanceActionPhase(room);
+            }
             const stillConnected = [...room.players.values()].some((p) => p.connected !== false);
             if (!stillConnected) {
                 clearGameTimer(room);
@@ -1225,6 +1315,7 @@ io.on("connection", (socket) => {
         room.game.roleSwapUsedIds.add(socket.id);
         socket.emit("role-swap-used", { used: true });
         socket.emit("game-action-ack", { message: "A vak szerepcsere rögzítve. A szereped a kör végén változik meg; a célpont csak Falusi lesz." });
+        maybeAdvanceActionPhase(room);
     });
 
     // A Bohóc lidérc szabotázsa három körönként használható újra.
@@ -1254,6 +1345,7 @@ io.on("connection", (socket) => {
         emitGameState(room);
         const actionText = effect === "rename" ? "névfelvétel" : "hang némítása";
         socket.emit("game-action-ack", { message: `A szabotázsod rögzítve (${actionText}). A következő használatig 3 kör telik el.` });
+        maybeAdvanceActionPhase(room);
     });
 
     // Az egyedüli Bohóc lidérc a szerepvizsgálatot egyszer használhatja, külön a szabotázs hűtési idejétől.
@@ -1288,6 +1380,7 @@ io.on("connection", (socket) => {
             source: "spirits"
         });
         socket.emit("game-action-ack", { message: `Megvizsgáltad ${target.username} szerepét. A különleges képességedet felhasználtad.` });
+        maybeAdvanceActionPhase(room);
     });
 
     // Lidérc-akció: egyedül szerepet vizsgálhat vagy támadhat; több lidércnek egyező célpont kell.
@@ -1314,6 +1407,7 @@ io.on("connection", (socket) => {
             socket.emit("spirit-inspect-used", { used: true });
             socket.emit("player-role-revealed", { targetId: target.id, targetName: target.username, role: target.role, label: target.role === "spirits" && target.specialSpirit ? "Bohóc lidérc" : ROLE_LABELS[target.role], source: "spirits" });
             socket.emit("game-action-ack", { message: `Megvizsgáltad ${target.username} szerepét: ${ROLE_LABELS[target.role]}. Ebben a körben már nem választhatsz másik akciót.` });
+            maybeAdvanceActionPhase(room);
             return;
         }
         if (type !== "attack") {
@@ -1331,6 +1425,7 @@ io.on("connection", (socket) => {
         socket.emit("game-action-ack", { message: spirits.length > 1
             ? "Rögzítettük a választásodat. A támadás csak akkor sikerül, ha minden lidérc ugyanazt választja."
             : "A támadásod rögzítve." });
+        maybeAdvanceActionPhase(room);
     });
 
     socket.on("healer-protect", (payload = {}) => {
@@ -1349,6 +1444,7 @@ io.on("connection", (socket) => {
             }
             room.game.healerActions.set(socket.id, target.id);
             socket.emit("game-action-ack", { message: `Leadva a gyógyítói szavazatod: ${target.username}. Csak akkor lesz védelem, ha minden élő gyógyító ugyanarra szavaz.` });
+            maybeAdvanceActionPhase(room);
             return;
         }
         if (room.game.healerUsesRemaining <= 0) { socket.emit("game-action-error", "Elfogyott a két egyéni védési lehetőséged."); return; }
@@ -1357,6 +1453,7 @@ io.on("connection", (socket) => {
         room.game.healerUsesRemaining -= 1;
         socket.emit("game-action-ack", { message: `Védelem kiválasztva: ${target.username}. Még ${room.game.healerUsesRemaining} egyéni védési lehetőséged maradt.` });
         socket.emit("healer-uses-left", { remaining: room.game.healerUsesRemaining });
+        maybeAdvanceActionPhase(room);
     });
 
     socket.on("hunter-shoot", (payload = {}) => {
@@ -1372,6 +1469,7 @@ io.on("connection", (socket) => {
         if (payload.pass === true) {
             room.game.hunterActions.set(socket.id, null);
             socket.emit("game-action-ack", { message: "Úgy döntöttél, hogy ebben a körben nem lősz." });
+            maybeAdvanceActionPhase(room);
             return;
         }
         const target = room.players.get(String(payload.targetId || ""));
@@ -1380,6 +1478,7 @@ io.on("connection", (socket) => {
         }
         room.game.hunterActions.set(socket.id, target.id);
         socket.emit("game-action-ack", { message: `A lövés rögzítve: ${target.username}. Ebben a körben már nem módosítható.` });
+        maybeAdvanceActionPhase(room);
     });
 
 
@@ -1402,6 +1501,7 @@ io.on("connection", (socket) => {
         }
         room.game.infectiousActions.set(socket.id, target.id);
         socket.emit("game-action-ack", { message: "A fertőzési célpont rögzítve. A nyilvános napló nem fogja felfedni, kit választottál." });
+        maybeAdvanceActionPhase(room);
     });
 
     socket.on("adventurer-guess", (payload = {}) => {
@@ -1436,11 +1536,15 @@ io.on("connection", (socket) => {
                 return;
             }
         } else {
+            // Egyetlen hibás tipp is lenullázza a teljes háromrészes feladatsort.
+            progress.clear();
+            game.adventurerProgress.set(player.id, progress);
             failedThisRound.add(player.id);
             game.adventurerFailedThisRound = failedThisRound;
-            socket.emit("adventurer-guess-result", { correct: false, roleKey, targetId: target.id, message: "Rossz tipp! A Kalandor-köröd erre az éjszakára véget ért. A következő éjszaka újra próbálkozhatsz; mindhárom szerepet el kell találnod a győzelemhez." });
+            socket.emit("adventurer-guess-result", { correct: false, roleKey, targetId: target.id, message: "Rossz tipp! A teljes feladatsorod újraindul a következő éjszakán. Erre a körre befejezted." });
         }
         emitGameState(room);
+        maybeAdvanceActionPhase(room);
     });
 
     // Privát gépes chat: lidércek/vadászok a saját éjszakai körükben, házastársak éjszaka, a Látnok és a halottak külön csatornán.

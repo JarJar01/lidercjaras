@@ -70,3 +70,10 @@ JAVÍTÁSOK (2026-10-24):
 - A Látnoknak külön, hangalapú szeánsza van minden második éjszakán, amennyiben van élő Látnok és elérhető halott játékos. A szeánszhoz nem tartozik szöveges chat.
 - Szavazásnál minden játékos ikonja fölött az adott játékosra érkezett szavazatok száma látható. A célpontonkénti összesítés nyilvános, de az egyéni szavazó és célpont párosa titkos marad. Minden szerep önmagára is szavazhat.
 - A Látnok szeánszának hossza a lobbyban 5–3600 másodperc között állítható.
+
+
+FRISSITES: GYORSABB AKCIOKOROK ES KALANDOR IDOTULLEPES (2026-10-24)
+- Az olyan ejszakai korok, ahol a szerepek celpontot valasztanak, automatikusan tovabblepnek, ha minden jogosult, eletben levo szereplo leadta a donteset.
+- Ha tobben vannak az adott csapatban (pl. lodercek, gyogyitok, vadaszok), a fazis var a tobbi jogosult jatekosra is; az ido tovabbra is vegso hatarido.
+- Ha a Kalandor rossz tippet ad, a teljes harom szerepes feladatsora torlodik, es a kovetkezo ejszakan ujra kell kezdenie. Ha lejár az idõ a Kalandor korenel, az is sikertelen proba, a teljes haladas torlodik.
+- A Foldesurnak tovabbra is egy szavazata van, amely ket szavazatnyi sullyal szamit. Ha nem szavaz az ido lejartaig, a szavazata SKIP-kent szamit, ket ponttal.
