@@ -85,3 +85,9 @@ FRISSITES: GYORSABB AKCIOKOROK ES KALANDOR IDOTULLEPES (2026-10-24)
 - A Bohóc lidérc hangelvékonyító szabotázst is választhat; a hatás a többi játékos hangját magasabb hangúra állítja a nappali hangcsatornán.
 - A lidércek éjszakai körében van SKIP, amellyel ki lehet hagyni a támadást. Több lidércnél csak azonos támadási célpont esetén sikerül a támadás; ha nem egyeznek, nem történik támadás.
 - Egyetlen játékban legfeljebb egy Bohóc lidérc lehet; minden lidérc 50%-os véletlen esélyt dob, az esetleges több találatból csak egyet tartunk meg.
+
+JAVITAS: BOHOC NEVCSERE ES VALODI HANGMAGASSAG-EFFEKT (2026-10-24, verziokod: lidercjaras-clown-disguise-audio-pitch-2026-10-24-9)
+- A Bohoc liderc nevcseres akcioja mar a Bohoc kulonleges korenek vegekor ervenyesul, igy a kovetkezo fazis jatekallapotaban minden kliens kovetkezetesen ugyanazt az alnevet kapja.
+- A nevcsere kulso szemleloknel mindket nev megjeleniteset felcsereli; a Bohoc es a kivalasztott celpont sajat szemelyes nezete tovabbra is az eredeti nevet mutatja. A jatekos sor ikonja es a beszelest jelzo badge az alneves sorral egyutt jelenik meg, mert a sor a szemelyre szabott jatekallapotbol renderelodik.
+- A hang elvekonyitasat nem az elo WebRTC MediaStream HTMLMediaElement playbackRate tulajdonsagara bizza: a tavoli hang Web Audio feldolgozason megy at, egy folyamatosan mukodo granular pitch-shifterrel. Ha a bongeszo ezt nem tamogatja, fallbackkent magasabb playbackRate kerul beallitasra.
+- A Bohoc hanghatasat a tobbi jatekos hallja; a hatas a celszemely sajat hangmonitorozasat nem valtoztatja meg.

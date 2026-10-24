@@ -10,7 +10,7 @@ const app = express();
 const server = http.createServer(app);
 const io = new Server(server);
 const PUBLIC_DIR = path.join(__dirname, "public");
-const APP_VERSION = "lidercjaras-clown-disguise-thin-voice-spirit-skip-2026-10-24-8";
+const APP_VERSION = "lidercjaras-clown-disguise-audio-pitch-2026-10-24-9";
 
 app.get("/health", (_req, res) => {
     res.json({ ok: true, app: "Lidércjárás", version: APP_VERSION });
@@ -247,7 +247,10 @@ function canClownSabotage(room, playerId) {
 }
 function displayNameForPlayer(player, viewerId) {
     if (!player) return "Ismeretlen játékos";
-    // A saját nevét mindenki eredetinek látja; a névcsere célpontja a bohóc álnévét sem látja.
+    // Disguise is view-specific: the clown and the selected target both keep
+    // their real self-name. Every other viewer sees both names swapped.
+    // Keep this same projection for player rows, vote results, event logs and
+    // any UI element that displays a player identity.
     if (player.id === viewerId) return player.username;
     if (player.publicAlias && viewerId !== player.publicAliasTargetId) return player.publicAlias;
     return player.username;
@@ -638,6 +641,10 @@ function resolveSwapperActions(room) {
         if (!["rename", "mute", "thin"].includes(effect)) continue;
         game.pendingClownEffects.push({ clownId: clown.id, targetId: target.id, effect });
     }
+    // Apply the disguise/effect as soon as the special action phase ends. The public
+    // announcement stays queued until dawn, but every personalized game-state now
+    // contains the same alias mapping before the public voice phase begins.
+    applyPendingClownEffects(room);
 }
 
 function applyPendingClownEffects(room) {

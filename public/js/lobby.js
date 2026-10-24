@@ -71,8 +71,106 @@
     const voicePeers = new Map();
     const teamVoicePeers = new Map();
     const speakingPlayerIds = new Set();
+    // A WebRTC-hang effektekhez közös AudioContext és peer-enkénti kimeneti csatorna.
+    // A böngészők az élő MediaStream HTMLMediaElement.playbackRate értékét nem mindig
+    // alkalmazzák megbízhatóan, ezért a hangmagasság-változtatás a Web Audio feldolgozásban történik.
+    const remoteVoicePipelines = new Map();
+    let remoteVoiceAudioContext = null;
     // Kliensoldali hangkeverő: csak ezen a gépen állítja egy-egy játékos hangerejét.
     const remoteVoiceSettings = new Map();
+
+    function getRemoteVoiceAudioContext() {
+        const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+        if (!AudioContextClass) return null;
+        if (!remoteVoiceAudioContext || remoteVoiceAudioContext.state === "closed") {
+            remoteVoiceAudioContext = new AudioContextClass();
+        }
+        return remoteVoiceAudioContext;
+    }
+
+    function remoteVoicePipelineKey(peerId, channel) {
+        return `${channel}:${peerId}`;
+    }
+
+    function destroyRemoteVoicePipeline(peerId, channel = "public") {
+        const key = remoteVoicePipelineKey(peerId, channel);
+        const pipeline = remoteVoicePipelines.get(key);
+        if (!pipeline) return;
+        try { pipeline.source.disconnect(); } catch {}
+        try { pipeline.processor.disconnect(); } catch {}
+        try { pipeline.outputStream.getTracks().forEach((track) => track.stop()); } catch {}
+        remoteVoicePipelines.delete(key);
+    }
+
+    function connectRemoteAudioOutput(peerId, channel, inputStream, audio) {
+        destroyRemoteVoicePipeline(peerId, channel);
+        const context = getRemoteVoiceAudioContext();
+        if (!context || typeof context.createScriptProcessor !== "function") {
+            audio.srcObject = inputStream;
+            return;
+        }
+        try {
+            const source = context.createMediaStreamSource(inputStream);
+            const processor = context.createScriptProcessor(2048, 1, 1);
+            const destination = context.createMediaStreamDestination();
+            const sampleRate = context.sampleRate || 48000;
+            const ringLength = Math.ceil(sampleRate * 0.30);
+            const delayBuffer = new Float32Array(ringLength);
+            const windowSamples = Math.max(512, Math.floor(sampleRate * 0.085));
+            const pitchRatio = 1.55; // jól hallható, „héliumos” hangmagasság-emelés
+            const delayBase = Math.floor(sampleRate * 0.10);
+            const delaySpan = Math.floor(windowSamples * (pitchRatio - 1));
+            let writeIndex = 0;
+            let phase = 0;
+            const pipeline = { source, processor, outputStream: destination.stream, pitchEnabled: false };
+
+            function readDelayed(delay) {
+                let position = writeIndex - delay;
+                while (position < 0) position += ringLength;
+                position %= ringLength;
+                const leftIndex = Math.floor(position);
+                const rightIndex = (leftIndex + 1) % ringLength;
+                const fraction = position - leftIndex;
+                return delayBuffer[leftIndex] * (1 - fraction) + delayBuffer[rightIndex] * fraction;
+            }
+
+            processor.onaudioprocess = (event) => {
+                const input = event.inputBuffer.getChannelData(0);
+                const output = event.outputBuffer.getChannelData(0);
+                for (let i = 0; i < input.length; i++) {
+                    delayBuffer[writeIndex] = input[i];
+                    if (!pipeline.pitchEnabled) {
+                        output[i] = input[i];
+                    } else {
+                        const phaseA = phase;
+                        const phaseB = (phase + 0.5) % 1;
+                        const delayA = delayBase + delaySpan * (1 - phaseA);
+                        const delayB = delayBase + delaySpan * (1 - phaseB);
+                        const sampleA = readDelayed(delayA);
+                        const sampleB = readDelayed(delayB);
+                        const weightA = 0.5 - 0.5 * Math.cos(phaseA * Math.PI * 2);
+                        const weightB = 1 - weightA;
+                        output[i] = (sampleA * weightA + sampleB * weightB) * 0.94;
+                    }
+                    writeIndex = (writeIndex + 1) % ringLength;
+                    phase += 1 / windowSamples;
+                    if (phase >= 1) phase -= 1;
+                }
+            };
+
+            source.connect(processor);
+            processor.connect(destination);
+            remoteVoicePipelines.set(remoteVoicePipelineKey(peerId, channel), pipeline);
+            audio.srcObject = destination.stream;
+            context.resume().catch(() => {});
+            audio.playbackRate = 1;
+            if ("preservesPitch" in audio) audio.preservesPitch = true;
+            if ("webkitPreservesPitch" in audio) audio.webkitPreservesPitch = true;
+        } catch (error) {
+            console.warn("A hangszűrő nem indult el, közvetlen lejátszásra váltok:", error);
+            audio.srcObject = inputStream;
+        }
+    }
 
     function getRemoteVoiceSetting(peerId) {
         if (!remoteVoiceSettings.has(peerId)) remoteVoiceSettings.set(peerId, { volume: 1, muted: false });
@@ -533,22 +631,33 @@
     }
 
     function applyRemoteVoiceEffects(state = currentGameVoiceState) {
-        document.querySelectorAll("#remoteAudioContainer audio[id^='voice-audio-']").forEach((audio) => {
-            const peerId = audio.id.slice("voice-audio-".length);
+        document.querySelectorAll("#remoteAudioContainer audio[id^='voice-audio-'], #remoteAudioContainer audio[id^='team-voice-audio-']").forEach((audio) => {
+            const isTeam = audio.id.startsWith("team-voice-audio-");
+            const peerId = audio.id.slice(isTeam ? "team-voice-audio-".length : "voice-audio-".length);
             const peerState = (state?.players || []).find((player) => player.id === peerId);
             const effect = peerState?.voiceEffect || null;
             const preference = getRemoteVoiceSetting(peerId);
-            const mutedByGame = gameVoiceLocked || effect === "mute";
-            audio.muted = Boolean(preference.muted || mutedByGame);
+            // Éjszaka a publikus csatorna néma, de a privát csapatcsatorna használható.
+            // A Bohóc némítása mindkét csatornán érvényes; a hangmagasság-emelés mindkettőn feldolgozható.
+            audio.muted = Boolean(preference.muted || effect === "mute" || (!isTeam && gameVoiceLocked));
             audio.volume = Math.max(0, Math.min(1, preference.volume));
-            if (effect === "thin" && !gameVoiceLocked) {
-                audio.playbackRate = 1.35;
-                if ("preservesPitch" in audio) audio.preservesPitch = false;
-                if ("webkitPreservesPitch" in audio) audio.webkitPreservesPitch = false;
-            } else {
+            const pipeline = remoteVoicePipelines.get(remoteVoicePipelineKey(peerId, isTeam ? "team" : "public"));
+            if (pipeline) {
+                pipeline.pitchEnabled = effect === "thin";
                 audio.playbackRate = 1;
                 if ("preservesPitch" in audio) audio.preservesPitch = true;
                 if ("webkitPreservesPitch" in audio) audio.webkitPreservesPitch = true;
+            } else if (effect === "thin") {
+                // Fallback olyan böngészőkhöz, amelyek nem tudnak Web Audio feldolgozást létrehozni.
+                audio.playbackRate = 1.55;
+                audio.preservesPitch = false;
+                audio.webkitPreservesPitch = false;
+                audio.mozPreservesPitch = false;
+            } else {
+                audio.playbackRate = 1;
+                audio.preservesPitch = true;
+                audio.webkitPreservesPitch = true;
+                audio.mozPreservesPitch = true;
             }
         });
     }
@@ -691,11 +800,8 @@
                 audio.setAttribute("aria-label", "Másik játékos hangja");
                 document.getElementById("remoteAudioContainer").appendChild(audio);
             }
-            if (event.streams && event.streams[0]) {
-                audio.srcObject = event.streams[0];
-            } else {
-                audio.srcObject = new MediaStream([event.track]);
-            }
+            const incomingStream = event.streams?.[0] || new MediaStream([event.track]);
+            connectRemoteAudioOutput(peerId, "public", incomingStream, audio);
             applyRemoteVoiceEffects(currentGameVoiceState);
             audio.play().catch(() => {
                 showMessage("A hang lejátszását a böngésző letiltotta. Kattints az oldalra, majd engedélyezd a hangot.", "info");
@@ -800,8 +906,10 @@
                 audio.setAttribute("aria-label", "Titkos csapattárs hangja");
                 container.appendChild(audio);
             }
-            audio.srcObject = event.streams?.[0] || new MediaStream([event.track]);
+            const incomingStream = event.streams?.[0] || new MediaStream([event.track]);
+            connectRemoteAudioOutput(peerId, "team", incomingStream, audio);
             applyRemoteAudioSetting(peerId, "team");
+            applyRemoteVoiceEffects(currentGameVoiceState);
             audio.play().catch(() => showMessage("A privát csapathang lejátszásához kattints az oldalra, majd engedélyezd a hangot.", "info"));
         };
         pc.onnegotiationneeded = async () => {
@@ -827,6 +935,7 @@
             if (!expectedIds.has(peerId)) {
                 record.pc.close();
                 teamVoicePeers.delete(peerId);
+                destroyRemoteVoicePipeline(peerId, "team");
                 document.getElementById(`team-voice-audio-${peerId}`)?.remove();
             }
         }
@@ -881,6 +990,7 @@
     function closeTeamVoiceConnections(stopTrack = false) {
         for (const [peerId, record] of teamVoicePeers.entries()) {
             record.pc.close();
+            destroyRemoteVoicePipeline(peerId, "team");
             document.getElementById(`team-voice-audio-${peerId}`)?.remove();
         }
         teamVoicePeers.clear();
@@ -974,6 +1084,7 @@
             if (!expectedIds.has(peerId)) {
                 record.pc.close();
                 voicePeers.delete(peerId);
+                destroyRemoteVoicePipeline(peerId, "public");
                 const audio = document.getElementById(`voice-audio-${peerId}`);
                 if (audio) audio.remove();
             }
@@ -1085,6 +1196,7 @@
     function closeVoiceConnections(stopStream = false) {
         for (const [peerId, record] of voicePeers.entries()) {
             record.pc.close();
+            destroyRemoteVoicePipeline(peerId, "public");
             const audio = document.getElementById(`voice-audio-${peerId}`);
             if (audio) audio.remove();
         }
