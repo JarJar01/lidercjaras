@@ -293,6 +293,19 @@
 
             <div class="game-fade-overlay" id="gameFadeOverlay" aria-hidden="true"></div>
 
+            <div class="game-phase-overlay" id="gamePhaseOverlay" hidden aria-live="assertive" aria-atomic="true">
+                <div class="game-phase-modal">
+                    <div class="game-phase-modal-art-wrap">
+                        <img id="gamePhaseImage" class="game-phase-modal-art" src="/assets/roles/spirits.svg" alt="A körhöz tartozó szereplő illusztrációja">
+                        <span class="game-phase-modal-orbit" aria-hidden="true"></span>
+                    </div>
+                    <p class="game-section-kicker" id="gamePhaseEyebrow">A KÖD MOZGÁSBA LENDÜL</p>
+                    <h2 id="gamePhaseModalTitle">Kezdődik a kör</h2>
+                    <p id="gamePhaseModalDescription">Figyeld a középső panelt a következő döntéshez.</p>
+                    <div class="game-phase-modal-progress"><span></span></div>
+                </div>
+            </div>
+
             <div class="game-notice" id="gameNotice" role="status" aria-live="polite">
                 A történet hamarosan elkezdődik.
             </div>
@@ -311,7 +324,10 @@
             <div class="game-layout">
                 <section class="game-panel game-role-panel" id="gameRoleCard" hidden>
                     <p class="game-section-kicker">A TE TITKOD</p>
-                    <div class="game-role-symbol" id="gameRoleSymbol">✦</div>
+                    <div class="game-role-art-frame">
+                        <img class="game-role-art" id="gameRoleImage" src="/assets/roles/villagers.svg" alt="A saját szereped illusztrációja">
+                        <div class="game-role-symbol" id="gameRoleSymbol">✦</div>
+                    </div>
                     <h3 id="gameRoleName">Szerepkör</h3>
                     <p id="gameRoleDescription">A szereped titkos.</p>
                     <p class="game-role-team-members" id="gameRoleTeamMembers" hidden></p>

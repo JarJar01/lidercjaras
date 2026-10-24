@@ -1,3 +1,12 @@
+FELÜLETFRISSÍTÉS (2026-10-24)
+- A játékképernyő széles kijelzőn három rendezett oszlopban jelenik meg: balra a játékoslista, középen az aktuális kör és a döntések, jobbra a saját szerepkártya illusztrációval.
+- A körök váltásakor középre animált, visszafogott méretű fázisablak jelenik meg, amely megmutatja, melyik szerep vagy szakasz következik. A szavazás kezdetén külön szavazási értesítés jelenik meg; a szavazás vezérlői a középső panelen maradnak.
+- A teljes oldal nem görgetődik aktív játék közben asztali/laptop kijelzőn; a hosszú játékos- és akciólisták saját panelen belül görgethetők. Szűk mobilképernyőn a nézet egy oszlopra vált, és szükség esetén az oldal görgethető marad.
+- A szerepkártyákhoz 16 saját, vektorgrafikus fantasy-portré tartozik a public/assets/roles mappában. A saját szerep és az aktuális kör illusztrációja dinamikusan változik.
+- A játékoslistában a hangerőgombok alaphelyzetben kompaktak; kattintásra megnyílik az adott játékos hangerőcsúszkája és helyi némítása. A beállítás csak a saját böngészőben hat.
+- A beállítások fogaskereke és a hangvezérlés továbbra is elérhető marad.
+- Szerververzió: lidercjaras-ui-refresh-2026-10-24-1.
+
 LIDÉRCJÁRÁS – LÉLEKRABLÓ ÉS ÁRNYÉKKÖTŐ
 Verzió: lidercjaras-soulreaper-shadowbinder-2026-10-24-2
 

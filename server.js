@@ -10,7 +10,7 @@ const app = express();
 const server = http.createServer(app);
 const io = new Server(server);
 const PUBLIC_DIR = path.join(__dirname, "public");
-const APP_VERSION = "lidercjaras-soulreaper-shadowbinder-2026-10-24-2";
+const APP_VERSION = "lidercjaras-ui-refresh-2026-10-24-1";
 
 app.get("/health", (_req, res) => {
     res.json({ ok: true, app: "Lidércjárás", version: APP_VERSION });

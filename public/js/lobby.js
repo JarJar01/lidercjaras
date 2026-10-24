@@ -299,7 +299,41 @@
         });
 
         wrapper.classList.toggle("is-muted", setting.muted);
-        wrapper.append(header, sliderRow, muteButton);
+        if (scope === "game") {
+            const compactToggle = makeElement("button", "player-voice-compact-toggle", setting.muted ? "🔇" : "🔊");
+            compactToggle.type = "button";
+            compactToggle.setAttribute("aria-label", `${player.username} hangbeállításainak megnyitása`);
+            compactToggle.setAttribute("aria-expanded", "false");
+            compactToggle.title = `${player.username} hangereje és némítása`;
+            compactToggle.addEventListener("click", (event) => {
+                event.preventDefault();
+                event.stopPropagation();
+                const expanded = !wrapper.classList.contains("is-expanded");
+                wrapper.classList.toggle("is-expanded", expanded);
+                compactToggle.setAttribute("aria-expanded", String(expanded));
+                if (expanded) {
+                    const rect = compactToggle.getBoundingClientRect();
+                    const panelWidth = Math.min(246, Math.max(210, window.innerWidth - 24));
+                    const panelHeight = 105;
+                    const left = Math.max(12, Math.min(rect.right - panelWidth, window.innerWidth - panelWidth - 12));
+                    let top = rect.bottom + 6;
+                    if (top + panelHeight > window.innerHeight - 12) top = Math.max(12, rect.top - panelHeight - 6);
+                    wrapper.style.left = `${left}px`;
+                    wrapper.style.top = `${top}px`;
+                } else {
+                    wrapper.style.left = "";
+                    wrapper.style.top = "";
+                }
+            });
+            const syncCompactToggle = () => {
+                compactToggle.textContent = setting.muted ? "🔇" : "🔊";
+                compactToggle.classList.toggle("is-muted", setting.muted);
+            };
+            muteButton.addEventListener("click", syncCompactToggle);
+            wrapper.append(compactToggle, header, sliderRow, muteButton);
+        } else {
+            wrapper.append(header, sliderRow, muteButton);
+        }
         return wrapper;
     }
 

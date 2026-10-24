@@ -14,7 +14,7 @@
         villagers: "⌂",
         hunters: "➶",
         fool: "☻",
-        swapper: "🔄",
+        swapper: "⇄",
         infectious: "☣",
         seer: "🔮",
         landlord: "♜",
@@ -22,6 +22,23 @@
         adventurer: "🧭",
         soulreaper: "👻",
         shadowbinder: "⛓"
+    };
+    const rolePortraits = {
+        spirits: "spirits", healer: "healer", villagers: "villagers",
+        hunters: "hunters", fool: "fool", swapper: "swapper",
+        infectious: "infectious", seer: "seer", landlord: "landlord",
+        spouses: "spouses", adventurer: "adventurer", soulreaper: "soulreaper",
+        shadowbinder: "shadowbinder"
+    };
+    const phasePortraits = {
+        countdown: "unknown", intro: "villagers",
+        "night-shadowbinder": "shadowbinder", "dawn-soulreaper": "soulreaper",
+        "night-swapper": "swapper", "night-special-spirit": "clown-spirit",
+        "night-spirits": "spirits", "night-healer": "healer",
+        "night-hunters": "hunters", "night-fool": "fool",
+        "night-infectious": "infectious", "night-adventurer": "adventurer",
+        "night-seer": "seer", "dawn-result": "unknown", day: "villagers",
+        "vote-result": "landlord", "game-over": "unknown"
     };
     const phaseLabels = {
         countdown: "Kezdés",
@@ -88,6 +105,8 @@
     let actionStatusMessage = "";
     let timerInterval = null;
     let lastNoticeKey = "";
+    let lastPhaseAnnouncementKey = "";
+    let phaseAnnouncementTimer = null;
 
     function makeElement(tag, className, text) {
         const element = document.createElement(tag);
@@ -135,6 +154,52 @@
         notice.textContent = value;
         notice.hidden = !value;
         if (key) lastNoticeKey = key;
+    }
+
+    function showPhaseAnnouncement(state) {
+        const phase = state?.phase || "";
+        const announcementKey = `${phase}|${state?.round || 0}`;
+        if (!phase || announcementKey === lastPhaseAnnouncementKey) return;
+        lastPhaseAnnouncementKey = announcementKey;
+
+        const overlay = $("gamePhaseOverlay");
+        const title = $("gamePhaseModalTitle");
+        const description = $("gamePhaseModalDescription");
+        const eyebrow = $("gamePhaseEyebrow");
+        const image = $("gamePhaseImage");
+        if (!overlay || !title || !description || !image) return;
+
+        const dayVote = phase === "day";
+        const phaseResult = phase === "vote-result";
+        title.textContent = dayVote ? "Megkezdődik a szavazás" : (phaseTitles[phase] || "Új kör kezdődik");
+        description.textContent = dayVote
+            ? "Válaszd ki, kit szeretnél kiszavazni. A leadott szavazatod titkos marad."
+            : phaseResult
+                ? "A szavazatok összesítése megtörtént. Nézd meg az eredményt a középső panelen."
+                : phase === "game-over"
+                    ? (state.message || "A menet befejeződött.")
+                    : phase === "countdown"
+                        ? "A szerepedet titokban megkaptad. A történet hamarosan elkezdődik."
+                        : phase === "intro"
+                            ? "Beszélgessetek, ismerkedjetek, és készüljetek az első éjszakára."
+                            : "Ez a kör következik. A teendőd a középső panelen jelenik meg.";
+        if (eyebrow) eyebrow.textContent = phaseResult ? "A FALU DÖNTÖTT" : dayVote ? "TITKOS SZAVAZÁS" : `LIDÉRCJÁRÁS · ${phaseLabels[phase] || "ÚJ FÁZIS"}`.toLocaleUpperCase("hu-HU");
+        const artKey = phasePortraits[phase] || "unknown";
+        image.src = `/assets/roles/${artKey}.svg`;
+        image.alt = `${phaseLabels[phase] || "A kör"} fantasy illusztráció`;
+        overlay.hidden = false;
+        overlay.classList.remove("is-leaving");
+        requestAnimationFrame(() => overlay.classList.add("is-visible"));
+        if (phaseAnnouncementTimer) clearTimeout(phaseAnnouncementTimer);
+        const duration = phase === "game-over" ? 3100 : (dayVote ? 2400 : 2100);
+        phaseAnnouncementTimer = setTimeout(() => {
+            overlay.classList.add("is-leaving");
+            overlay.classList.remove("is-visible");
+            setTimeout(() => {
+                overlay.hidden = true;
+                overlay.classList.remove("is-leaving");
+            }, 280);
+        }, duration);
     }
 
     function isMyselfAlive() {
@@ -510,7 +575,14 @@
         if (!panel || !myRole) return;
         panel.hidden = false;
         panel.classList.toggle("is-clown-spirit", mySpecialSpirit);
-        $("gameRoleSymbol").textContent = mySpecialSpirit ? "🎭" : (roleSymbols[myRole] || "✦");
+        const roleArtKey = mySpecialSpirit && myRole === "spirits" ? "clown-spirit" : (rolePortraits[myRole] || "unknown");
+        panel.dataset.role = roleArtKey;
+        const roleImage = $("gameRoleImage");
+        if (roleImage) {
+            roleImage.src = `/assets/roles/${roleArtKey}.svg`;
+            roleImage.alt = `${myRoleLabel || "Titkos szerep"} karakterillusztráció`;
+        }
+        $("gameRoleSymbol").textContent = mySpecialSpirit ? "☻" : (roleSymbols[myRole] || "✦");
         $("gameRoleName").textContent = myRoleLabel || "Titkos szerep";
         $("gameRoleDescription").textContent = myRoleDescription || "A szereped titkos. Figyeld a játékmenetet.";
         const teamLine = $("gameRoleTeamMembers");
@@ -529,6 +601,9 @@
         view.classList.toggle("is-night", isNight || phase === "countdown");
         view.classList.toggle("is-day", phase === "day" || phase === "intro" || phase === "dawn-result");
         view.classList.toggle("is-countdown", phase === "countdown");
+        const actionPanel = document.querySelector(".game-action-panel");
+        if (actionPanel) actionPanel.classList.toggle("is-voting", phase === "day");
+        document.body.classList.add("has-active-game");
         $("gameStartedRoomName").textContent = gameState.roomName || "Lidércjárás";
         $("gameRoundLabel").textContent = gameState.round > 0 ? `JÁTÉK · ${gameState.round}. ÉJSZAKA` : "A KÖD LEERESZKEDIK";
         $("gamePhaseName").textContent = phaseLabels[phase] || "Játék";
@@ -603,6 +678,11 @@
     }
 
     socket.on("game-started", (payload = {}) => {
+        if (phaseAnnouncementTimer) clearTimeout(phaseAnnouncementTimer);
+        phaseAnnouncementTimer = null;
+        lastPhaseAnnouncementKey = "";
+        const phaseOverlay = $("gamePhaseOverlay");
+        if (phaseOverlay) { phaseOverlay.hidden = true; phaseOverlay.classList.remove("is-visible", "is-leaving"); }
         if (payload.room) $("gameStartedRoomName").textContent = payload.room.name || "Lidércjárás";
         myRole = null;
         myRoleLabel = "";
@@ -658,11 +738,13 @@
     });
 
     socket.on("game-state", (state = {}) => {
+        const phaseChanged = !gameState || state.phase !== gameState.phase || state.round !== gameState.round;
         if (gameState && state.phase !== gameState.phase) speakingPlayerIds.clear();
         resetActionIfNewPhase(state);
         gameState = state;
         amIInfected = Boolean(state.infectedSelf);
         renderGame();
+        if (phaseChanged) showPhaseAnnouncement(state);
         if (state.message) showNotice(state.message, `${state.phase}|${state.round}|${state.message}`);
         else showNotice("");
     });
