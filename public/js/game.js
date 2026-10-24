@@ -219,13 +219,17 @@
                 if (sabotageReady) {
                     otherPlayers.forEach((player) => {
                         addChoiceButton(panel, `🎭 Felveszem ezt a nevet: ${player.username}`, () => {
-                            setActionStatus("Névfelvétel rögzítve. A célpont a saját nevét látja; a többiek téged a felvett néven látnak.");
+                            setActionStatus("Névfelvétel rögzítve. A két név a többi játékos nézetében felcserélődik; ti ketten a saját eredeti neveteket látjátok.");
                             sendAction("swapper-action", { targetId: player.id, effect: "rename" });
                         }, "is-neutral");
                         addChoiceButton(panel, `🔇 Lenémítom: ${player.username}`, () => {
                             setActionStatus("A némítás rögzítve. Három kör múlva használhatod újra a szabotázst.");
                             sendAction("swapper-action", { targetId: player.id, effect: "mute" });
                         }, "is-danger");
+                        addChoiceButton(panel, `🎈 Elvékonyítom a hangját: ${player.username}`, () => {
+                            setActionStatus("A hang elvékonyítása rögzítve. A hatás reggeltől hallható.");
+                            sendAction("swapper-action", { targetId: player.id, effect: "thin" });
+                        }, "is-neutral");
                     });
                 } else {
                     panel.appendChild(makeElement("p", "game-muted", `A szabotázs még ${cooldown} körig nem használható.`));
@@ -258,6 +262,10 @@
                             sendAction("spirit-action", { type: "attack", targetId: player.id });
                         }, "is-danger");
                     });
+                    addChoiceButton(panel, "⏭ SKIP – most nem támadok", () => {
+                        setActionStatus("A SKIP döntésed elküldve; ezen az éjszakán nem támadsz.");
+                        sendAction("spirit-action", { type: "skip" });
+                    }, "is-neutral");
                     if (mySpecialSpirit) {
                         panel.appendChild(makeElement("p", "game-muted", "A különleges képességköri döntésed külön történt meg. Ebben a körben most a lidérctámadásról döntesz."));
                     } else if (!mySpiritInspectUsed) {
@@ -279,6 +287,10 @@
                             sendAction("spirit-action", { type: "attack", targetId: player.id });
                         }, "is-danger");
                     });
+                    addChoiceButton(panel, "⏭ SKIP – kihagyom a támadást", () => {
+                        setActionStatus("A SKIP döntésed elküldve. Ha a lidércek nem egyeznek meg, nem történik támadás.");
+                        sendAction("spirit-action", { type: "skip" });
+                    }, "is-neutral");
                 }
             }
         } else if (phase === "night-healer") {

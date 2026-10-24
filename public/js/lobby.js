@@ -94,7 +94,7 @@
         audio.muted = Boolean(setting.muted || gameVoiceLocked || sabotagedMute);
         const effect = playerState?.voiceEffect;
         if (effect === "thin" && !gameVoiceLocked) {
-            audio.playbackRate = 1.18;
+            audio.playbackRate = 1.35;
             if ("preservesPitch" in audio) audio.preservesPitch = false;
             if ("webkitPreservesPitch" in audio) audio.webkitPreservesPitch = false;
         } else {
@@ -542,7 +542,7 @@
             audio.muted = Boolean(preference.muted || mutedByGame);
             audio.volume = Math.max(0, Math.min(1, preference.volume));
             if (effect === "thin" && !gameVoiceLocked) {
-                audio.playbackRate = 1.18;
+                audio.playbackRate = 1.35;
                 if ("preservesPitch" in audio) audio.preservesPitch = false;
                 if ("webkitPreservesPitch" in audio) audio.webkitPreservesPitch = false;
             } else {

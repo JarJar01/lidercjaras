@@ -10,7 +10,7 @@ const app = express();
 const server = http.createServer(app);
 const io = new Server(server);
 const PUBLIC_DIR = path.join(__dirname, "public");
-const APP_VERSION = "lidercjaras-dynamic-action-timers-kalandor-timeout-reset-2026-10-24-7";
+const APP_VERSION = "lidercjaras-clown-disguise-thin-voice-spirit-skip-2026-10-24-8";
 
 app.get("/health", (_req, res) => {
     res.json({ ok: true, app: "Lidércjárás", version: APP_VERSION });
@@ -635,7 +635,7 @@ function resolveSwapperActions(room) {
         const target = room.players.get(String(action.targetId || ""));
         const effect = String(action.effect || "");
         if (!target || target.id === clown.id || target.alive === false || target.connected === false) continue;
-        if (!["rename", "mute"].includes(effect)) continue;
+        if (!["rename", "mute", "thin"].includes(effect)) continue;
         game.pendingClownEffects.push({ clownId: clown.id, targetId: target.id, effect });
     }
 }
@@ -649,17 +649,29 @@ function applyPendingClownEffects(room) {
         if (!target || !clown || target.alive === false || target.connected === false || clown.alive === false || clown.connected === false) continue;
         if (action.effect === "rename") {
             // A Bohóc lidérc felveszi a célpont nevét a többiek nézetében. A célpont a saját nevét látja, és nem kap jelzést a cseréről.
-            clown.publicAlias = target.username;
+            // A két név csak a többi játékos nézetében cserélődik fel.
+            // A Bohóc és a kiválasztott játékos saját magát továbbra is az eredeti nevén látja.
+            const clownRealName = clown.username;
+            const targetRealName = target.username;
+            clown.publicAlias = targetRealName;
             clown.publicAliasTargetId = target.id;
+            target.publicAlias = clownRealName;
+            target.publicAliasTargetId = clown.id;
             game.pendingPublicEvents.push({
                 id: crypto.randomUUID(), type: "clown-rename",
-                text: "Valakinek megváltozott a neve a játékoslistában.", at: Date.now()
+                text: "A Bohóc lidérc nevet változtatott.", at: Date.now()
             });
         } else if (action.effect === "mute") {
             target.voiceSabotage = "mute";
             game.pendingPublicEvents.push({
                 id: crypto.randomUUID(), type: "clown-mute",
                 text: "Egy játékos hangja elnémult erre a napra.", at: Date.now()
+            });
+        } else if (action.effect === "thin") {
+            target.voiceSabotage = "thin";
+            game.pendingPublicEvents.push({
+                id: crypto.randomUUID(), type: "clown-thin",
+                text: "Egy játékos hangja elvékonyodott erre a napra.", at: Date.now()
             });
         }
     }
@@ -1249,7 +1261,7 @@ io.on("connection", (socket) => {
             const selectedSlot = shuffledRoleSlots[index];
             player.role = selectedSlot;
             player.originalRole = selectedSlot;
-            player.specialSpirit = selectedSlot === "spirits" && crypto.randomInt(2) === 0;
+            player.specialSpirit = false;
             player.spousePartnerId = null;
             player.publicAlias = null;
             player.publicAliasTargetId = null;
@@ -1257,6 +1269,11 @@ io.on("connection", (socket) => {
             player.alive = true;
             player.connected = true;
         });
+        // Minden lidérc külön 50%-os esélyt dob, de egy játékban legfeljebb egy Bohóc lidérc lehet.
+        const clownCandidates = shuffle(shuffledPlayers.filter((player) =>
+            player.role === "spirits" && crypto.randomInt(2) === 0
+        ));
+        if (clownCandidates.length > 0) clownCandidates[0].specialSpirit = true;
 
         // A Házastársak párokba kerülnek. Egy beállított szerep-pár két játékosból áll.
         const spouses = shuffle(shuffledPlayers.filter((player) => player.role === "spouses"));
@@ -1336,14 +1353,14 @@ io.on("connection", (socket) => {
         if (!target || target.id === player.id || target.alive === false || target.connected === false) {
             socket.emit("game-action-error", "Válassz egy másik, élő játékost."); return;
         }
-        if (!["rename", "mute"].includes(effect)) {
+        if (!["rename", "mute", "thin"].includes(effect)) {
             socket.emit("game-action-error", "Válassz névfelvételt vagy némítást."); return;
         }
         room.game.swapperActions.set(socket.id, { clownId: player.id, targetId: target.id, effect });
         room.game.clownSabotageLastUsedRound.set(socket.id, room.game.round);
         socket.emit("swapper-used", { used: true, cooldownRounds: 3 });
         emitGameState(room);
-        const actionText = effect === "rename" ? "névfelvétel" : "hang némítása";
+        const actionText = effect === "rename" ? "névcsere" : effect === "mute" ? "hang némítása" : "hang elvékonyítása";
         socket.emit("game-action-ack", { message: `A szabotázsod rögzítve (${actionText}). A következő használatig 3 kör telik el.` });
         maybeAdvanceActionPhase(room);
     });
@@ -1410,10 +1427,20 @@ io.on("connection", (socket) => {
             maybeAdvanceActionPhase(room);
             return;
         }
+        if (type === "skip") {
+            room.game.spiritActions.set(socket.id, { type: "skip" });
+            socket.emit("game-action-ack", {
+                message: spirits.length > 1
+                    ? "A SKIP döntésed rögzítve. A támadás csak akkor sikerül, ha minden lidérc ugyanazt a célpontot választja."
+                    : "Nem támadsz ezen az éjszakán."
+            });
+            maybeAdvanceActionPhase(room);
+            return;
+        }
         if (type !== "attack") {
             socket.emit("game-action-error", spirits.length > 1
-                ? "Több lidérc esetén közösen kell célpontot választanotok."
-                : (player.specialSpirit ? "A különleges lidérc csak a külön 20 másodperces körében választhat egyszer szabotázst vagy szerepvizsgálatot." : "Válassz támadást vagy egyszeri szerepvizsgálatot."));
+                ? "Több lidérc esetén közösen kell célpontot választanotok, vagy SKIP-et választanotok."
+                : (player.specialSpirit ? "A különleges lidérc a külön körében választhat szabotázst vagy egyszeri szerepvizsgálatot." : "Válassz támadást, SKIP-et vagy egyszeri szerepvizsgálatot."));
             return;
         }
         const targetId = String(payload.targetId || "");
