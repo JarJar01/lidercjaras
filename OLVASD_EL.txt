@@ -94,3 +94,9 @@ JAVITAS: BOHOC NEVCSERE ES VALODI HANGMAGASSAG-EFFEKT (2026-10-24, verziokod: li
 
 
 HANGJAVÍTÁS (2026-10-24): A bejövő WebRTC-hang most közvetlenül a bejövő MediaStreamből szól, nem kötelező AudioContext/ScriptProcessor feldolgozáson keresztül. Ez az alap hangot megbízhatóbbá teszi. A Bohóc lidérc hangmagasság-hatása a HTML audio lejátszási sebességén keresztül működik, és böngészőnként eltérően szólhat.
+
+
+FRISSÍTÉS A BOHÓC LIDÉRC HANG ÉS NÉVÁLCA HIBÁJÁHOZ
+- A név/álca minden másik játékos személyre szabott játékoslistájában szerepel, az avatar kezdőbetűje és a beszélőjelzés a csalóként megjelenített sorhoz kötődik. Saját magát minden játékos továbbra is az eredeti nevén látja.
+- A hang elvékonyítása csak a megcélzott játékos bejövő WebRTC hangját dolgozza fel a hallgató böngészőjében. Normál esetben a hang közvetlenül szól; a Web Audio feldolgozás csak a "thin" effekt idején kapcsolódik be, és közvetlenül a hangkimenetre csatlakozik, nem MediaStreamDestinationre.
+- A böngészőnek engedélyeznie kell a hang lejátszását. WebRTC hanghatást csak több böngészőből, engedélyezett mikrofon és HTTPS/localhost mellett lehet ténylegesen kipróbálni.

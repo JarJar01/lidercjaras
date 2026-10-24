@@ -247,12 +247,19 @@ function canClownSabotage(room, playerId) {
 }
 function displayNameForPlayer(player, viewerId) {
     if (!player) return "Ismeretlen játékos";
-    // Disguise is view-specific: the clown and the selected target both keep
-    // their real self-name. Every other viewer sees both names swapped.
-    // Keep this same projection for player rows, vote results, event logs and
-    // any UI element that displays a player identity.
-    if (player.id === viewerId) return player.username;
-    if (player.publicAlias && viewerId !== player.publicAliasTargetId) return player.publicAlias;
+    // A Bohóc lidérc a saját sorában is a felvett nevet látja.
+    // A kiválasztott célpont saját nézete változatlan marad, hogy ne kapjon
+    // közvetlen jelzést. A Bohóc saját nézetében is felcseréljük a két sort;
+    // a többi játékos szintén a két nevet felcserélve látja.
+    if (player.id === viewerId) {
+        if (player.publicAlias && player.publicAliasIsClown) return player.publicAlias;
+        return player.username;
+    }
+    // Csak a célpont saját nézetében rejtjük el a Bohóc álcáját.
+    if (player.publicAlias && player.publicAliasIsClown && viewerId === player.publicAliasTargetId) {
+        return player.username;
+    }
+    if (player.publicAlias) return player.publicAlias;
     return player.username;
 }
 function gamePublicState(room, viewerId = null) {
@@ -454,6 +461,8 @@ function endGame(room, winner) {
     for (const player of room.players.values()) {
         player.voiceSabotage = null;
         player.publicAlias = null;
+        player.publicAliasTargetId = null;
+        player.publicAliasIsClown = false;
     }
     room.game.winner = winner;
     room.game.pendingWinner = null;
@@ -509,6 +518,7 @@ function startNightRound(room) {
     for (const player of room.players.values()) {
         player.publicAlias = null;
         player.publicAliasTargetId = null;
+        player.publicAliasIsClown = false;
         player.voiceSabotage = null;
     }
     room.game.spiritActions = new Map();
@@ -600,9 +610,11 @@ function resolveRoleSwapActions(room) {
         target.specialSpirit = false;
         target.publicAlias = null;
         target.publicAliasTargetId = null;
+        target.publicAliasIsClown = false;
         target.voiceSabotage = null;
         actor.publicAlias = null;
         actor.publicAliasTargetId = null;
+        actor.publicAliasIsClown = false;
         actor.voiceSabotage = null;
 
         game.pendingPublicEvents.push({
@@ -662,8 +674,10 @@ function applyPendingClownEffects(room) {
             const targetRealName = target.username;
             clown.publicAlias = targetRealName;
             clown.publicAliasTargetId = target.id;
+            clown.publicAliasIsClown = true;
             target.publicAlias = clownRealName;
             target.publicAliasTargetId = clown.id;
+            target.publicAliasIsClown = false;
             game.pendingPublicEvents.push({
                 id: crypto.randomUUID(), type: "clown-rename",
                 text: "A Bohóc lidérc nevet változtatott.", at: Date.now()
@@ -1272,6 +1286,7 @@ io.on("connection", (socket) => {
             player.spousePartnerId = null;
             player.publicAlias = null;
             player.publicAliasTargetId = null;
+            player.publicAliasIsClown = false;
             player.voiceSabotage = null;
             player.alive = true;
             player.connected = true;
