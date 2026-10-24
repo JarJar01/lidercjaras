@@ -10,7 +10,7 @@ const app = express();
 const server = http.createServer(app);
 const io = new Server(server);
 const PUBLIC_DIR = path.join(__dirname, "public");
-const APP_VERSION = "lidercjaras-fantasy-voice-music-2026-10-24-1";
+const APP_VERSION = "lidercjaras-full-mp3-announcements-2026-10-24-1";
 
 app.get("/health", (_req, res) => {
     res.json({ ok: true, app: "Lidércjárás", version: APP_VERSION });

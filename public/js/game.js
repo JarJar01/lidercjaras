@@ -840,7 +840,9 @@
         if (phaseChanged) {
             showPhaseAnnouncement(state);
             const announcement = phaseVoicePhrases[state.phase];
-            if (announcement && typeof window.lidercSpeakAnnouncement === "function") {
+            if (announcement && typeof window.lidercPlayPhaseAnnouncement === "function") {
+                window.lidercPlayPhaseAnnouncement(state.phase, announcement);
+            } else if (announcement && typeof window.lidercSpeakAnnouncement === "function") {
                 window.lidercSpeakAnnouncement(announcement);
             }
         }

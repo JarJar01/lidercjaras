@@ -14,7 +14,49 @@ let lastStatus = "A nyugodt fantasy zene indításra vár.";
 let lastStatusIsError = false;
 let musicStartedByGesture = false;
 let phaseVoiceEnabled = localStorage.getItem("ljPhaseVoiceEnabled") !== "false";
-music.volume = getSavedNumber("ljMusicVolume", 0.28, 0, 1);
+let musicVolume = getSavedNumber("ljMusicVolume", 0.28, 0, 1);
+let announcementPlaying = false;
+const announcementAudio = new Audio();
+announcementAudio.preload = "auto";
+announcementAudio.volume = 0.98;
+music.volume = musicVolume;
+
+// Helyi, előre elkészített magyar bemondások. Így a játék nem a böngésző
+// véletlenszerű alapértelmezett (gyakran gépies) beszédhangjára támaszkodik.
+const phaseAudioFiles = {
+    countdown: "jatek_kezdodik.mp3",
+    intro: "ismerkedes_kezdodik.mp3",
+    "night-shadowbinder": "arnyekkoto_kore.mp3",
+    "dawn-soulreaper": "lelekrablo_kore.mp3",
+    "night-swapper": "arnycserelo_kore.mp3",
+    "night-special-spirit": "bohoc_liderc_kore.mp3",
+    "night-spirits": "lidercek_kore.mp3",
+    "night-healer": "gyogyito_kore.mp3",
+    "night-hunters": "vadasz_kore.mp3",
+    "night-fool": "bolond_kore.mp3",
+    "night-infectious": "fertozo_kore.mp3",
+    "night-adventurer": "kalandor_kore.mp3",
+    "night-seer": "latnok_kore.mp3",
+    "dawn-result": "reggel_eredmeny.mp3",
+    day: "nappal_kezdodik.mp3",
+    "vote-result": "szavazas_eredmenye.mp3",
+    "game-over": "jatek_vege.mp3"
+};
+
+function applyMusicVolume() {
+    // A háttérzene a bemondás idejére lehalkul, utána visszaáll a beállított értékre.
+    music.volume = Math.min(1, Math.max(0, musicVolume * (announcementPlaying ? 0.18 : 1)));
+}
+
+announcementAudio.addEventListener("ended", () => {
+    announcementPlaying = false;
+    applyMusicVolume();
+});
+announcementAudio.addEventListener("error", () => {
+    announcementPlaying = false;
+    applyMusicVolume();
+    setStatus("A bemondás MP3-fájlja nem tölthető be. Ellenőrizd a public/audio/announcements mappát.", true);
+});
 
 function getSavedNumber(key, fallback, min, max) {
     const saved = localStorage.getItem(key);
@@ -61,42 +103,65 @@ async function playMusic() {
 function updateVolume(value) {
     const volume = Number(value);
     if (!Number.isFinite(volume)) return;
-    music.volume = Math.min(1, Math.max(0, volume));
-    saveSetting("ljMusicVolume", music.volume);
+    musicVolume = Math.min(1, Math.max(0, volume));
+    applyMusicVolume();
+    saveSetting("ljMusicVolume", musicVolume);
     const volumeValue = document.getElementById("ljVolumeValue");
     const volumeIcon = document.getElementById("ljVolumeIcon");
-    if (volumeValue) volumeValue.textContent = `${Math.round(music.volume * 100)}%`;
-    if (volumeIcon) volumeIcon.textContent = music.volume === 0 ? "🔇" : music.volume < 0.45 ? "🔉" : "🔊";
+    if (volumeValue) volumeValue.textContent = `${Math.round(musicVolume * 100)}%`;
+    if (volumeIcon) volumeIcon.textContent = musicVolume === 0 ? "🔇" : musicVolume < 0.45 ? "🔉" : "🔊";
 }
 
-function speakPhaseAnnouncement(text, test = false) {
-    if (!text || (!test && !phaseVoiceEnabled) || !("speechSynthesis" in window) || !("SpeechSynthesisUtterance" in window)) {
-        if (test) setStatus("Ezen a böngészőn nem érhető el a beszédhang.", true);
-        return false;
-    }
+function playPhaseAnnouncement(phase, text, test = false) {
+    if (!text || (!test && !phaseVoiceEnabled)) return false;
+    const filename = phaseAudioFiles[phase] || (test ? phaseAudioFiles["night-spirits"] : "kovetkezo_kor.mp3");
     try {
-        window.speechSynthesis.cancel();
-        const utterance = new SpeechSynthesisUtterance(text);
-        utterance.lang = "hu-HU";
-        utterance.rate = 0.88;
-        utterance.pitch = 0.86;
-        utterance.volume = 0.94;
-        const voices = window.speechSynthesis.getVoices();
-        const hungarianVoice = voices.find((voice) => /^hu(-|$)/i.test(voice.lang));
-        if (hungarianVoice) utterance.voice = hungarianVoice;
-        utterance.onstart = () => { if (test) setStatus("Hangpróba: magyar körbemondó hang szól."); };
-        utterance.onerror = () => { if (test) setStatus("A körbemondó hang nem indult el. Ellenőrizd a böngésző beszédhangját.", true); };
-        window.speechSynthesis.speak(utterance);
-        if (test) setStatus(hungarianVoice ? `Hangpróba indul: ${hungarianVoice.name}` : "Hangpróba indul a böngésző alapértelmezett hangjával.");
+        announcementAudio.pause();
+        announcementAudio.currentTime = 0;
+        announcementAudio.src = `/audio/announcements/${filename}`;
+        announcementPlaying = true;
+        applyMusicVolume();
+        announcementAudio.play().then(() => {
+            if (test) setStatus("Hangpróba: a helyi, mélyebb fantasy bemondás szól.");
+        }).catch(() => {
+            announcementPlaying = false;
+            applyMusicVolume();
+            if (test) setStatus("A bemondás nem indult el. Kattints még egyszer a Hangpróba gombra, vagy ellenőrizd a böngésző hangengedélyét.", true);
+        });
         return true;
     } catch (error) {
-        if (test) setStatus("Nem sikerült elindítani a körbemondó hangot.", true);
+        announcementPlaying = false;
+        applyMusicVolume();
+        if (test) setStatus("Nem sikerült elindítani a bemondást.", true);
         return false;
     }
 }
 
-// A játék képernyője ezt hívja fázisváltáskor.
-window.lidercSpeakAnnouncement = (text) => speakPhaseAnnouncement(text, false);
+// A játékképernyő a fázis azonosítóját adja át, ezért mindig a hozzá tartozó
+// valódi MP3-at játsszuk le, nem a böngésző alapértelmezett géphangját.
+window.lidercPlayPhaseAnnouncement = (phase, text) => playPhaseAnnouncement(phase, text, false);
+window.lidercSpeakAnnouncement = (text) => {
+    const phaseByText = {
+        "A Lidércjárás hamarosan elkezdődik.": "countdown",
+        "Kezdődik az ismerkedési idő.": "intro",
+        "Az Árnyékkötő köre következik.": "night-shadowbinder",
+        "A Lélekrabló választhat a halottak közül.": "dawn-soulreaper",
+        "Az Árnycserélő köre következik.": "night-swapper",
+        "A Bohóc lidérc különleges köre következik.": "night-special-spirit",
+        "A lidércek köre következik.": "night-spirits",
+        "A gyógyító köre következik.": "night-healer",
+        "A vadászok köre következik.": "night-hunters",
+        "A Bolond köre következik.": "night-fool",
+        "A Fertőző köre következik.": "night-infectious",
+        "A Kalandor köre következik.": "night-adventurer",
+        "A Látnok köre következik.": "night-seer",
+        "Hajnalodik. Az éjszaka eredménye következik.": "dawn-result",
+        "Reggel van. A falu felébredhet.": "day",
+        "A szavazás eredménye következik.": "vote-result",
+        "A Lidércjárás véget ért.": "game-over"
+    };
+    return playPhaseAnnouncement(phaseByText[text] || "countdown", text, false);
+};
 
 function openSettings() {
     if (settingsWindow) {
@@ -141,7 +206,7 @@ function openSettings() {
     const volumeLabel = createElement("label", "lj-field-label", "Háttérzene hangereje");
     volumeLabel.htmlFor = "ljVolumeSlider";
     const volumeRow = createElement("div", "lj-volume-row");
-    const volumeIcon = createElement("span", "lj-volume-icon", music.volume === 0 ? "🔇" : music.volume < 0.45 ? "🔉" : "🔊");
+    const volumeIcon = createElement("span", "lj-volume-icon", musicVolume === 0 ? "🔇" : musicVolume < 0.45 ? "🔉" : "🔊");
     volumeIcon.id = "ljVolumeIcon";
     const volumeSlider = createElement("input", "lj-volume-slider");
     volumeSlider.type = "range";
@@ -149,8 +214,8 @@ function openSettings() {
     volumeSlider.min = "0";
     volumeSlider.max = "1";
     volumeSlider.step = "0.01";
-    volumeSlider.value = String(music.volume);
-    const volumeValue = createElement("span", "lj-volume-value", `${Math.round(music.volume * 100)}%`);
+    volumeSlider.value = String(musicVolume);
+    const volumeValue = createElement("span", "lj-volume-value", `${Math.round(musicVolume * 100)}%`);
     volumeValue.id = "ljVolumeValue";
     volumeRow.append(volumeIcon, volumeSlider, volumeValue);
     volumeField.append(volumeLabel, volumeRow);
@@ -159,7 +224,7 @@ function openSettings() {
     const voiceCopy = createElement("div", "lj-voice-announcement-copy");
     voiceCopy.append(
         createElement("strong", "", "Körök hangos bemondása"),
-        createElement("span", "", "Például: „A lidércek köre következik.”")
+        createElement("span", "", "Előre elkészített, mélyebb fantasy bemondások MP3-ból.")
     );
     const voiceToggleLabel = createElement("label", "lj-switch-label");
     voiceToggleLabel.htmlFor = "ljPhaseVoiceToggle";
@@ -248,10 +313,14 @@ function openSettings() {
     voiceToggle.addEventListener("change", () => {
         phaseVoiceEnabled = voiceToggle.checked;
         saveSetting("ljPhaseVoiceEnabled", phaseVoiceEnabled);
-        if (!phaseVoiceEnabled && "speechSynthesis" in window) window.speechSynthesis.cancel();
+        if (!phaseVoiceEnabled) {
+            announcementAudio.pause();
+            announcementPlaying = false;
+            applyMusicVolume();
+        }
         setStatus(phaseVoiceEnabled ? "A körök hangos bemondása bekapcsolva." : "A körök hangos bemondása kikapcsolva.");
     });
-    voiceTestButton.addEventListener("click", () => speakPhaseAnnouncement("A lidércek köre következik.", true));
+    voiceTestButton.addEventListener("click", () => playPhaseAnnouncement("night-spirits", "A lidércek köre következik.", true));
     closeButton.focus();
 }
 

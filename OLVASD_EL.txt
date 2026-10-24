@@ -1,172 +1,42 @@
-LIDÉRCJÁRÁS – HANGOS KÖRBEMONDÁS ÉS NYUGODT FANTASY ZENE (2026-10-24)
-- A fontos fázisváltásokat a böngésző magyar beszédhangja mondja be: például „A lidércek köre következik”, „A gyógyító köre következik”, „A vadászok köre következik”, valamint a nappali, szavazási és játék vége eseményeket.
-- A Beállításokban ki/be kapcsolható a körbemondás, és van hangpróba gomb. A hang a böngésző helyi beszédszintézisét használja; a pontos hang a telepített magyar beszédhangtól függ.
-- Új, nyugodt, ambient fantasy zene: public/music/lidercjaras-fantasy.mp3. A ZIP tartalmazza ezt a fájlt, és a .gitignore kivétellel a GitHub Desktop is feltöltheti.
-- A beállításokból eltávolítottuk a háttérszín- és háttéranimáció-választót. A városi háttérképek megmaradnak, a fölé helyezett dekoratív kék holdat eltávolítottuk.
-- A kezdőképernyőn, lobbyban és játékképernyőn az ✦/✧ díszjeleket eltávolítottuk.
+LIDÉRCJÁRÁS — TELJES PROJEKT MP3-ZENÉVEL ÉS HANGOS KÖRBEMONDÁSSAL
+Verzió: lidercjaras-full-mp3-announcements-2026-10-24-1
 
-TELEPÍTÉS
-1. Állítsd le a szervert Ctrl+C billentyűkkel.
-2. Csomagold ki a ZIP tartalmát a projekt főmappájába (ahol a server.js és package.json van), engedélyezd a fájlok felülírását.
-3. A ZIP tartalmazza a public/music/lidercjaras-fantasy.mp3 fájlt. A korábbi zene1.mp3 és zene2.mp3 megtartható, de már nem szükséges.
-4. A node_modules mappát és a package.json fájlt hagyd meg.
-5. Indítás: npm start
-6. Helyi játék: http://localhost:3000
+MI VAN A CSOMAGBAN?
+- A teljes Node.js + Express + Socket.IO szerverkód (server.js).
+- A kezdőoldal, lobby, játék HTML-, CSS- és JavaScript-fájljai.
+- A fantasy városi háttérképek és a szerepekhez tartozó illusztrációk.
+- Nyugodt fantasy háttérzene: public/music/lidercjaras-fantasy.mp3.
+- Előre elkészített magyar körbemondások: public/audio/announcements/*.mp3.
+- Beállításokban hangerő, körbemondás be/ki és Hangpróba.
 
-FELÜLETFRISSÍTÉS (2026-10-24)
-- A játékképernyő széles kijelzőn három rendezett oszlopban jelenik meg: balra a játékoslista, középen az aktuális kör és a döntések, jobbra a saját szerepkártya illusztrációval.
-- A körök váltásakor középre animált, visszafogott méretű fázisablak jelenik meg, amely megmutatja, melyik szerep vagy szakasz következik. A szavazás kezdetén külön szavazási értesítés jelenik meg; a szavazás vezérlői a középső panelen maradnak.
-- A teljes oldal nem görgetődik aktív játék közben asztali/laptop kijelzőn; a hosszú játékos- és akciólisták saját panelen belül görgethetők. Szűk mobilképernyőn a nézet egy oszlopra vált, és szükség esetén az oldal görgethető marad.
-- A szerepkártyákhoz 16 saját, vektorgrafikus fantasy-portré tartozik a public/assets/roles mappában. A saját szerep és az aktuális kör illusztrációja dinamikusan változik.
-- A játékoslistában a hangerőgombok alaphelyzetben kompaktak; kattintásra megnyílik az adott játékos hangerőcsúszkája és helyi némítása. A beállítás csak a saját böngészőben hat.
-- A beállítások fogaskereke és a hangvezérlés továbbra is elérhető marad.
-- Szerververzió: lidercjaras-ui-refresh-2026-10-24-1.
+FONTOS AUDIO-JAVÍTÁS
+Korábban a játék a böngésző beépített beszédszintézisét használta. Ebben a verzióban a körváltások a csomagban lévő MP3-fájlokat játsszák le. A bemondás alatt a háttérzene automatikusan lehalkul, majd visszaáll a beállított hangerőre.
+A hangfájlok a következő fázisokhoz vannak bekötve: játékkezdés, ismerkedés, Árnyékkötő, Árnycserélő, Bohóc lidérc, lidércek, gyógyító, vadászok, Bolond, Fertőző, Kalandor, Látnok, Lélekrabló, hajnal, nappal, szavazási eredmény és játék vége.
+A csomag saját hanganyagokat tartalmaz; nem másolja le a megadott YouTube-zene felvételét.
 
-LIDÉRCJÁRÁS – LÉLEKRABLÓ ÉS ÁRNYÉKKÖTŐ
-Verzió: lidercjaras-soulreaper-shadowbinder-2026-10-24-2
-
-TELEPÍTÉS
+TELEPÍTÉS WINDOWS-ON
 1. Állítsd le a futó szervert Ctrl+C billentyűkkel.
-2. Csomagold ki a ZIP tartalmát a projekt főmappájába, ahol a server.js és package.json található.
-3. Engedélyezd a projekt kódfájljainak felülírását.
-4. A meglévő public/music mappát és a két MP3-fájlt hagyd meg; ezeket a ZIP nem tartalmazza.
-5. A node_modules mappát nem szükséges törölni. A package.json maradjon meg.
+2. Csomagold ki a ZIP teljes tartalmát a projekt főmappájába, ahol a server.js és package.json van. Például: C:\Users\szita\Desktop\lidercjaras-github\
+3. Engedélyezd a projektfájlok felülírását.
+4. A ZIP tartalmazza a zenét és a bemondásokat. Nem kell őket külön mappába másolni.
+5. A node_modules mappát nem tartalmazza a ZIP. Ha a gépeden már megvan, hagyd meg. Ha nincs, a projekt főmappájában futtasd: npm install
 6. Indítás: npm start
-7. Helyi játék: http://localhost:3000
-8. Verzióellenőrzés: http://localhost:3000/health
+7. Játék: http://localhost:3000
+8. Szerver ellenőrzése: http://localhost:3000/health
 
-ÚJÍTÁSOK
-- A beállítások fogaskerekénél külön, összecsukható játékszabály-útmutató található. Leírja a szerepeket és a játék fő szakaszait.
-- A titkos szerepkártya felsorolja az azonos szerepű társakat. Ez a gyógyítókra és a vadászokra is érvényes; a gyógyítók nem kommunikálnak egymással; a vadászok a saját éjszakai körükben privát hangot és szöveges chatet használhatnak.
-- Több életben lévő gyógyító külön-külön választ célpontot. Nincs ping, közös hang vagy chat; a védelem csak akkor sikerül, ha minden életben lévő gyógyító ugyanazt a játékost választja. Eltérő döntés esetén nincs védelem.
-- Ha egy többgyógyítós csapatból csak egy gyógyító marad életben, a megmaradó gyógyító egyedüli szabály szerint, összesen két alkalommal védhet, éjszakánként legfeljebb egyszer.
-- Ha a gyógyító megvédi a lidérctámadás célpontját, és a játékos életben marad, hajnalban mindenki látja: „A gyógyító megóvta XY játékost.”
-- Ha csak egy gyógyító marad életben, egyedüli gyógyítóként összesen két alkalommal használhatja a képességét, éjszakánként legfeljebb egyszer.
-- A szereptársak nevei a titkos szerepkártyán jelennek meg: lidércek, gyógyítók és vadászok is látják az azonos szerepű társaikat. A gyógyítók nem kommunikálhatnak egymással.
-- Több lidérc a saját éjszakai körében privát szöveges chatet és külön WebRTC-hangkapcsolatot használhat. A böngésző mikrofonengedélyével a privát lidérchang automatikusan indul a megfelelő fázisban, és a fázis végén automatikusan leáll. A gyógyítók nem kapnak privát hangot vagy szöveges chatet; a vadászok csak a saját éjszakai körükben kommunikálhatnak privát csatornán.
-- A játékoslistán beszélőjelzés jelenik meg. A szerver jelzi, amikor valaki beszél; a jelzés minden játékosnak látható. A lidércek és a vadászok privát hangja továbbra is csak a saját csapatukhoz jut el.
-- Ha a lidércek ugyanazon az éjszakán megölik a vadászt, az adott vadász nem lőhet vissza ugyanabban az éjszakában.
-- Ha egyedül marad egy normál lidérc, megtámadhat egy élő játékost vagy a teljes játék során egyszer megvizsgálhatja egy másik élő játékos szerepét. A Bohóc lidérc egy lidérc 50%-os eséllyel kapott különleges változata. A vadász csak lőhet vagy passzolhat, szerepet nem vizsgálhat.
-- A szavazás titkos: a játékosok csak azt látják, ki adta le már a szavazatát. A szavazat célpontja nem látható. A játékosikonok felett az összesített beérkezett szavazatszám jelenik meg; a Földesúr két szavazati ponttal számít. Önszavazás minden szerepnél megengedett.
-- A Bohóc lidérc nem külön lobby-szerep: minden kiosztott lidérc külön 50% eséllyel kapja meg ezt a változatot. A játékos a lidércek csapatában marad. A külön 20 másodperces körben Hamis szavazat szabotázst választhat, ha újra használható; a képesség használat után három kör elteltével válik újra elérhetővé. Ha egyedüli lidérc, a teljes játék során egyszer szerepet is vizsgálhat.
-- A Fertőző éjszakánként megfertőzhet egy még nem fertőzött élő játékost. Csak a Fertőző látja a fertőzöttek jelölését; a nyilvános napló csak annyit ír, hogy valaki megfertőződött. A Fertőző akkor nyer, ha minden más életben lévő játékos fertőzött.
-- Játék végén a hangkapcsolat minden játékosnak újra elérhető, a kiesetteknek is. Játék közben a kiesettek nem beszélhetnek, de nappal hallgathatják az életben lévő játékosokat.
+HANGPRÓBA
+- Nyisd meg a játékot, kattints a fogaskerékre, és nyomd meg a Hangpróba gombot.
+- Az első lejátszáshoz a böngésző felhasználói kattintást kérhet. Ha nem szól, kattints újra a Hangpróba gombra, és ellenőrizd a böngésző füljének hangerejét.
+- A helyi hangerő és a bemondás beállítása a böngészőben mentődik el.
 
-FONTOS A HANGHOZ
-- A böngésző a mikrofon első használatakor engedélyt kér; ezt a biztonsági kérést a kód nem kerülheti meg. Ha már engedélyezve van, a privát lidérchang automatikusan bekapcsol a saját éjszakai körük kezdetekor.
-- A hang HTTPS-en vagy localhoston működik. Egyes hálózatokon TURN-szerverre is szükség lehet; ez a projekt STUN-alapú WebRTC-kapcsolatot használ.
-- A beszélőjelzés a böngészőben mért hangerőből származik, ezért a mikrofon érzékenysége és környezeti zaj befolyásolhatja.
+GITHUB DESKTOP
+1. Nyisd meg a GitHub Desktopot.
+2. A Changes fülön ellenőrizd az új és módosított fájlokat.
+3. Commit to main, majd Push origin.
+4. A public/audio/announcements MP3-fájljai és a public/music/lidercjaras-fantasy.mp3 is kerüljenek fel a tárhelyre. Ezek szükségesek a bemondásokhoz és a zenéhez.
 
-TESZTELÉS
-- A JavaScript szintaxisát ellenőrizni kell minden fájlon; a több böngészős, valódi WebRTC-hangtesztet külön el kell végezni.
-- A szerver memóriájában tárolt szobák a szerver újraindításakor elvesznek.
-
-
-Új szabályok ebben a verzióban:
-- A nappali szavazatok titkosak: a játékosok csak azt látják, ki szavazott már; a szavazat célpontját nem. Az eredmény kizárólag összesített szavazatszámot mutat.
-- A gyógyítók nem kapják meg egymás nevét vagy azonosítóját. Több gyógyítónál mindenki külön szavaz; a védelem csak egyhangú választás esetén sikerül.
-- Az egyedüli lidérc szerepvizsgálata egyetlen alkalommal használható a teljes játékban.
-- A Fertőző a reggel kezdetén kapja meg az aktuális fertőzöttlistát; a fertőzött játékos saját jelzést kap, a többiek csak általános naplóüzenetet látnak.
-- A Bohóc lidérc korábbi név- és hangszabotázsát a Hamis szavazat váltja fel: kiválaszt egy játékost, akinek a következő nappali voksát a szerver SKIP-ként számolja el.
-
-
-Új javítások (2026-10-23):
-- A Bohóc lidérc nem kap külön létszámmezőt; minden Lidérc külön, 50%-os eséllyel válik Bohóc lidérccé.
-- A Bohóc lidérc szabotázsa három körönként használható újra. A szerepvizsgálata csak egyetlen alkalommal használható a teljes játékban, és kizárólag egyedüli élő lidércként érhető el. A névváltásnál a Bohóc a célpont nevén jelenik meg mindenki másnak, kivéve a Bohócot és a célpontot.
-- A vadász többé nem kap szerepvizsgálati képességet; csak lőhet vagy passzolhat.
-- A váróteremben és a nyilvános nappali/éjszakák közti időszakokban a játékoslistán személyenkénti helyi hangerőcsúszka és némítás van. Ez a te böngésződben szabályozza az adott játékos hangját, a mikrofonját nem kapcsolja ki.
-
-További pontosítás: a vadász nem vizsgál szerepet, csak lőhet vagy passzolhat. A Bohóc lidérc pontosan egyszer használhatja fel a névváltás vagy némítás képességének egyikét a teljes játék során. A lobby és a nappali játékoslisták személyenkénti, helyi hangerőcsúszkát és némítógombot tartalmaznak.
-
-
-ÚJ SZEREPKÖRÖK ÉS JAVÍTÁSOK (2026-10-24):
-- A Látnok és az életben lévő Látnok mellett a halott játékosok külön, csak számukra elérhető szöveges csatornán kommunikálhatnak.
-- A Földesúr nappali szavazata két szavazati pontot ér egy kiválasztott célpontra (vagy a SKIP-re).
-- A Házastársak párokba kerülnek. Éjszaka privát hangon és chaten beszélhetnek; egyikük halálakor a párja is kiesik. A lobbyban páros létszám szükséges.
-- A Kalandor a lobbyban beállított szerepek közül három különbözőt kap feladatként. Éjszakánként egy célpontra tippelhet; a célpont halála nem törli a feladatot. Mindhárom sikeres találat után a Kalandor nyer.
-- A Kalandor éjszakai köre külön időkeretet kap (5–3600 másodperc).
-- A Házastársak privát hangkapcsolata az éjszakai fázisokban automatikusan bekapcsol, és a fázis végén lezárul.
-
-
-JAVÍTÁSOK (2026-10-24):
-- A Bohóc lidérc szabotázsa a használat után három körkülönbség elteltével ismét használható; az egyszeri szerepvizsgálat nem töltődik vissza.
-- A Kalandor csak a még meg nem talált cél-szerepekre tippel. A helyes találat zöld jelzést ad, és ugyanabban az éjszakai körben folytathatja a következő feladattal. Egy hibás tipp lezárja az adott éjszakai körét; a következő éjjel próbálkozhat újra. A győzelemhez mindhárom feladatot meg kell oldania.
-- A Látnoknak külön, hangalapú szeánsza van minden második éjszakán, amennyiben van élő Látnok és elérhető halott játékos. A szeánszhoz nem tartozik szöveges chat.
-- Szavazásnál minden játékos ikonja fölött az adott játékosra érkezett szavazatok száma látható. A célpontonkénti összesítés nyilvános, de az egyéni szavazó és célpont párosa titkos marad. Minden szerep önmagára is szavazhat.
-- A Látnok szeánszának hossza a lobbyban 5–3600 másodperc között állítható.
-
-
-FRISSITES: GYORSABB AKCIOKOROK ES KALANDOR IDOTULLEPES (2026-10-24)
-- Az olyan ejszakai korok, ahol a szerepek celpontot valasztanak, automatikusan tovabblepnek, ha minden jogosult, eletben levo szereplo leadta a donteset.
-- Ha tobben vannak az adott csapatban (pl. lodercek, gyogyitok, vadaszok), a fazis var a tobbi jogosult jatekosra is; az ido tovabbra is vegso hatarido.
-- Ha a Kalandor rossz tippet ad, a teljes harom szerepes feladatsora torlodik, es a kovetkezo ejszakan ujra kell kezdenie. Ha lejár az idõ a Kalandor korenel, az is sikertelen proba, a teljes haladas torlodik.
-- A Foldesurnak tovabbra is egy szavazata van, amely ket szavazatnyi sullyal szamit. Ha nem szavaz az ido lejartaig, a szavazata SKIP-kent szamit, ket ponttal.
-
-
-ÚJ JAVÍTÁS (2026-10-24):
-- A Bohóc lidérc névfelvételénél a Bohóc és a célpont neve a többi játékos nézetében felcserélődik; mindketten a saját nevüket látják. A beszélőjelzés is a megjelenített álneves soron marad.
-- A nyilvános napló csak annyit ír: „A Bohóc lidérc nevet változtatott.”
-- A Bohóc lidérc Hamis szavazatot választhat; a kiválasztott játékos következő nappali szavazatát a szerver titokban SKIP-ként számolja el.
-- A lidércek éjszakai körében van SKIP, amellyel ki lehet hagyni a támadást. Több lidércnél csak azonos támadási célpont esetén sikerül a támadás; ha nem egyeznek, nem történik támadás.
-- Egyetlen játékban legfeljebb egy Bohóc lidérc lehet; minden lidérc 50%-os véletlen esélyt dob, az esetleges több találatból csak egyet tartunk meg.
-
-JAVITAS: BOHOC NEVCSERE ES VALODI HANGMAGASSAG-EFFEKT (2026-10-24, verziokod: lidercjaras-clown-disguise-audio-pitch-2026-10-24-9)
-- A Bohoc liderc nevcseres akcioja mar a Bohoc kulonleges korenek vegekor ervenyesul, igy a kovetkezo fazis jatekallapotaban minden kliens kovetkezetesen ugyanazt az alnevet kapja.
-- A nevcsere kulso szemleloknel mindket nev megjeleniteset felcsereli; a Bohoc es a kivalasztott celpont sajat szemelyes nezete tovabbra is az eredeti nevet mutatja. A jatekos sor ikonja es a beszelest jelzo badge az alneves sorral egyutt jelenik meg, mert a sor a szemelyre szabott jatekallapotbol renderelodik.
-- A hang elvekonyitasat nem az elo WebRTC MediaStream HTMLMediaElement playbackRate tulajdonsagara bizza: a tavoli hang Web Audio feldolgozason megy at, egy folyamatosan mukodo granular pitch-shifterrel. Ha a bongeszo ezt nem tamogatja, fallbackkent magasabb playbackRate kerul beallitasra.
-- A Bohoc hanghatasat a tobbi jatekos hallja; a hatas a celszemely sajat hangmonitorozasat nem valtoztatja meg.
-
-
-HANGJAVÍTÁS (2026-10-24): A bejövő WebRTC-hang most közvetlenül a bejövő MediaStreamből szól, nem kötelező AudioContext/ScriptProcessor feldolgozáson keresztül. Ez az alap hangot megbízhatóbbá teszi. A Bohóc lidérc hangmagasság-hatása a HTML audio lejátszási sebességén keresztül működik, és böngészőnként eltérően szólhat.
-
-
-FRISSÍTÉS A BOHÓC LIDÉRC HANG ÉS NÉVÁLCA HIBÁJÁHOZ
-- A név/álca minden másik játékos személyre szabott játékoslistájában szerepel, az avatar kezdőbetűje és a beszélőjelzés a csalóként megjelenített sorhoz kötődik. Saját magát minden játékos továbbra is az eredeti nevén látja.
-- A hang elvékonyítása csak a megcélzott játékos bejövő WebRTC hangját dolgozza fel a hallgató böngészőjében. Normál esetben a hang közvetlenül szól; a Web Audio feldolgozás csak a "thin" effekt idején kapcsolódik be, és közvetlenül a hangkimenetre csatlakozik, nem MediaStreamDestinationre.
-- A böngészőnek engedélyeznie kell a hang lejátszását. WebRTC hanghatást csak több böngészőből, engedélyezett mikrofon és HTTPS/localhost mellett lehet ténylegesen kipróbálni.
-
-
-FRISSÍTÉS: A Bohóc lidérc névcseréjének aktív időszakában minden nyilvános zöld beszélőjelzés rejtve marad, így abból nem derülhet ki, ki kinek az álcáját viseli. A normál beszélőjelzés a névcsere lezárása után visszatér.
-
-
-LEGÚJABB MÓDOSÍTÁS – HAMIS SZAVAZAT (2026-10-24):
-- A Bohóc lidérc szabotázsa a névcsere, némítás és hangelvékonyítás helyett „Hamis szavazat”.
-- A különleges körben kiválaszt egy élő játékost. A célpont következő nappali szavazásán a szerver bármilyen kiválasztott célpont helyett titokban SKIP-ként tárolja a voksot. A játékosnak leadottnak látszó szavazata ettől még nem nevezi meg a tényleges célpontját. Ha nem kattint semmire, a szavazás lejártakor az alapértelmezett SKIP érvényesül.
-- A nyilvános reggeli napló csak ezt jelzi: „A szavazást valami megzavarta.” Nem árulja el, ki volt a célpont.
-- A szabotázs a korábbi szabály szerint három kör elteltével használható újra; a Bohóc lidérc egyszeri szerepvizsgálata külön képességként megmarad.
-
-
-ÚJ SZEREPEK (2026-10-24, verzió: lidercjaras-soulreaper-shadowbinder-2026-10-24-2)
-- Lélekrabló: ha új haláleset történt, és van élő Lélekrabló, hajnalban vagy a szavazás utáni új menet előtt választhat egy korábban kiesett játékost, és átveszi a szerepét, a hozzá tartozó győzelmi oldallal. Halott Lélekrabló szerepe nem választható. A szerepátvétel után a játék ellenőrzi az új győzelmi feltételeket, mielőtt folytatódik.
-- Árnyékkötő: a lidércek oldalához tartozik, ismeri a lidérc társait, és a lidércek titkos csatornáját használhatja. Minden második éjszakán kiválaszt egy élő, nem lidérc-fakciójú játékost, akinek az adott éjszakán letiltódik a különleges képessége. Az Árnyékkötő nem támad a rendes lidércek helyett.
-- Az Árnyékkötő körének időtartama és a Lélekrabló választási ideje a szobalétrehozásnál külön állítható 5–3600 másodperc között.
-- Ha az Árnyékkötő megbénít egy Látnokot, az adott éjszakán a Látnok nem vesz részt a halottakkal tartott szeánszban.
-- A Lélekrabló lehetőséget kap arra, hogy a haláleset utáni győzelmi ellenőrzés előtt szerepet örököljön; ezért a szerver csak az öröklés után zárja le a játékot, ha ez még változtathat az eredményen.
-
-TESZTELÉS
-- Helyi indítás: npm start, majd http://localhost:3000. A /health oldalon ellenőrizhető az aktuális verzió.
-- A JavaScript-szintaxis ellenőrzése nem helyettesíti a több böngészős játéktesztet. A csapathang WebRTC-kapcsolatát és az új szerepek teljes körét több játékossal külön próbáljátok ki.
-
-
-ÚJ FANTASY KEZDŐOLDAL ÉS LOBBY
-- A kezdőoldal és a lobby közös fantasy stílust, helyi háttérképeket és animációkat használ.
-- A háttérképek a public/assets/backgrounds/village-night.webp és village-day.webp fájlok.
-- A szerepképek a public/assets/roles/ mappában vannak.
-- A játékmenethez tartozó JavaScript-fájlok az eredeti hivatkozásaikon maradtak.
-
-
-FRISSÍTÉS – BOHÓC LIDÉRC SZABOTÁZSVÁLASZTÓ (2026-10-24)
-- A Bohóc lidérc szabotázsmenüje egy külön, görgethető fantasy panelbe került. A célpontlista és az egyszeri szerepvizsgálat ugyanabban a panelben látható; hosszú játékoslistánál csak a belső panelt kell görgetni.
-- A szabotázs most három lehetőség közül választható: Hamis szavazat (a következő nappali voks titokban SKIP lesz), Némítás (a célpont hangját mások nem hallják a következő nappali szakaszban), vagy Hangelvékonyítás (a célpont hangja magasabb lesz a többi játékos böngészőjében).
-- A szabotázsok ugyanazt a háromkörös újratöltési szabályt használják; egy fázisban csak egyet lehet választani. Az egyedüli lidérc egyszeri szerepvizsgálata továbbra is külön lehetőség, ha még nem használta fel.
-- A hanghatás a szerver által küldött játékállapotból aktiválódik, a bejövő WebRTC-hangot a hallgató böngészője kezeli. A mikrofonengedélyt a böngészőnek egyszer engedélyeznie kell.
-- Verzióellenőrzés: http://localhost:3000/health, verzió: lidercjaras-clown-sabotage-scrollbox-2026-10-24-1.
-
-
-BOHÓC LIDÉRC – GÖRGETHETŐ SZABOTÁZSPANEL (2026-10-24)
-- A különleges kör akciói egy elegáns, görgethető panelben jelennek meg, így a szabotázs típusai, a játékosnevek és az egyszeri szerepvizsgálat hosszú listánál is a panelen belül görgethetők.
-- Választható szabotázsok: Hamis szavazat, Némítás és Hangelvékonyítás. A szabotázs használat után három kör múlva használható újra.
-- A Némítás és a Hangelvékonyítás a célpont bejövő hangján érvényesül a többi játékos böngészőjében; a célpont saját mikrofonját nem kapcsolja ki. A hangelvékonyítás a Web Audio feldolgozást használja, közvetlen audio kimenettel.
-- Az egyedüli Bohóc lidérc szerepvizsgálata külön, a teljes játékban csak egyszer használható.
-
-FRISSÍTÉS: A szobalétrehozás szerepkártyái most már a játékbeli SVG szerepillusztrációkat mutatják; a váróterem szerepösszesítője és a szobalista is ikonokat kapott.
+MEGJEGYZÉSEK
+- A kód a Node.js 18+ verzióival készült.
+- A szobák a szerver memóriájában tárolódnak; a szerver újraindításakor törlődnek.
+- A WebRTC-hangot több böngészővel és távoli hálózatról külön teszteljétek. Néhány hálózat TURN-szervert is igényelhet.
+- A ZIP nem tartalmazza a node_modules mappát, mert azt a Node.js projekt a package.json alapján telepíti.
