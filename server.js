@@ -10,7 +10,7 @@ const app = express();
 const server = http.createServer(app);
 const io = new Server(server);
 const PUBLIC_DIR = path.join(__dirname, "public");
-const APP_VERSION = "lidercjaras-clown-sabotage-scrollbox-2026-10-24-1";
+const APP_VERSION = "lidercjaras-clown-sabotage-scrollbox-grace-2026-10-24-1";
 
 app.get("/health", (_req, res) => {
     res.json({ ok: true, app: "Lidércjárás", version: APP_VERSION });
@@ -292,6 +292,8 @@ function gamePublicState(room, viewerId = null) {
         roomName: room.name,
         phase: game.phase,
         endsAt: game.endsAt,
+        phaseGraceActive: game.phaseGraceActive === true,
+        phaseGraceMessage: game.phaseGraceMessage || "",
         round: game.round,
         message: game.message || "",
         players: [...room.players.values()].map((player) => ({
@@ -425,6 +427,9 @@ function startPhase(room, phase, seconds, message = "") {
     clearSpeaking(room);
     clearGameTimer(room);
     room.game.phase = phase;
+    room.game.phaseDurationSeconds = seconds === null ? null : Number(seconds);
+    room.game.phaseGraceActive = false;
+    room.game.phaseGraceMessage = "";
     room.game.endsAt = seconds === null ? null : Date.now() + seconds * 1000;
     room.game.message = message;
     io.to(room.code).emit("game-phase", {
@@ -1100,12 +1105,55 @@ function actionPhaseIsComplete(room) {
     }
 }
 
-function maybeAdvanceActionPhase(room) {
+function maybeAdvanceActionPhase(room, userSubmittedAction = false) {
     if (!actionPhaseIsComplete(room)) return false;
-    const phase = room.game.phase;
+
+    const game = room.game;
+    const phase = game.phase;
+
+    // Ha már elindult a rövid felkészülési visszaszámlálás, ne induljon újra minden frissítésnél.
+    if (game.phaseGraceActive) return true;
+
+    // Ha egy fázis már induláskor kész (például nincs élő, jogosult szereplő),
+    // továbbra is azonnal átugorjuk. Felkészülési idő csak valódi játékosi döntés után jár.
+    if (!userSubmittedAction) {
+        clearGameTimer(room);
+        advanceGamePhase(room, { timedOut: false, expectedPhase: phase });
+        return true;
+    }
+
+    const now = Date.now();
+    const currentRemainingMs = game.endsAt ? game.endsAt - now : 0;
+    if (currentRemainingMs <= 0) {
+        // Az eredeti időzítő már lejáróban van; hagyjuk végrehajtódni.
+        return true;
+    }
+
+    const configuredSeconds = Number(game.phaseDurationSeconds);
+    const phaseSeconds = Number.isFinite(configuredSeconds) && configuredSeconds > 0
+        ? configuredSeconds
+        : 30;
+
+    // Akció befejezése után a beállított idő negyede marad meg, minimum 3,
+    // maximum 15 másodperc felkészülési idővel. Például 30 mp -> 8 mp.
+    const graceSeconds = Math.max(3, Math.min(15, Math.ceil(phaseSeconds / 4)));
+    const remainingSeconds = Math.ceil(currentRemainingMs / 1000);
+    const shortenedSeconds = Math.min(graceSeconds, remainingSeconds);
+
     clearGameTimer(room);
-    // A rövidített fázis ugyanazon a szerveroldali átmeneten megy keresztül, mint az időzítő.
-    advanceGamePhase(room, { timedOut: false, expectedPhase: phase });
+    game.phaseGraceActive = true;
+    game.phaseGraceMessage = "Minden szükséges döntés beérkezett. Készülj a következő körre!";
+    game.endsAt = now + shortenedSeconds * 1000;
+
+    // Ez a rövid lezáró idő nem számít valódi időtúllépésnek (pl. a Kalandor esetén).
+    game.timer = setTimeout(() => {
+        if (!room?.game || room.game.phase !== phase || room.game.phaseGraceActive !== true) return;
+        room.game.phaseGraceActive = false;
+        room.game.phaseGraceMessage = "";
+        advanceGamePhase(room, { timedOut: false, expectedPhase: phase });
+    }, shortenedSeconds * 1000);
+
+    emitGameState(room);
     return true;
 }
 
@@ -1484,7 +1532,7 @@ io.on("connection", (socket) => {
 
         room.started = true;
         room.game = {
-            phase: "countdown", endsAt: null, round: 0, timer: null, message: "A sötétség elnyeli a falut...",
+            phase: "countdown", endsAt: null, phaseDurationSeconds: null, phaseGraceActive: false, phaseGraceMessage: "", round: 0, timer: null, message: "A sötétség elnyeli a falut...",
             spiritActions: new Map(), swapperActions: new Map(), swapperUsedIds: new Set(), clownSabotageLastUsedRound: new Map(), roleSwapActions: new Map(), roleSwapUsedIds: new Set(), pendingClownEffects: [],
             spiritInspectUsedIds: new Set(), infectiousActions: new Map(), infectedPlayerIds: new Set(), pendingPublicEvents: [],
             healerTargetId: null, healerActions: new Map(), healerDisagreement: false,
@@ -1533,7 +1581,7 @@ io.on("connection", (socket) => {
         }
         room.game.shadowbinderActions.set(player.id, target.id);
         socket.emit("game-action-ack", { message: "Az Árnyékbilincs célpontja rögzítve." });
-        maybeAdvanceActionPhase(room);
+        maybeAdvanceActionPhase(room, true);
     });
 
     // A Lélekrabló hajnalban átveheti egy halott játékos szerepét.
@@ -1555,7 +1603,7 @@ io.on("connection", (socket) => {
         }
         room.game.soulReaperActions.set(player.id, target.id);
         socket.emit("game-action-ack", { message: "A léleköröklésed rögzítve. A kiválasztott szerep a kör lezárásakor aktiválódik." });
-        maybeAdvanceActionPhase(room);
+        maybeAdvanceActionPhase(room, true);
     });
 
     // A Szerepcserélő egyszer, vakon szerepet cserélhet egy másik élő játékossal.
@@ -1579,7 +1627,7 @@ io.on("connection", (socket) => {
         room.game.roleSwapUsedIds.add(socket.id);
         socket.emit("role-swap-used", { used: true });
         socket.emit("game-action-ack", { message: "A vak szerepcsere rögzítve. A szereped a kör végén változik meg; a célpont csak Falusi lesz." });
-        maybeAdvanceActionPhase(room);
+        maybeAdvanceActionPhase(room, true);
     });
 
     // A Bohóc lidérc szabotázsa három körönként használható újra.
@@ -1614,7 +1662,7 @@ io.on("connection", (socket) => {
             thin: "A Hangelvékonyítás rögzítve. A célpont hangja magasabb lesz a többiek böngészőjében a nappali szakaszban."
         };
         socket.emit("game-action-ack", { message: `${confirmations[effect]} A szabotázs a következő használatig 3 körig pihen.` });
-        maybeAdvanceActionPhase(room);
+        maybeAdvanceActionPhase(room, true);
     });
 
     // Az egyedüli Bohóc lidérc a szerepvizsgálatot egyszer használhatja, külön a szabotázs hűtési idejétől.
@@ -1649,7 +1697,7 @@ io.on("connection", (socket) => {
             source: "spirits"
         });
         socket.emit("game-action-ack", { message: `Megvizsgáltad ${target.username} szerepét. A különleges képességedet felhasználtad.` });
-        maybeAdvanceActionPhase(room);
+        maybeAdvanceActionPhase(room, true);
     });
 
     // Lidérc-akció: egyedül szerepet vizsgálhat vagy támadhat; több lidércnek egyező célpont kell.
@@ -1676,7 +1724,7 @@ io.on("connection", (socket) => {
             socket.emit("spirit-inspect-used", { used: true });
             socket.emit("player-role-revealed", { targetId: target.id, targetName: target.username, role: target.role, label: target.role === "spirits" && target.specialSpirit ? "Bohóc lidérc" : ROLE_LABELS[target.role], source: "spirits" });
             socket.emit("game-action-ack", { message: `Megvizsgáltad ${target.username} szerepét: ${ROLE_LABELS[target.role]}. Ebben a körben már nem választhatsz másik akciót.` });
-            maybeAdvanceActionPhase(room);
+            maybeAdvanceActionPhase(room, true);
             return;
         }
         if (type === "skip") {
@@ -1686,7 +1734,7 @@ io.on("connection", (socket) => {
                     ? "A SKIP döntésed rögzítve. A támadás csak akkor sikerül, ha minden lidérc ugyanazt a célpontot választja."
                     : "Nem támadsz ezen az éjszakán."
             });
-            maybeAdvanceActionPhase(room);
+            maybeAdvanceActionPhase(room, true);
             return;
         }
         if (type !== "attack") {
@@ -1704,7 +1752,7 @@ io.on("connection", (socket) => {
         socket.emit("game-action-ack", { message: spirits.length > 1
             ? "Rögzítettük a választásodat. A támadás csak akkor sikerül, ha minden lidérc ugyanazt választja."
             : "A támadásod rögzítve." });
-        maybeAdvanceActionPhase(room);
+        maybeAdvanceActionPhase(room, true);
     });
 
     socket.on("healer-protect", (payload = {}) => {
@@ -1723,7 +1771,7 @@ io.on("connection", (socket) => {
             }
             room.game.healerActions.set(socket.id, target.id);
             socket.emit("game-action-ack", { message: `Leadva a gyógyítói szavazatod: ${target.username}. Csak akkor lesz védelem, ha minden élő gyógyító ugyanarra szavaz.` });
-            maybeAdvanceActionPhase(room);
+            maybeAdvanceActionPhase(room, true);
             return;
         }
         if (room.game.healerUsesRemaining <= 0) { socket.emit("game-action-error", "Elfogyott a két egyéni védési lehetőséged."); return; }
@@ -1732,7 +1780,7 @@ io.on("connection", (socket) => {
         room.game.healerUsesRemaining -= 1;
         socket.emit("game-action-ack", { message: `Védelem kiválasztva: ${target.username}. Még ${room.game.healerUsesRemaining} egyéni védési lehetőséged maradt.` });
         socket.emit("healer-uses-left", { remaining: room.game.healerUsesRemaining });
-        maybeAdvanceActionPhase(room);
+        maybeAdvanceActionPhase(room, true);
     });
 
     socket.on("hunter-shoot", (payload = {}) => {
@@ -1748,7 +1796,7 @@ io.on("connection", (socket) => {
         if (payload.pass === true) {
             room.game.hunterActions.set(socket.id, null);
             socket.emit("game-action-ack", { message: "Úgy döntöttél, hogy ebben a körben nem lősz." });
-            maybeAdvanceActionPhase(room);
+            maybeAdvanceActionPhase(room, true);
             return;
         }
         const target = room.players.get(String(payload.targetId || ""));
@@ -1757,7 +1805,7 @@ io.on("connection", (socket) => {
         }
         room.game.hunterActions.set(socket.id, target.id);
         socket.emit("game-action-ack", { message: `A lövés rögzítve: ${target.username}. Ebben a körben már nem módosítható.` });
-        maybeAdvanceActionPhase(room);
+        maybeAdvanceActionPhase(room, true);
     });
 
 
@@ -1780,7 +1828,7 @@ io.on("connection", (socket) => {
         }
         room.game.infectiousActions.set(socket.id, target.id);
         socket.emit("game-action-ack", { message: "A fertőzési célpont rögzítve. A nyilvános napló nem fogja felfedni, kit választottál." });
-        maybeAdvanceActionPhase(room);
+        maybeAdvanceActionPhase(room, true);
     });
 
     socket.on("adventurer-guess", (payload = {}) => {
@@ -1823,7 +1871,7 @@ io.on("connection", (socket) => {
             socket.emit("adventurer-guess-result", { correct: false, roleKey, targetId: target.id, message: "Rossz tipp! A teljes feladatsorod újraindul a következő éjszakán. Erre a körre befejezted." });
         }
         emitGameState(room);
-        maybeAdvanceActionPhase(room);
+        maybeAdvanceActionPhase(room, true);
     });
 
     // Nyilvános megbeszélő chat: csak a megengedett nappali / bevezető szakaszban küldhetnek üzenetet az élő játékosok.

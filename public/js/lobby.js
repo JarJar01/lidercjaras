@@ -498,10 +498,17 @@
 
             const host = room.players.find((player) => player.isHost);
             const hostLine = makeElement("p", "room-card-host", `Házigazda: ${host ? host.username : "Ismeretlen"}`);
-            const rolesLine = makeElement("p", "room-card-roles", roleKeys
-                .filter((key) => room.roles[key] > 0)
-                .map((key) => `${roleLabels[key]}: ${room.roles[key]}`)
-                .join(" · "));
+            const rolesLine = makeElement("div", "room-card-roles role-badges");
+            roleKeys.filter((key) => room.roles[key] > 0).forEach((key) => {
+                const badge = makeElement("span", `room-role-badge ${roleClasses[key]}`);
+                const icon = makeElement("img", "room-role-icon");
+                icon.src = `/assets/roles/${key}.svg`;
+                icon.alt = "";
+                icon.loading = "lazy";
+                const label = makeElement("span", "room-role-label", `${roleLabels[key]} ×${room.roles[key]}`);
+                badge.append(icon, label);
+                rolesLine.appendChild(badge);
+            });
             const bottom = makeElement("div", "room-card-bottom");
             bottom.appendChild(makeElement("span", "public-room-label", "Nyitott szoba · Jelszó nélkül"));
 
@@ -578,7 +585,12 @@
         rolesList.replaceChildren();
         roleKeys.forEach((key) => {
             const row = makeElement("div", `selected-role-row ${roleClasses[key]}`);
+            const icon = makeElement("img", "selected-role-icon");
+            icon.src = `/assets/roles/${key}.svg`;
+            icon.alt = "";
+            icon.loading = "lazy";
             row.append(
+                icon,
                 makeElement("span", "selected-role-name", roleLabels[key]),
                 makeElement("strong", "selected-role-count", `${room.roles[key]} fő`)
             );

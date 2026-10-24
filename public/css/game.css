@@ -1079,3 +1079,35 @@ body.lobby-page:has(#gameStartedView:not([hidden])) .game-layout:has(> .game-tea
     .clown-effect-option { text-align: left; padding: 10px; }
     .clown-target-list { max-height: 160px; }
 }
+
+
+/* Rövid felkészülési idő a lezárt akciófázisok között */
+.game-phase-grace-banner {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    margin: 0 0 12px;
+    padding: 11px 14px;
+    border: 1px solid rgba(205, 170, 255, 0.42);
+    border-radius: 12px;
+    background: linear-gradient(135deg, rgba(62, 39, 91, 0.78), rgba(13, 17, 31, 0.88));
+    box-shadow: inset 0 0 20px rgba(148, 90, 224, 0.08), 0 0 20px rgba(148, 90, 224, 0.08);
+    animation: gameGraceArrive 320ms ease-out both;
+}
+.game-phase-grace-title {
+    color: #eadcff;
+    font-size: 0.92rem;
+    letter-spacing: 0.025em;
+}
+.game-phase-grace-copy {
+    color: #bfb6d6;
+    font-size: 0.82rem;
+    line-height: 1.4;
+}
+@keyframes gameGraceArrive {
+    from { opacity: 0; transform: translateY(-5px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+@media (prefers-reduced-motion: reduce) {
+    .game-phase-grace-banner { animation: none; }
+}

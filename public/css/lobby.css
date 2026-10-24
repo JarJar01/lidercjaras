@@ -1043,3 +1043,139 @@ body.lobby-page:has(#gameStartedView.is-day:not([hidden])) .background::before {
 @media (prefers-reduced-motion: reduce) {
     .background::before, .lobby-choice-card, .lobby-lore-rail, .connection-indicator.is-connected .connection-dot { animation: none !important; }
 }
+
+
+/* ------------------------------------------------------------
+   Szerepkártyák illusztrációi a szobalétrehozó felületen
+   ------------------------------------------------------------ */
+.role-field {
+    position: relative;
+    overflow: hidden;
+    min-height: 144px;
+    padding: 13px;
+    border-radius: 12px;
+    isolation: isolate;
+    transition: transform .22s ease, border-color .22s ease, box-shadow .22s ease;
+}
+.role-field::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    z-index: -1;
+    opacity: .42;
+    background: radial-gradient(ellipse at 0% 0%, var(--role-glow, rgba(180,145,230,.15)), transparent 68%);
+    pointer-events: none;
+}
+.role-field:hover {
+    transform: translateY(-2px);
+    border-color: var(--role-border, rgba(225,196,144,.45));
+    box-shadow: 0 12px 30px rgba(0,0,0,.27), 0 0 22px var(--role-shadow, rgba(160,120,210,.1)), inset 0 1px 0 rgba(255,255,255,.06);
+}
+.role-card-heading {
+    display: grid;
+    grid-template-columns: 54px minmax(0, 1fr);
+    align-items: center;
+    gap: 11px;
+    min-height: 74px;
+    margin-bottom: 12px;
+}
+.role-card-art-frame {
+    position: relative;
+    display: block;
+    width: 54px;
+    height: 72px;
+    overflow: hidden;
+    flex: 0 0 auto;
+    border: 1px solid var(--role-border, rgba(218,190,145,.38));
+    border-radius: 8px;
+    background: linear-gradient(145deg, #171421, #080a12);
+    box-shadow: 0 5px 16px rgba(0,0,0,.28), 0 0 16px var(--role-shadow, rgba(160,120,210,.14));
+}
+.role-card-art-frame::after {
+    content: "";
+    position: absolute;
+    inset: 3px;
+    border: 1px solid rgba(255,255,255,.09);
+    border-radius: 5px;
+    pointer-events: none;
+}
+.role-card-art {
+    display: block;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    transform: scale(1.015);
+    transition: transform .35s ease, filter .35s ease;
+}
+.role-field:hover .role-card-art {
+    transform: scale(1.08);
+    filter: brightness(1.12) saturate(1.06);
+}
+.role-card-copy { min-width: 0; }
+.role-field .role-card-copy label {
+    display: block;
+    margin: 0;
+    color: var(--role-title, #f0e4d2);
+    font-size: 12px;
+    font-weight: 750;
+    line-height: 1.3;
+    letter-spacing: .1px;
+}
+.role-field .role-card-copy p {
+    min-height: 0;
+    margin: 5px 0 0;
+    color: #a9a0b4;
+    font-size: 10px;
+    line-height: 1.45;
+    overflow-wrap: anywhere;
+}
+.role-field .number-control {
+    position: relative;
+    z-index: 1;
+    grid-column: 1 / -1;
+    padding: 5px 6px;
+    border: 1px solid rgba(225,196,144,.12);
+    border-radius: 9px;
+    background: rgba(3,5,10,.38);
+}
+.role-spirits { --role-border: rgba(174,130,255,.55); --role-glow: rgba(133,74,207,.28); --role-shadow: rgba(154,91,239,.2); --role-title: #e0c8ff; }
+.role-healer { --role-border: rgba(133,211,178,.52); --role-glow: rgba(53,144,109,.2); --role-shadow: rgba(73,173,126,.17); --role-title: #c1f0d9; }
+.role-villagers { --role-border: rgba(216,188,124,.44); --role-glow: rgba(160,119,51,.18); --role-shadow: rgba(204,159,85,.12); --role-title: #f0dfb2; }
+.role-hunters { --role-border: rgba(109,185,235,.52); --role-glow: rgba(50,123,174,.22); --role-shadow: rgba(70,150,220,.14); --role-title: #c3e6ff; }
+.role-fool { --role-border: rgba(226,146,218,.52); --role-glow: rgba(151,65,156,.2); --role-shadow: rgba(205,101,204,.15); --role-title: #f4c9ef; }
+.role-swapper { --role-border: rgba(219,167,118,.52); --role-glow: rgba(151,89,45,.18); --role-shadow: rgba(191,124,68,.14); --role-title: #f0d0ac; }
+.role-infectious { --role-border: rgba(148,190,101,.53); --role-glow: rgba(77,135,49,.19); --role-shadow: rgba(126,181,75,.14); --role-title: #d8edbc; }
+.role-seer { --role-border: rgba(169,160,239,.55); --role-glow: rgba(98,78,174,.2); --role-shadow: rgba(138,120,223,.15); --role-title: #d4cffd; }
+.role-landlord { --role-border: rgba(221,181,105,.54); --role-glow: rgba(154,112,39,.21); --role-shadow: rgba(211,163,76,.15); --role-title: #f2dda9; }
+.role-spouses { --role-border: rgba(231,153,180,.53); --role-glow: rgba(153,62,100,.18); --role-shadow: rgba(205,106,150,.14); --role-title: #f4cbd9; }
+.role-adventurer { --role-border: rgba(113,198,207,.52); --role-glow: rgba(40,125,133,.2); --role-shadow: rgba(69,171,182,.14); --role-title: #c7f1f1; }
+.role-soulreaper { --role-border: rgba(133,169,218,.53); --role-glow: rgba(66,96,154,.2); --role-shadow: rgba(99,139,205,.15); --role-title: #d0e0ff; }
+.role-shadowbinder { --role-border: rgba(150,112,226,.56); --role-glow: rgba(98,59,169,.23); --role-shadow: rgba(133,82,217,.17); --role-title: #d8c5ff; }
+
+/* Ugyanazok a szerepképek jelenjenek meg a váróterem összesítőjében is. */
+.selected-role-row { justify-content: flex-start; min-height: 42px; padding: 6px 9px; }
+.selected-role-icon { width: 26px; height: 34px; flex: 0 0 26px; object-fit: cover; border: 1px solid rgba(220,190,142,.22); border-radius: 5px; background: #090b12; box-shadow: 0 2px 8px rgba(0,0,0,.2); }
+.selected-role-name { flex: 1; }
+.selected-role-count { white-space: nowrap; }
+@media (max-width: 760px) {
+    .role-card-heading { grid-template-columns: 46px minmax(0,1fr); gap: 8px; min-height: 66px; }
+    .role-card-art-frame { width: 46px; height: 62px; }
+    .role-field .role-card-copy label { font-size: 11px; }
+    .role-field .role-card-copy p { font-size: 9px; line-height: 1.4; }
+}
+@media (max-width: 520px) {
+    .role-card-heading { grid-template-columns: 38px minmax(0,1fr); gap: 7px; min-height: 58px; align-items: start; }
+    .role-card-art-frame { width: 38px; height: 52px; border-radius: 6px; }
+    .role-field { min-height: 0; padding: 10px 8px; }
+    .role-field .role-card-copy label { font-size: 10px; }
+    .role-field .role-card-copy p { font-size: 9px; margin-top: 4px; }
+    .role-field .number-control { padding: 4px 3px; }
+}
+@media (prefers-reduced-motion: reduce) {
+    .role-field, .role-card-art { transition: none !important; }
+}
+
+.room-card-roles.role-badges { display: flex; flex-wrap: wrap; gap: 6px; margin: 10px 0 0; }
+.room-role-badge { display: inline-flex; align-items: center; gap: 5px; max-width: 100%; padding: 4px 7px 4px 4px; border: 1px solid rgba(220,190,142,.14); border-radius: 7px; background: rgba(255,255,255,.035); color: #cfc4b7; font-size: 10px; line-height: 1.2; }
+.room-role-icon { width: 20px; height: 25px; flex: 0 0 20px; object-fit: cover; border-radius: 3px; }
+.room-role-label { overflow-wrap: anywhere; }

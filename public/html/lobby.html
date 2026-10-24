@@ -92,68 +92,133 @@
 
                 <div class="role-grid">
                     <div class="role-field role-spirits">
-                        <label for="roleSpirits">Lidércek</label>
-                        <p>Az éjszaka vadászai</p>
+                        <div class="role-card-heading">
+                            <span class="role-card-art-frame"><img class="role-card-art" src="/assets/roles/spirits.svg" alt="" loading="lazy"></span>
+                            <div class="role-card-copy">
+                                <label for="roleSpirits">Lidércek</label>
+                                <p>Az éjszaka vadászai</p>
+                            </div>
+                        </div>
                         <div class="number-control"><button type="button" data-step="-1" data-target="roleSpirits" aria-label="Lidércek számának csökkentése">−</button><input id="roleSpirits" name="spirits" type="number" min="0" max="16" value="2"><button type="button" data-step="1" data-target="roleSpirits" aria-label="Lidércek számának növelése">+</button></div>
                     </div>
                     <div class="role-field role-healer">
-                        <label for="roleHealer">Gyógyító</label>
-                        <p>Védelmező szerep</p>
+                        <div class="role-card-heading">
+                            <span class="role-card-art-frame"><img class="role-card-art" src="/assets/roles/healer.svg" alt="" loading="lazy"></span>
+                            <div class="role-card-copy">
+                                <label for="roleHealer">Gyógyító</label>
+                                <p>Védelmező szerep</p>
+                            </div>
+                        </div>
                         <div class="number-control"><button type="button" data-step="-1" data-target="roleHealer" aria-label="Gyógyítók számának csökkentése">−</button><input id="roleHealer" name="healer" type="number" min="0" max="16" value="1"><button type="button" data-step="1" data-target="roleHealer" aria-label="Gyógyítók számának növelése">+</button></div>
                     </div>
                     <div class="role-field role-villagers">
-                        <label for="roleVillagers">Falusiak</label>
-                        <p>A falu népe</p>
+                        <div class="role-card-heading">
+                            <span class="role-card-art-frame"><img class="role-card-art" src="/assets/roles/villagers.svg" alt="" loading="lazy"></span>
+                            <div class="role-card-copy">
+                                <label for="roleVillagers">Falusiak</label>
+                                <p>A falu népe</p>
+                            </div>
+                        </div>
                         <div class="number-control"><button type="button" data-step="-1" data-target="roleVillagers" aria-label="Falusiak számának csökkentése">−</button><input id="roleVillagers" name="villagers" type="number" min="0" max="16" value="4"><button type="button" data-step="1" data-target="roleVillagers" aria-label="Falusiak számának növelése">+</button></div>
                     </div>
                     <div class="role-field role-hunters">
-                        <label for="roleHunters">Vadászok</label>
-                        <p>Nyomkövetők</p>
+                        <div class="role-card-heading">
+                            <span class="role-card-art-frame"><img class="role-card-art" src="/assets/roles/hunters.svg" alt="" loading="lazy"></span>
+                            <div class="role-card-copy">
+                                <label for="roleHunters">Vadászok</label>
+                                <p>Nyomkövetők</p>
+                            </div>
+                        </div>
                         <div class="number-control"><button type="button" data-step="-1" data-target="roleHunters" aria-label="Vadászok számának csökkentése">−</button><input id="roleHunters" name="hunters" type="number" min="0" max="16" value="1"><button type="button" data-step="1" data-target="roleHunters" aria-label="Vadászok számának növelése">+</button></div>
                     </div>
                     <div class="role-field role-fool">
-                        <label for="roleFool">Bolondok</label>
-                        <p>Kiszámíthatatlanok</p>
+                        <div class="role-card-heading">
+                            <span class="role-card-art-frame"><img class="role-card-art" src="/assets/roles/fool.svg" alt="" loading="lazy"></span>
+                            <div class="role-card-copy">
+                                <label for="roleFool">Bolondok</label>
+                                <p>Kiszámíthatatlanok</p>
+                            </div>
+                        </div>
                         <div class="number-control"><button type="button" data-step="-1" data-target="roleFool" aria-label="Bolondok számának csökkentése">−</button><input id="roleFool" name="fool" type="number" min="0" max="16" value="1"><button type="button" data-step="1" data-target="roleFool" aria-label="Bolondok számának növelése">+</button></div>
                     </div>
                     <div class="role-field role-swapper">
-                        <label for="roleSwapper">Árnycserélő</label>
-                        <p>Éjszaka egyszer vakon szerepet cserél egy másik élő játékossal; a kiválasztott Falusi lesz.</p>
+                        <div class="role-card-heading">
+                            <span class="role-card-art-frame"><img class="role-card-art" src="/assets/roles/swapper.svg" alt="" loading="lazy"></span>
+                            <div class="role-card-copy">
+                                <label for="roleSwapper">Árnycserélő</label>
+                                <p>Éjszaka egyszer vakon szerepet cserél egy másik élő játékossal; a kiválasztott Falusi lesz.</p>
+                            </div>
+                        </div>
                         <div class="number-control"><button type="button" data-step="-1" data-target="roleSwapper" aria-label="Szerepcserélők számának csökkentése">−</button><input id="roleSwapper" name="swapper" type="number" min="0" max="16" value="0"><button type="button" data-step="1" data-target="roleSwapper" aria-label="Szerepcserélők számának növelése">+</button></div>
                     </div>
                     <div class="role-field role-infectious">
-                        <label for="roleInfectious">Fertőző</label>
-                        <p>Éjszakánként terjeszti a fertőzést</p>
+                        <div class="role-card-heading">
+                            <span class="role-card-art-frame"><img class="role-card-art" src="/assets/roles/infectious.svg" alt="" loading="lazy"></span>
+                            <div class="role-card-copy">
+                                <label for="roleInfectious">Fertőző</label>
+                                <p>Éjszakánként terjeszti a fertőzést</p>
+                            </div>
+                        </div>
                         <div class="number-control"><button type="button" data-step="-1" data-target="roleInfectious" aria-label="Fertőzők számának csökkentése">−</button><input id="roleInfectious" name="infectious" type="number" min="0" max="16" value="0"><button type="button" data-step="1" data-target="roleInfectious" aria-label="Fertőzők számának növelése">+</button></div>
                     </div>
                     <div class="role-field role-seer">
-                        <label for="roleSeer">Látnok</label>
-                        <p>Privát csatornán beszélhet a halott játékosokkal.</p>
+                        <div class="role-card-heading">
+                            <span class="role-card-art-frame"><img class="role-card-art" src="/assets/roles/seer.svg" alt="" loading="lazy"></span>
+                            <div class="role-card-copy">
+                                <label for="roleSeer">Látnok</label>
+                                <p>Privát csatornán beszélhet a halott játékosokkal.</p>
+                            </div>
+                        </div>
                         <div class="number-control"><button type="button" data-step="-1" data-target="roleSeer" aria-label="Látnokok számának csökkentése">−</button><input id="roleSeer" name="seer" type="number" min="0" max="16" value="0"><button type="button" data-step="1" data-target="roleSeer" aria-label="Látnokok számának növelése">+</button></div>
                     </div>
                     <div class="role-field role-landlord">
-                        <label for="roleLandlord">Földesúr</label>
-                        <p>A nappali szavazata két szavazatot ér.</p>
+                        <div class="role-card-heading">
+                            <span class="role-card-art-frame"><img class="role-card-art" src="/assets/roles/landlord.svg" alt="" loading="lazy"></span>
+                            <div class="role-card-copy">
+                                <label for="roleLandlord">Földesúr</label>
+                                <p>A nappali szavazata két szavazatot ér.</p>
+                            </div>
+                        </div>
                         <div class="number-control"><button type="button" data-step="-1" data-target="roleLandlord" aria-label="Földesurak számának csökkentése">−</button><input id="roleLandlord" name="landlord" type="number" min="0" max="16" value="0"><button type="button" data-step="1" data-target="roleLandlord" aria-label="Földesurak számának növelése">+</button></div>
                     </div>
                     <div class="role-field role-spouses">
-                        <label for="roleSpouses">Házastársak</label>
-                        <p>Páros számot állíts be (2, 4, 6…). Párokban beszélgetnek éjszaka; egyikük halálakor a párja is kiesik.</p>
+                        <div class="role-card-heading">
+                            <span class="role-card-art-frame"><img class="role-card-art" src="/assets/roles/spouses.svg" alt="" loading="lazy"></span>
+                            <div class="role-card-copy">
+                                <label for="roleSpouses">Házastársak</label>
+                                <p>Páros számot állíts be (2, 4, 6…). Párokban beszélgetnek éjszaka; egyikük halálakor a párja is kiesik.</p>
+                            </div>
+                        </div>
                         <div class="number-control"><button type="button" data-step="-1" data-target="roleSpouses" aria-label="Házastársak számának csökkentése">−</button><input id="roleSpouses" name="spouses" type="number" min="0" max="16" step="2" value="0"><button type="button" data-step="1" data-target="roleSpouses" aria-label="Házastársak számának növelése">+</button></div>
                     </div>
                     <div class="role-field role-adventurer">
-                        <label for="roleAdventurer">Kalandor</label>
-                        <p>Három, a szobában beállított szerepet kell megtalálnia. A célpont halála sem törli a feladatot.</p>
+                        <div class="role-card-heading">
+                            <span class="role-card-art-frame"><img class="role-card-art" src="/assets/roles/adventurer.svg" alt="" loading="lazy"></span>
+                            <div class="role-card-copy">
+                                <label for="roleAdventurer">Kalandor</label>
+                                <p>Három, a szobában beállított szerepet kell megtalálnia. A célpont halála sem törli a feladatot.</p>
+                            </div>
+                        </div>
                         <div class="number-control"><button type="button" data-step="-1" data-target="roleAdventurer" aria-label="Kalandorok számának csökkentése">−</button><input id="roleAdventurer" name="adventurer" type="number" min="0" max="16" value="0"><button type="button" data-step="1" data-target="roleAdventurer" aria-label="Kalandorok számának növelése">+</button></div>
                     </div>
                     <div class="role-field role-soulreaper">
-                        <label for="roleSoulreaper">Lélekrabló</label>
-                        <p>Hajnalban átveheti egy halott játékos szerepét és annak csapatához csatlakozik.</p>
+                        <div class="role-card-heading">
+                            <span class="role-card-art-frame"><img class="role-card-art" src="/assets/roles/soulreaper.svg" alt="" loading="lazy"></span>
+                            <div class="role-card-copy">
+                                <label for="roleSoulreaper">Lélekrabló</label>
+                                <p>Hajnalban átveheti egy halott játékos szerepét és annak csapatához csatlakozik.</p>
+                            </div>
+                        </div>
                         <div class="number-control"><button type="button" data-step="-1" data-target="roleSoulreaper" aria-label="Lélekrablók számának csökkentése">−</button><input id="roleSoulreaper" name="soulreaper" type="number" min="0" max="16" value="0"><button type="button" data-step="1" data-target="roleSoulreaper" aria-label="Lélekrablók számának növelése">+</button></div>
                     </div>
                     <div class="role-field role-shadowbinder">
-                        <label for="roleShadowbinder">Árnyékkötő</label>
-                        <p>A lidércek szövetségese. Minden második éjszakán letilthatja egy nem lidérc különleges képességét.</p>
+                        <div class="role-card-heading">
+                            <span class="role-card-art-frame"><img class="role-card-art" src="/assets/roles/shadowbinder.svg" alt="" loading="lazy"></span>
+                            <div class="role-card-copy">
+                                <label for="roleShadowbinder">Árnyékkötő</label>
+                                <p>A lidércek szövetségese. Minden második éjszakán letilthatja egy nem lidérc különleges képességét.</p>
+                            </div>
+                        </div>
                         <div class="number-control"><button type="button" data-step="-1" data-target="roleShadowbinder" aria-label="Árnyékkötők számának csökkentése">−</button><input id="roleShadowbinder" name="shadowbinder" type="number" min="0" max="16" value="0"><button type="button" data-step="1" data-target="roleShadowbinder" aria-label="Árnyékkötők számának növelése">+</button></div>
                     </div>
                 </div>

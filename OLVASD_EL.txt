@@ -153,3 +153,5 @@ BOHÓC LIDÉRC – GÖRGETHETŐ SZABOTÁZSPANEL (2026-10-24)
 - Választható szabotázsok: Hamis szavazat, Némítás és Hangelvékonyítás. A szabotázs használat után három kör múlva használható újra.
 - A Némítás és a Hangelvékonyítás a célpont bejövő hangján érvényesül a többi játékos böngészőjében; a célpont saját mikrofonját nem kapcsolja ki. A hangelvékonyítás a Web Audio feldolgozást használja, közvetlen audio kimenettel.
 - Az egyedüli Bohóc lidérc szerepvizsgálata külön, a teljes játékban csak egyszer használható.
+
+FRISSÍTÉS: A szobalétrehozás szerepkártyái most már a játékbeli SVG szerepillusztrációkat mutatják; a váróterem szerepösszesítője és a szobalista is ikonokat kapott.
