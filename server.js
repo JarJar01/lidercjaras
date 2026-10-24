@@ -1817,6 +1817,34 @@ io.on("connection", (socket) => {
         maybeAdvanceActionPhase(room);
     });
 
+    // Nyilvános megbeszélő chat: csak a megengedett nappali / bevezető szakaszban küldhetnek üzenetet az élő játékosok.
+    socket.on("public-chat-send", (payload = {}) => {
+        const room = rooms.get(socket.data.roomId);
+        const player = room?.players.get(socket.id);
+        if (!room?.game || !player || player.connected === false) return;
+        const phase = room.game.phase;
+        const publicChatPhases = new Set(["intro", "day", "dawn-result", "vote-result", "game-over"]);
+        if (!publicChatPhases.has(phase)) {
+            socket.emit("game-action-error", "A nyilvános chat ebben a fázisban zárva van.");
+            return;
+        }
+        if (player.alive === false && phase !== "game-over") {
+            socket.emit("game-action-error", "Kiesett játékosként most nem küldhetsz üzenetet az élők chatjébe.");
+            return;
+        }
+        const text = cleanText(payload.text, 240);
+        if (!text) return;
+        const now = Date.now();
+        if (player.lastPublicMessageAt && now - player.lastPublicMessageAt < 450) return;
+        player.lastPublicMessageAt = now;
+        io.to(room.code).emit("public-chat-message", {
+            fromId: player.id,
+            fromName: displayNameForPlayer(player, player.id),
+            text,
+            at: now
+        });
+    });
+
     // Privát gépes chat: lidércek/vadászok a saját éjszakai körükben, házastársak éjszaka, a Látnok és a halottak külön csatornán.
     socket.on("team-chat-send", (payload = {}) => {
         const room = rooms.get(socket.data.roomId);

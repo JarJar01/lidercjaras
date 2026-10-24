@@ -848,3 +848,181 @@ body.lobby-page:has(#gameStartedView:not([hidden])) .player-voice-controls[data-
 body.lobby-page:has(#gameStartedView:not([hidden])) .player-voice-controls[data-scope="game"].is-expanded > .player-voice-mixer-header { display: flex; }
 body.lobby-page:has(#gameStartedView:not([hidden])) .player-voice-controls[data-scope="game"].is-expanded > .player-voice-slider-row { display: flex; }
 body.lobby-page:has(#gameStartedView:not([hidden])) .player-voice-controls[data-scope="game"].is-expanded > .player-voice-mute-button { display: inline-flex; }
+
+
+/* =============================================================
+   LIDÉRCJÁRÁS – CINEMATIKUS FANTASY JÁTÉKFELÜLET
+   Képes nappali/éjszakai háttér, középső chat, finom animációk.
+   ============================================================= */
+body.lobby-page:has(#gameStartedView:not([hidden])) .lobby-topbar { border-bottom-color: rgba(199, 164, 103, .22); }
+body.lobby-page:has(#gameStartedView:not([hidden])) .lobby-brand { color: #f0e2c5; text-shadow: 0 0 20px rgba(204, 158, 78, .24); }
+body.lobby-page:has(#gameStartedView:not([hidden])) .brand-symbol { color: #f0c879; animation: ljBrandPulse 4s ease-in-out infinite; }
+body.lobby-page:has(#gameStartedView:not([hidden])) #gameStartedView:not([hidden]) {
+    position: relative; isolation: isolate; border-color: rgba(190, 153, 91, .48); background: #080a12;
+    box-shadow: 0 24px 80px rgba(0,0,0,.58), inset 0 1px 0 rgba(255,255,255,.05);
+}
+body.lobby-page:has(#gameStartedView:not([hidden])) #gameStartedView:not([hidden])::before {
+    content: ""; position: absolute; inset: 0; z-index: -2; pointer-events: none;
+    background-position: center; background-size: cover; opacity: .88;
+    transform: scale(1.012); animation: ljSceneryDrift 36s ease-in-out infinite alternate;
+}
+body.lobby-page:has(#gameStartedView.is-night:not([hidden])) #gameStartedView::before {
+    background-image: linear-gradient(90deg, rgba(3,6,15,.66), rgba(5,6,15,.45) 48%, rgba(3,5,13,.68)), url('/assets/backgrounds/village-night.webp');
+}
+body.lobby-page:has(#gameStartedView.is-day:not([hidden])) #gameStartedView::before {
+    background-image: linear-gradient(90deg, rgba(4,9,17,.58), rgba(5,11,17,.43) 48%, rgba(5,8,15,.62)), url('/assets/backgrounds/village-day.webp');
+}
+body.lobby-page:has(#gameStartedView:not([hidden])) #gameStartedView:not([hidden])::after {
+    content: ""; position: absolute; z-index: -1; inset: 0; pointer-events: none;
+    background: radial-gradient(ellipse at 50% 42%, transparent 0%, rgba(3,4,11,.12) 54%, rgba(2,3,8,.62) 100%);
+}
+body.lobby-page:has(#gameStartedView:not([hidden])) .game-header { border-bottom: 1px solid rgba(207, 174, 115, .25); text-shadow: 0 2px 16px rgba(0,0,0,.8); }
+body.lobby-page:has(#gameStartedView:not([hidden])) .game-header h2 { color: #f6e8cb; font-family: Georgia, "Times New Roman", serif; letter-spacing: .035em; }
+body.lobby-page:has(#gameStartedView:not([hidden])) .game-header .panel-kicker { color: #d8b97d; }
+body.lobby-page:has(#gameStartedView:not([hidden])) .game-timer-wrap {
+    min-width: 112px; border-color: rgba(220, 183, 113, .48); border-radius: 14px;
+    background: linear-gradient(145deg, rgba(29,24,29,.9), rgba(5,7,13,.95));
+    box-shadow: 0 8px 28px rgba(0,0,0,.3), inset 0 1px 0 rgba(255,255,255,.06); color: #d6c39a;
+}
+body.lobby-page:has(#gameStartedView:not([hidden])) .game-timer-wrap strong { color: #fff0d2; text-shadow: 0 0 20px rgba(255,206,129,.2); }
+body.lobby-page:has(#gameStartedView:not([hidden])) .game-notice {
+    border: 1px solid rgba(213, 173, 104, .3); border-left: 3px solid #d8ad63; border-radius: 10px;
+    background: rgba(9,10,16,.76); color: #f0dfbd; box-shadow: inset 0 1px 0 rgba(255,255,255,.035); backdrop-filter: blur(8px);
+}
+body.lobby-page:has(#gameStartedView:not([hidden])) .game-public-log-panel { border-color: rgba(213, 173, 104, .29); background: rgba(7,9,14,.76); backdrop-filter: blur(10px); }
+body.lobby-page:has(#gameStartedView:not([hidden])) .game-layout {
+    grid-template-columns: minmax(205px, .78fr) minmax(340px, 1.42fr) minmax(250px, .92fr);
+    grid-template-rows: minmax(0, 1.22fr) minmax(150px, .8fr);
+    grid-template-areas: "players action role" "players chat role"; gap: 10px;
+}
+body.lobby-page:has(#gameStartedView:not([hidden])) .game-panel {
+    border-color: rgba(202, 174, 120, .32); border-radius: 13px;
+    background: linear-gradient(155deg, rgba(7,10,17,.88), rgba(5,7,13,.84));
+    box-shadow: 0 12px 32px rgba(0,0,0,.24), inset 0 1px 0 rgba(255,255,255,.04);
+    backdrop-filter: blur(11px); transition: border-color .24s ease, box-shadow .24s ease, transform .24s ease;
+}
+body.lobby-page:has(#gameStartedView:not([hidden])) .game-panel:hover { border-color: rgba(229, 190, 121, .47); box-shadow: 0 15px 38px rgba(0,0,0,.32), inset 0 1px 0 rgba(255,255,255,.055); }
+body.lobby-page:has(#gameStartedView:not([hidden])) .game-panel-heading h3 { color: #f3e4c8; font-family: Georgia, "Times New Roman", serif; letter-spacing: .01em; }
+body.lobby-page:has(#gameStartedView:not([hidden])) .game-section-kicker { color: #d3ac68; }
+body.lobby-page:has(#gameStartedView:not([hidden])) .game-players-panel { border-color: rgba(190, 154, 90, .37); background: linear-gradient(180deg, rgba(8,12,20,.92), rgba(6,8,14,.86)); }
+body.lobby-page:has(#gameStartedView:not([hidden])) .game-player-row {
+    position: relative; border-color: rgba(188, 163, 124, .14); border-radius: 10px;
+    background: linear-gradient(100deg, rgba(14,18,27,.7), rgba(6,8,14,.52));
+    transition: transform .18s ease, border-color .18s ease, background .18s ease;
+}
+body.lobby-page:has(#gameStartedView:not([hidden])) .game-player-row:hover { transform: translateX(2px); border-color: rgba(223, 190, 125, .36); background: rgba(28,26,31,.72); }
+body.lobby-page:has(#gameStartedView:not([hidden])) .game-player-avatar {
+    border: 1px solid rgba(215, 189, 139, .43); background: radial-gradient(circle at 35% 25%, rgba(190,151,83,.4), rgba(32,27,28,.84));
+    color: #fff0cf; box-shadow: 0 0 15px rgba(202,164,96,.1);
+}
+body.lobby-page:has(#gameStartedView:not([hidden])) .game-player-info strong { color: #f0e5d2; }
+body.lobby-page:has(#gameStartedView:not([hidden])) .game-player-info span { color: #b7ac9a; }
+body.lobby-page:has(#gameStartedView:not([hidden])) .game-role-panel {
+    grid-area: role; grid-column: auto; grid-row: 1 / span 2; align-content: start;
+    border-color: rgba(190, 135, 255, .49);
+    background: radial-gradient(ellipse at 12% 0%, rgba(113,69,170,.34), transparent 56%), linear-gradient(160deg, rgba(8,10,18,.94), rgba(5,6,12,.9));
+}
+body.lobby-page:has(#gameStartedView:not([hidden])) .game-role-art-frame {
+    border-color: rgba(222, 190, 255, .7); box-shadow: 0 10px 26px rgba(0,0,0,.42), 0 0 34px rgba(158,105,222,.2);
+    animation: ljRoleFrameFloat 5.2s ease-in-out infinite;
+}
+body.lobby-page:has(#gameStartedView:not([hidden])) .game-role-panel h3 { color: #f4e7ff; text-shadow: 0 0 18px rgba(199,160,255,.22); }
+body.lobby-page:has(#gameStartedView:not([hidden])) .game-role-panel > p:not(.game-section-kicker):not(.game-private-note):not(.game-role-team-members) { color: #d0c2e1; }
+body.lobby-page:has(#gameStartedView:not([hidden])) .game-private-note { color: #b6a0d8; }
+body.lobby-page:has(#gameStartedView:not([hidden])) .game-action-panel {
+    grid-area: action; border-color: rgba(204, 169, 107, .44);
+    background: radial-gradient(ellipse at 50% 0%, rgba(128,91,43,.16), transparent 55%), linear-gradient(160deg, rgba(6,9,16,.91), rgba(5,6,12,.88));
+}
+body.lobby-page:has(#gameStartedView:not([hidden])) .game-action-panel.is-voting {
+    border-color: rgba(198, 147, 232, .64);
+    background: radial-gradient(ellipse at 50% 0%, rgba(135,77,169,.25), transparent 60%), linear-gradient(160deg, rgba(10,8,18,.94), rgba(5,6,12,.9));
+    box-shadow: 0 0 38px rgba(128,81,171,.16), inset 0 1px 0 rgba(255,255,255,.045);
+}
+body.lobby-page:has(#gameStartedView:not([hidden])) .game-phase-badge,
+body.lobby-page:has(#gameStartedView:not([hidden])) .game-player-count,
+body.lobby-page:has(#gameStartedView:not([hidden])) .private-chat-badge { border-color: rgba(216,180,113,.34); color: #ecd8ac; background: rgba(98,72,37,.24); }
+body.lobby-page:has(#gameStartedView:not([hidden])) .game-choice-button {
+    border-color: rgba(199,163,107,.28); border-radius: 10px; background: linear-gradient(120deg, rgba(52,39,31,.72), rgba(19,16,22,.78));
+    color: #f0e5d2; box-shadow: inset 0 1px 0 rgba(255,255,255,.035);
+}
+body.lobby-page:has(#gameStartedView:not([hidden])) .game-choice-button:hover:not(:disabled) {
+    border-color: rgba(237,197,126,.75); background: linear-gradient(120deg, rgba(89,65,43,.82), rgba(31,22,29,.86));
+    box-shadow: 0 7px 19px rgba(0,0,0,.22), 0 0 20px rgba(209,157,78,.09);
+}
+body.lobby-page:has(#gameStartedView:not([hidden])) .game-choice-button.is-danger { border-color: rgba(206,92,101,.44); background: linear-gradient(120deg, rgba(82,27,37,.68), rgba(22,10,17,.82)); }
+body.lobby-page:has(#gameStartedView:not([hidden])) .game-choice-button.is-danger:hover:not(:disabled) { border-color: rgba(245,115,126,.78); }
+body.lobby-page:has(#gameStartedView:not([hidden])) .game-team-chat-panel,
+body.lobby-page:has(#gameStartedView:not([hidden])) .game-public-chat-panel {
+    grid-area: chat; display: flex; flex-direction: column; min-height: 0; max-height: none;
+    border-color: rgba(97,164,192,.42); background: linear-gradient(150deg, rgba(7,15,22,.91), rgba(4,8,14,.89));
+}
+body.lobby-page:has(#gameStartedView:not([hidden])) .game-team-chat-panel[hidden],
+body.lobby-page:has(#gameStartedView:not([hidden])) .game-public-chat-panel[hidden] { display: none !important; }
+body.lobby-page:has(#gameStartedView:not([hidden])) .game-public-chat-panel .game-panel-heading,
+body.lobby-page:has(#gameStartedView:not([hidden])) .game-team-chat-panel .game-panel-heading { flex: 0 0 auto; padding-bottom: 6px; border-bottom: 1px solid rgba(125,172,191,.13); }
+body.lobby-page:has(#gameStartedView:not([hidden])) .game-chat-messages {
+    flex: 1 1 auto; min-height: 0; max-height: none; padding: 8px 10px; border-color: rgba(126,165,185,.17);
+    border-radius: 10px; background: linear-gradient(145deg, rgba(3,7,12,.66), rgba(8,12,19,.68));
+}
+body.lobby-page:has(#gameStartedView:not([hidden])) .game-chat-line { padding: 3px 2px; color: #d8e0e5; font-size: 11px; animation: ljChatIn .22s ease-out both; }
+body.lobby-page:has(#gameStartedView:not([hidden])) .game-chat-line strong { color: #e1bf83; }
+body.lobby-page:has(#gameStartedView:not([hidden])) .game-chat-line time { color: #91a2ad; }
+body.lobby-page:has(#gameStartedView:not([hidden])) .game-chat-form { flex: 0 0 auto; gap: 8px; margin-top: 7px; }
+body.lobby-page:has(#gameStartedView:not([hidden])) .game-chat-form input {
+    padding: 10px 12px; border-color: rgba(128,162,182,.28); border-radius: 10px; background: rgba(3,7,13,.83); color: #e9edf2;
+}
+body.lobby-page:has(#gameStartedView:not([hidden])) .game-chat-form input:focus { border-color: rgba(136,193,218,.72); box-shadow: 0 0 0 3px rgba(73,143,180,.12); }
+body.lobby-page:has(#gameStartedView:not([hidden])) .game-chat-form button {
+    border-color: rgba(135,179,199,.44); border-radius: 10px; background: linear-gradient(140deg, #304b61, #192a3a); color: #eaf6ff; font-weight: 700;
+    transition: transform .16s ease, box-shadow .16s ease;
+}
+body.lobby-page:has(#gameStartedView:not([hidden])) .game-chat-form button:hover { transform: translateY(-1px); box-shadow: 0 5px 16px rgba(0,0,0,.3); }
+body.lobby-page:has(#gameStartedView:not([hidden])) .game-vote-count-badge { border-color: rgba(255,223,164,.85); background: linear-gradient(145deg, #b78b42, #6d4c21); }
+body.lobby-page:has(#gameStartedView:not([hidden])) .game-bottom-bar { border-top: 1px solid rgba(203,171,112,.22); }
+body.lobby-page:has(#gameStartedView:not([hidden])) .game-voice-area { color: #c4b9a5; }
+body.lobby-page:has(#gameStartedView:not([hidden])) .game-voice-area button { border-color: rgba(195,162,106,.34); border-radius: 9px; background: rgba(24,20,20,.78); color: #ead7b4; }
+body.lobby-page:has(#gameStartedView:not([hidden])) .game-phase-overlay { background: radial-gradient(ellipse at center, rgba(23,17,32,.54), rgba(1,2,6,.84)); backdrop-filter: blur(10px) saturate(.8); }
+body.lobby-page:has(#gameStartedView:not([hidden])) .game-phase-modal {
+    border-color: rgba(224,186,118,.56); background: radial-gradient(ellipse at 50% 0%, rgba(145,101,49,.2), transparent 57%), linear-gradient(155deg, rgba(11,13,20,.98), rgba(4,6,12,.99));
+}
+@keyframes ljBrandPulse { 0%,100% { transform:rotate(0) scale(1); opacity:.8; } 50% { transform:rotate(22deg) scale(1.08); opacity:1; } }
+@keyframes ljSceneryDrift { from { transform:scale(1.012) translate3d(0,0,0); } to { transform:scale(1.065) translate3d(-.7%,.4%,0); } }
+@keyframes ljRoleFrameFloat { 0%,100% { transform:translateY(0); } 50% { transform:translateY(-3px); } }
+@keyframes ljChatIn { from { opacity:0; transform:translateY(4px); } to { opacity:1; transform:translateY(0); } }
+@media (max-height: 790px) and (min-width: 851px) {
+    body.lobby-page:has(#gameStartedView:not([hidden])) .game-layout { grid-template-rows: minmax(0,1fr) minmax(120px,.7fr); }
+    body.lobby-page:has(#gameStartedView:not([hidden])) .game-chat-messages { padding: 5px 8px; }
+    body.lobby-page:has(#gameStartedView:not([hidden])) .game-public-chat-panel,
+    body.lobby-page:has(#gameStartedView:not([hidden])) .game-team-chat-panel { padding: 8px 10px; }
+}
+@media (max-width: 1100px) and (min-width: 851px) {
+    body.lobby-page:has(#gameStartedView:not([hidden])) .game-layout { grid-template-columns: minmax(175px,.75fr) minmax(300px,1.3fr) minmax(205px,.86fr); grid-template-rows: minmax(0,1fr) minmax(140px,.72fr); }
+    body.lobby-page:has(#gameStartedView:not([hidden])) .game-role-panel { grid-template-columns: 75px minmax(0,1fr); }
+    body.lobby-page:has(#gameStartedView:not([hidden])) .game-role-art-frame { width:75px;height:104px; }
+}
+@media (max-width: 850px) {
+    body.lobby-page:has(#gameStartedView:not([hidden])) #gameStartedView:not([hidden])::before { position: fixed; }
+    body.lobby-page:has(#gameStartedView:not([hidden])) .game-layout {
+        grid-template-columns: minmax(0,1fr) minmax(0,1fr); grid-template-rows: auto auto auto auto;
+        grid-template-areas: "role role" "action action" "players players" "chat chat";
+    }
+    body.lobby-page:has(#gameStartedView:not([hidden])) .game-role-panel { grid-row: auto; }
+    body.lobby-page:has(#gameStartedView:not([hidden])) .game-public-chat-panel,
+    body.lobby-page:has(#gameStartedView:not([hidden])) .game-team-chat-panel { min-height: 230px; }
+}
+@media (prefers-reduced-motion: reduce) {
+    body.lobby-page:has(#gameStartedView:not([hidden])) #gameStartedView::before,
+    body.lobby-page:has(#gameStartedView:not([hidden])) .brand-symbol,
+    body.lobby-page:has(#gameStartedView:not([hidden])) .game-role-art-frame,
+    body.lobby-page:has(#gameStartedView:not([hidden])) .game-chat-line { animation: none !important; }
+}
+
+
+/* Éjszakai, privát chat nélküli szerepköröknél a három főpanel tölti ki a teljes magasságot. */
+body.lobby-page:has(#gameStartedView:not([hidden])) .game-layout:has(> .game-team-chat-panel[hidden]):has(> .game-public-chat-panel[hidden]) {
+    grid-template-rows: minmax(0, 1fr);
+    grid-template-areas: "players action role";
+}
+body.lobby-page:has(#gameStartedView:not([hidden])) .game-layout:has(> .game-team-chat-panel[hidden]):has(> .game-public-chat-panel[hidden]) .game-role-panel {
+    grid-row: auto;
+}

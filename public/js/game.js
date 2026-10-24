@@ -130,6 +130,21 @@
         container.scrollTop = container.scrollHeight;
     }
 
+    function appendPublicChatMessage({ fromName = "Játékos", text = "", at = Date.now(), system = false } = {}) {
+        const container = $("gamePublicChatMessages");
+        if (!container) return;
+        const empty = container.querySelector(".game-chat-empty");
+        if (empty) empty.remove();
+        const line = makeElement("div", system ? "game-chat-line game-chat-system" : "game-chat-line");
+        const time = makeElement("time", "", new Date(at).toLocaleTimeString("hu-HU", { hour: "2-digit", minute: "2-digit" }));
+        line.appendChild(time);
+        if (!system) line.appendChild(makeElement("strong", "", `${fromName}: `));
+        line.appendChild(document.createTextNode(text));
+        container.appendChild(line);
+        while (container.children.length > 80) container.firstElementChild.remove();
+        container.scrollTop = container.scrollHeight;
+    }
+
     function setActionStatus(message, isError = false) {
         actionStatusMessage = message || "";
         const actions = $("gameActions");
@@ -599,7 +614,7 @@
         const isNight = nightPhases.has(phase);
         const view = $("gameStartedView");
         view.classList.toggle("is-night", isNight || phase === "countdown");
-        view.classList.toggle("is-day", phase === "day" || phase === "intro" || phase === "dawn-result");
+        view.classList.toggle("is-day", ["intro", "dawn-result", "day", "vote-result", "game-over"].includes(phase));
         view.classList.toggle("is-countdown", phase === "countdown");
         const actionPanel = document.querySelector(".game-action-panel");
         if (actionPanel) actionPanel.classList.toggle("is-voting", phase === "day");
@@ -637,6 +652,9 @@
         const activeTeamMembers = myTeamMembers.filter((member) => gameState.players.some((player) => player.id === member.id && player.alive && player.connected !== false));
         const showTeamChat = Boolean(activeTeamRole && activeTeamRole !== "seance" && meAlive && (activeTeamRole === "spouses" ? activeTeamMembers.length >= 1 : activeTeamMembers.length > 1));
         $("gameTeamChatPanel").hidden = !showTeamChat;
+        const publicChatPhases = new Set(["intro", "day", "dawn-result", "vote-result", "game-over"]);
+        const publicChatAllowed = publicChatPhases.has(phase) && (meAlive || phase === "game-over");
+        $("gamePublicChatPanel").hidden = !publicChatAllowed;
         $("gameTeamChatTitle").textContent = activeTeamRole === "hunters" ? "Vadászok titkos csatornája" :
             activeTeamRole === "spouses" ? "Házastársak titkos csatornája" :
             activeTeamRole === "seance" ? "Látnok és halottak csatornája" : "Lidércek titkos csatornája";
@@ -684,6 +702,10 @@
         const phaseOverlay = $("gamePhaseOverlay");
         if (phaseOverlay) { phaseOverlay.hidden = true; phaseOverlay.classList.remove("is-visible", "is-leaving"); }
         if (payload.room) $("gameStartedRoomName").textContent = payload.room.name || "Lidércjárás";
+        const publicMessages = $("gamePublicChatMessages");
+        if (publicMessages) publicMessages.replaceChildren(makeElement("p", "game-chat-empty", "Még nincs üzenet. Köszönjetek egymásnak!"));
+        const teamMessages = $("gameTeamChatMessages");
+        if (teamMessages) teamMessages.replaceChildren(makeElement("p", "game-chat-empty", "Még nincs üzenet."));
         myRole = null;
         myRoleLabel = "";
         myRoleDescription = "";
@@ -846,6 +868,11 @@
         $("gameTeamChatMessages").replaceChildren(makeElement("p", "game-chat-empty", "Még nincs üzenet."));
     });
 
+    socket.on("public-chat-message", (payload = {}) => {
+        if (!payload || typeof payload.text !== "string") return;
+        appendPublicChatMessage(payload);
+    });
+
     socket.on("team-chat-message", (payload = {}) => {
         if (!myRole) return;
         if (payload.team === "seance") {
@@ -869,6 +896,20 @@
         if (!gameState) return;
         gameState = { ...gameState, phase: "game-over", endsAt: null, winner: payload.winner, winnerLabel: payload.winnerLabel, message: payload.message || payload.winnerLabel };
         renderGame();
+    });
+
+    $("gamePublicChatForm").addEventListener("submit", (event) => {
+        event.preventDefault();
+        const input = $("gamePublicChatInput");
+        const text = input.value.trim();
+        if (!text) return;
+        if (!socket.connected) {
+            appendPublicChatMessage({ fromName: "Játékrendszer", text: "Nincs szerverkapcsolat, az üzenet nem ment el.", system: true });
+            return;
+        }
+        socket.emit("public-chat-send", { text });
+        input.value = "";
+        input.focus();
     });
 
     $("gameTeamChatForm").addEventListener("submit", (event) => {

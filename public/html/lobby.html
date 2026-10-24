@@ -348,6 +348,24 @@
                     <div class="game-vote-status" id="gameVoteStatus" hidden></div>
                 </section>
 
+                <section class="game-panel game-public-chat-panel" id="gamePublicChatPanel" hidden>
+                    <div class="game-panel-heading">
+                        <div>
+                            <p class="game-section-kicker">A FALU HANGJA</p>
+                            <h3>Beszélgetés</h3>
+                        </div>
+                        <span class="private-chat-badge">NYILVÁNOS</span>
+                    </div>
+                    <div class="game-chat-messages game-public-chat-messages" id="gamePublicChatMessages" aria-live="polite">
+                        <p class="game-chat-empty">Még nincs üzenet. Köszönjetek egymásnak!</p>
+                    </div>
+                    <form class="game-chat-form game-public-chat-form" id="gamePublicChatForm">
+                        <label class="visually-hidden" for="gamePublicChatInput">Üzenet a falunak</label>
+                        <input id="gamePublicChatInput" type="text" maxlength="240" autocomplete="off" placeholder="Írj üzenetet mindenkinek…">
+                        <button type="submit" aria-label="Üzenet küldése">Küldés <span aria-hidden="true">➤</span></button>
+                    </form>
+                </section>
+
                 <section class="game-panel game-players-panel">
                     <div class="game-panel-heading">
                         <div>
