@@ -137,6 +137,16 @@
                         <p>Három, a szobában beállított szerepet kell megtalálnia. A célpont halála sem törli a feladatot.</p>
                         <div class="number-control"><button type="button" data-step="-1" data-target="roleAdventurer" aria-label="Kalandorok számának csökkentése">−</button><input id="roleAdventurer" name="adventurer" type="number" min="0" max="16" value="0"><button type="button" data-step="1" data-target="roleAdventurer" aria-label="Kalandorok számának növelése">+</button></div>
                     </div>
+                    <div class="role-field role-soulreaper">
+                        <label for="roleSoulreaper">Lélekrabló</label>
+                        <p>Hajnalban átveheti egy halott játékos szerepét és annak csapatához csatlakozik.</p>
+                        <div class="number-control"><button type="button" data-step="-1" data-target="roleSoulreaper" aria-label="Lélekrablók számának csökkentése">−</button><input id="roleSoulreaper" name="soulreaper" type="number" min="0" max="16" value="0"><button type="button" data-step="1" data-target="roleSoulreaper" aria-label="Lélekrablók számának növelése">+</button></div>
+                    </div>
+                    <div class="role-field role-shadowbinder">
+                        <label for="roleShadowbinder">Árnyékkötő</label>
+                        <p>A lidércek szövetségese. Minden második éjszakán letilthatja egy nem lidérc különleges képességét.</p>
+                        <div class="number-control"><button type="button" data-step="-1" data-target="roleShadowbinder" aria-label="Árnyékkötők számának csökkentése">−</button><input id="roleShadowbinder" name="shadowbinder" type="number" min="0" max="16" value="0"><button type="button" data-step="1" data-target="roleShadowbinder" aria-label="Árnyékkötők számának növelése">+</button></div>
+                    </div>
                 </div>
 
                 <section class="room-time-settings" aria-labelledby="roomTimeSettingsTitle">
@@ -191,6 +201,16 @@
                             <label for="settingSeerSeconds">Látnok szeánsza (mp)</label>
                             <input id="settingSeerSeconds" type="number" min="5" max="3600" step="1" value="10" required>
                             <small>Minden második éjszakán, ha már van halott játékos.</small>
+                        </div>
+                        <div class="room-setting-field">
+                            <label for="settingShadowbinderSeconds">Árnyékkötő köre (mp)</label>
+                            <input id="settingShadowbinderSeconds" type="number" min="5" max="3600" step="1" value="10" required>
+                            <small>Minden második éjszakán választhat célpontot.</small>
+                        </div>
+                        <div class="room-setting-field">
+                            <label for="settingSoulreaperSeconds">Lélekrabló köre (mp)</label>
+                            <input id="settingSoulreaperSeconds" type="number" min="5" max="3600" step="1" value="10" required>
+                            <small>Hajnalban választhat a halott játékosok közül.</small>
                         </div>
                     </div>
                     <p class="form-hint">Minden idő 5 és 3600 másodperc közötti egész szám legyen.</p>

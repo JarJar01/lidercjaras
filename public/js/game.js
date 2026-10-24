@@ -19,11 +19,15 @@
         seer: "🔮",
         landlord: "♜",
         spouses: "💍",
-        adventurer: "🧭"
+        adventurer: "🧭",
+        soulreaper: "👻",
+        shadowbinder: "⛓"
     };
     const phaseLabels = {
         countdown: "Kezdés",
         intro: "Ismerkedés",
+        "night-shadowbinder": "Árnyékkötő köre",
+        "dawn-soulreaper": "Lélekrabló választása",
         "night-swapper": "Szerepcserélő köre",
         "night-special-spirit": "Bohóc lidérc különleges köre",
         "night-spirits": "Lidércek köre",
@@ -41,6 +45,8 @@
     const phaseTitles = {
         countdown: "A sötétség elnyeli a falut",
         intro: "Ismerkedjetek meg egymással",
+        "night-shadowbinder": "Árnyékbilincs",
+        "dawn-soulreaper": "A halottak szerepeiből választasz",
         "night-swapper": "Titkos szerepcsere",
         "night-special-spirit": "A különleges lidérc dönt",
         "night-spirits": "A lidércek vadásznak",
@@ -55,7 +61,7 @@
         "vote-result": "A falu döntött",
         "game-over": "Véget ért a Lidércjárás"
     };
-    const nightPhases = new Set(["night-swapper", "night-special-spirit", "night-spirits", "night-healer", "night-hunters", "night-fool", "night-infectious", "night-adventurer", "night-seer"]);
+    const nightPhases = new Set(["night-shadowbinder", "night-swapper", "night-special-spirit", "night-spirits", "night-healer", "night-hunters", "night-fool", "night-infectious", "night-adventurer", "night-seer"]);
 
     let myRole = null;
     let myRoleLabel = "";
@@ -188,7 +194,37 @@
         const players = alivePlayers();
         const otherPlayers = players.filter((player) => player.id !== socket.id);
 
-        if (phase === "countdown") {
+        if (gameState.shadowbinderBlockedSelf && (nightPhases.has(phase) || phase === "dawn-soulreaper")) {
+            panel.appendChild(makeElement("p", "game-muted", "Az Árnyékkötő megbénította a különleges képességedet erre az éjszakára. Várd meg a következő fázist.") );
+        } else if (phase === "night-shadowbinder") {
+            if (myRole !== "shadowbinder") {
+                panel.appendChild(makeElement("p", "game-muted", "Az Árnyékkötő egy ellenfél képességét bénítja meg. A lidércek titkos csatornája ettől még elérhető a csapattagoknak."));
+            } else {
+                appendSectionDescription(panel, "Válassz egy élő, nem lidérc játékost. A célpont az éjszakai különleges képességét nem használhatja. Az Árnyékbilincs csak minden második éjszakán használható.");
+                const availableIds = new Set(Array.isArray(gameState.shadowbinderTargets) ? gameState.shadowbinderTargets : []);
+                otherPlayers.filter((player) => availableIds.has(player.id)).forEach((player) => {
+                    addChoiceButton(panel, `⛓ Megbénítom: ${player.username}`, () => {
+                        setActionStatus("Az Árnyékbilincs célpontját elküldtük.");
+                        sendAction("shadowbinder-action", { targetId: player.id });
+                    }, "is-danger");
+                });
+                if (!availableIds.size) panel.appendChild(makeElement("p", "game-muted", "Nincs elérhető célpont.") );
+            }
+        } else if (phase === "dawn-soulreaper") {
+            if (myRole !== "soulreaper") {
+                panel.appendChild(makeElement("p", "game-muted", "A Lélekrabló egy halott játékos szerepét veheti át. A többiek várjanak."));
+            } else {
+                appendSectionDescription(panel, "Válassz egy korábban meghalt játékost. Átveszed a szerepét, a képességeivel és a hozzá tartozó győzelmi oldallal. A Lélekrabló szerepét nem veheted át.");
+                const candidateIds = new Set(Array.isArray(gameState.soulReaperCandidates) ? gameState.soulReaperCandidates : []);
+                (gameState.players || []).filter((player) => candidateIds.has(player.id)).forEach((player) => {
+                    addChoiceButton(panel, `👻 Átveszem ${player.username} szerepét`, () => {
+                        setActionStatus("A léleköröklést elküldtük. A szereped a fázis végén frissül.");
+                        sendAction("soul-reaper-action", { targetId: player.id });
+                    }, "is-neutral");
+                });
+                if (!candidateIds.size) panel.appendChild(makeElement("p", "game-muted", "Nincs átvehető halott szerep.") );
+            }
+        } else if (phase === "countdown") {
             panel.appendChild(makeElement("p", "game-muted", "A szereped titokban kiosztásra került. Figyeld a saját szerepkártyádat; a történet hamarosan elkezdődik."));
         } else if (phase === "intro") {
             panel.appendChild(makeElement("p", "game-muted", "Most még mindenki beszélhet egymással. Ismerkedjetek, figyeljétek meg a többieket, és készüljetek az éjszakára."));
@@ -520,7 +556,7 @@
         const meAlive = isMyselfAlive();
         const canUseSeance = Boolean(gameState.seerChannelAvailable && ((myRole === "seer" && meAlive) || !meAlive));
         const activeTeamRole = canUseSeance && phase === "night-seer" ? "seance" :
-            (myRole === "spirits" && ["night-special-spirit", "night-spirits"].includes(phase)) ? "spirits" :
+            (["spirits", "shadowbinder"].includes(myRole) && ["night-shadowbinder", "night-special-spirit", "night-spirits"].includes(phase)) ? "spirits" :
             (myRole === "hunters" && phase === "night-hunters") ? "hunters" :
             (myRole === "spouses" && nightPhases.has(phase) && phase !== "night-seer") ? "spouses" : null;
         const activeTeamMembers = myTeamMembers.filter((member) => gameState.players.some((player) => player.id === member.id && player.alive && player.connected !== false));

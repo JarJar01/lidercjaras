@@ -506,6 +506,8 @@ body.lobby-page {
 .role-color-landlord { border-left-color: #d4b06d; }
 .role-color-spouses { border-left-color: #e5a9bb; }
 .role-color-adventurer { border-left-color: #79c6cf; }
+.role-color-soulreaper { border-left-color: #85a9da; }
+.role-color-shadowbinder { border-left-color: #8b70d6; }
 .waiting-note { display: flex; align-items: flex-start; gap: 10px; margin-top: 18px; padding: 13px 15px; border: 1px solid rgba(169, 144, 210, 0.14); border-radius: 5px; background: rgba(31, 24, 45, 0.45); color: #a69bb8; font-size: 11px; line-height: 1.7; }
 .waiting-note > span:first-child { color: #c4a6f2; font-size: 15px; }
 

@@ -220,7 +220,9 @@ function openSettings() {
         ["Látnok", "A halott játékosokkal külön szöveges csatornán beszélhet, és segítséget kérhet tőlük. Az élők többi tagja nem látja ezt a beszélgetést."],
         ["Földesúr", "A nappali szavazata két szavazati pontot ér. Egy célpontot vagy a SKIP lehetőséget választja, és a voks kétszer számít."],
         ["Házastársak", "A beállított játékosok párokba kerülnek. Éjszaka privát hangon és chaten beszélhetnek egymással. Ha egyikük meghal, a párja is kiesik."],
-        ["Kalandor", "Három, a szobában tényleg beállított szerepet kell megtalálnia. Éjszakánként egy játékosra tippelhet. A célpont halála nem törli a feladatot; mindhárom helyes találat után nyer."]
+        ["Kalandor", "Három, a szobában tényleg beállított szerepet kell megtalálnia. Éjszakánként egy játékosra tippelhet. A célpont halála nem törli a feladatot; mindhárom helyes találat után nyer."],
+        ["Lélekrabló", "Új halál után, hajnalban kiválaszthat egy halott játékost, és átveheti a szerepét, képességeit és győzelmi oldalát. Halott Lélekrabló szerepét nem veheti át."],
+        ["Árnyékkötő", "A lidércek szövetségese. Minden második éjszakán kiválaszthat egy élő, nem lidérc játékost, akinek arra az éjszakára letiltja a különleges képességét. A lidércekkel titkos csatornán kommunikálhat."]
     ].forEach(([name, descriptionText]) => {
         const entry = createElement("article", "lj-guide-entry");
         entry.append(createElement("strong", "", name), createElement("p", "", descriptionText));

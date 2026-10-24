@@ -1,5 +1,5 @@
-LIDÉRCJÁRÁS – LÁTNOK, FÖLDESÚR, HÁZASTÁRSAK ÉS KALANDOR
-Verzió: lidercjaras-clown-fake-vote-2026-10-24-1
+LIDÉRCJÁRÁS – LÉLEKRABLÓ ÉS ÁRNYÉKKÖTŐ
+Verzió: lidercjaras-soulreaper-shadowbinder-2026-10-24-2
 
 TELEPÍTÉS
 1. Állítsd le a futó szervert Ctrl+C billentyűkkel.
@@ -110,3 +110,15 @@ LEGÚJABB MÓDOSÍTÁS – HAMIS SZAVAZAT (2026-10-24):
 - A különleges körben kiválaszt egy élő játékost. A célpont következő nappali szavazásán a szerver bármilyen kiválasztott célpont helyett titokban SKIP-ként tárolja a voksot. A játékosnak leadottnak látszó szavazata ettől még nem nevezi meg a tényleges célpontját. Ha nem kattint semmire, a szavazás lejártakor az alapértelmezett SKIP érvényesül.
 - A nyilvános reggeli napló csak ezt jelzi: „A szavazást valami megzavarta.” Nem árulja el, ki volt a célpont.
 - A szabotázs a korábbi szabály szerint három kör elteltével használható újra; a Bohóc lidérc egyszeri szerepvizsgálata külön képességként megmarad.
+
+
+ÚJ SZEREPEK (2026-10-24, verzió: lidercjaras-soulreaper-shadowbinder-2026-10-24-2)
+- Lélekrabló: ha új haláleset történt, és van élő Lélekrabló, hajnalban vagy a szavazás utáni új menet előtt választhat egy korábban kiesett játékost, és átveszi a szerepét, a hozzá tartozó győzelmi oldallal. Halott Lélekrabló szerepe nem választható. A szerepátvétel után a játék ellenőrzi az új győzelmi feltételeket, mielőtt folytatódik.
+- Árnyékkötő: a lidércek oldalához tartozik, ismeri a lidérc társait, és a lidércek titkos csatornáját használhatja. Minden második éjszakán kiválaszt egy élő, nem lidérc-fakciójú játékost, akinek az adott éjszakán letiltódik a különleges képessége. Az Árnyékkötő nem támad a rendes lidércek helyett.
+- Az Árnyékkötő körének időtartama és a Lélekrabló választási ideje a szobalétrehozásnál külön állítható 5–3600 másodperc között.
+- Ha az Árnyékkötő megbénít egy Látnokot, az adott éjszakán a Látnok nem vesz részt a halottakkal tartott szeánszban.
+- A Lélekrabló lehetőséget kap arra, hogy a haláleset utáni győzelmi ellenőrzés előtt szerepet örököljön; ezért a szerver csak az öröklés után zárja le a játékot, ha ez még változtathat az eredményen.
+
+TESZTELÉS
+- Helyi indítás: npm start, majd http://localhost:3000. A /health oldalon ellenőrizhető az aktuális verzió.
+- A JavaScript-szintaxis ellenőrzése nem helyettesíti a több böngészős játéktesztet. A csapathang WebRTC-kapcsolatát és az új szerepek teljes körét több játékossal külön próbáljátok ki.

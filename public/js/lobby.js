@@ -22,7 +22,7 @@
     const lobbyMessage = document.getElementById("lobbyMessage");
     const modalRoot = document.getElementById("modalRoot");
 
-    const roleKeys = ["spirits", "healer", "villagers", "hunters", "fool", "swapper", "infectious", "seer", "landlord", "spouses", "adventurer"];
+    const roleKeys = ["spirits", "healer", "villagers", "hunters", "fool", "swapper", "infectious", "seer", "landlord", "spouses", "adventurer", "soulreaper", "shadowbinder"];
     const roleLabels = {
         spirits: "Lidércek",
         healer: "Gyógyító",
@@ -34,7 +34,9 @@
         seer: "Látnok",
         landlord: "Földesúr",
         spouses: "Házastársak",
-        adventurer: "Kalandor"
+        adventurer: "Kalandor",
+        soulreaper: "Lélekrabló",
+        shadowbinder: "Árnyékkötő"
     };
     const roleIds = {
         spirits: "roleSpirits",
@@ -47,7 +49,9 @@
         seer: "roleSeer",
         landlord: "roleLandlord",
         spouses: "roleSpouses",
-        adventurer: "roleAdventurer"
+        adventurer: "roleAdventurer",
+        soulreaper: "roleSoulreaper",
+        shadowbinder: "roleShadowbinder"
     };
     const roleClasses = {
         spirits: "role-color-spirits",
@@ -60,7 +64,9 @@
         seer: "role-color-seer",
         landlord: "role-color-landlord",
         spouses: "role-color-spouses",
-        adventurer: "role-color-adventurer"
+        adventurer: "role-color-adventurer",
+        soulreaper: "role-color-soulreaper",
+        shadowbinder: "role-color-shadowbinder"
     };
 
     let currentRoom = null;
@@ -369,7 +375,7 @@
     function readRoomSettings() {
         const keys = [
             "introSeconds", "daySeconds", "spiritsSeconds",
-            "healerSeconds", "huntersSeconds", "foolSeconds", "swapperSeconds", "infectiousSeconds", "adventurerSeconds", "seerSeconds"
+            "healerSeconds", "huntersSeconds", "foolSeconds", "swapperSeconds", "infectiousSeconds", "adventurerSeconds", "seerSeconds", "shadowbinderSeconds", "soulreaperSeconds"
         ];
         const ids = {
             introSeconds: "settingIntroSeconds",
@@ -381,7 +387,9 @@
             swapperSeconds: "settingSwapperSeconds",
             infectiousSeconds: "settingInfectiousSeconds",
             adventurerSeconds: "settingAdventurerSeconds",
-            seerSeconds: "settingSeerSeconds"
+            seerSeconds: "settingSeerSeconds",
+            shadowbinderSeconds: "settingShadowbinderSeconds",
+            soulreaperSeconds: "settingSoulreaperSeconds"
         };
         const settings = {};
         for (const key of keys) {
@@ -585,7 +593,7 @@
             return Array.isArray(state.seancePeerIds) && state.seancePeerIds.length > 0 ? "seance" : null;
         }
         if (!gamePlayerAlive) return null;
-        if (voiceRole === "spirits" && ["night-special-spirit", "night-spirits"].includes(state.phase)) return "spirits";
+        if (["spirits", "shadowbinder"].includes(voiceRole) && ["night-shadowbinder", "night-special-spirit", "night-spirits"].includes(state.phase)) return "spirits";
         if (voiceRole === "hunters" && state.phase === "night-hunters") return "hunters";
         if (voiceRole === "spouses" && ["night-swapper", "night-special-spirit", "night-spirits", "night-healer", "night-hunters", "night-fool", "night-infectious", "night-adventurer"].includes(state.phase)) return "spouses";
         return null;
