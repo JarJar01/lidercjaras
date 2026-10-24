@@ -281,3 +281,213 @@ body.lj-effect-spirits .background::after {
 .lj-guide-entry p { margin: 4px 0 0; color: #9991ac; font-size: 0.76rem; line-height: 1.5; }
 .lj-guide-steps { margin: 10px 0 0; padding-left: 20px; color: #a9a1bb; font-size: 0.78rem; line-height: 1.6; }
 .lj-guide-steps li + li { margin-top: 5px; }
+
+
+/* =====================================================
+   LIDÉRCJÁRÁS – FANTASY FŐMENÜ, KÉPI HÁTTÉR ÉS FINOM ANIMÁCIÓK
+   ===================================================== */
+.background { background: transparent; }
+.background::before {
+    content: "";
+    position: absolute;
+    z-index: 0;
+    inset: -2%;
+    pointer-events: none;
+    background-image:
+        linear-gradient(180deg, rgba(4, 7, 17, .42) 0%, rgba(5, 7, 15, .14) 38%, rgba(5, 6, 13, .67) 100%),
+        linear-gradient(90deg, rgba(3, 5, 12, .35), transparent 35%, transparent 65%, rgba(3, 5, 12, .35)),
+        url('/assets/backgrounds/village-night.webp');
+    background-size: cover;
+    background-position: center 52%;
+    transform: scale(1.02);
+    animation: ljLandscapeBreath 32s ease-in-out infinite alternate;
+    will-change: transform;
+}
+.background .moon,
+.background .mist,
+.background .particles { z-index: 1; }
+.background .vignette { z-index: 2; }
+@keyframes ljLandscapeBreath {
+    0% { transform: scale(1.02) translate3d(0, 0, 0); }
+    100% { transform: scale(1.075) translate3d(-.35%, .2%, 0); }
+}
+body.lj-theme-blood .background::before { filter: sepia(.1) hue-rotate(315deg) saturate(1.15); }
+body.lj-theme-blue .background::before { filter: hue-rotate(12deg) saturate(.82) brightness(.93); }
+body.lj-theme-green .background::before { filter: hue-rotate(42deg) saturate(.9) brightness(.91); }
+body.home-page { min-height: 100dvh; overflow: hidden; background: #070a13; }
+body.home-page .background::before {
+    background-image:
+        linear-gradient(180deg, rgba(3, 6, 15, .26) 0%, rgba(4, 6, 15, .12) 40%, rgba(3, 4, 10, .78) 100%),
+        linear-gradient(90deg, rgba(2, 4, 11, .38), rgba(4, 5, 13, .04) 42%, rgba(4, 5, 13, .08) 58%, rgba(2, 4, 11, .38)),
+        url('/assets/backgrounds/village-night.webp');
+    background-position: center 54%;
+}
+.home-page .main-content {
+    min-height: 100dvh;
+    box-sizing: border-box;
+    padding: clamp(18px, 4vh, 46px) clamp(18px, 4vw, 68px);
+    align-items: center;
+}
+.home-page .game-title {
+    position: relative;
+    isolation: isolate;
+    width: min(100%, 900px);
+    max-width: 900px;
+    margin-top: 0;
+    padding: clamp(28px, 5vh, 58px) clamp(18px, 4vw, 58px) clamp(24px, 3.8vh, 42px);
+    border: 1px solid rgba(220, 183, 121, .42);
+    border-radius: 20px;
+    background:
+        radial-gradient(ellipse at 50% 0%, rgba(113, 84, 153, .26), transparent 53%),
+        linear-gradient(145deg, rgba(8, 11, 23, .79), rgba(8, 8, 17, .78));
+    box-shadow: 0 28px 100px rgba(0,0,0,.48), inset 0 0 54px rgba(106, 82, 154, .06), 0 0 50px rgba(157, 125, 217, .09);
+    backdrop-filter: blur(9px);
+    animation: homeCardRise .9s cubic-bezier(.2,.75,.2,1) both;
+}
+.home-page .game-title::before,
+.home-page .game-title::after {
+    content: "";
+    position: absolute;
+    z-index: -1;
+    pointer-events: none;
+}
+.home-page .game-title::before {
+    inset: 9px;
+    border: 1px solid rgba(209, 177, 122, .15);
+    border-radius: 14px;
+}
+.home-page .game-title::after {
+    width: 68%;
+    height: 1px;
+    left: 16%;
+    top: 0;
+    background: linear-gradient(90deg, transparent, rgba(255,222,164,.72), transparent);
+    box-shadow: 0 0 16px rgba(231, 190, 127, .36);
+}
+@keyframes homeCardRise { from { opacity: 0; transform: translateY(18px) scale(.985); } to { opacity: 1; transform: translateY(0) scale(1); } }
+.home-page .title-symbol {
+    display: grid;
+    width: 62px;
+    height: 62px;
+    place-items: center;
+    margin: 0 auto 22px;
+    border: 1px solid rgba(224, 194, 139, .45);
+    border-radius: 50%;
+    background: radial-gradient(circle, rgba(151, 113, 207, .24), rgba(12, 12, 23, .74) 72%);
+    color: #efcf91;
+    font-size: 29px;
+    box-shadow: 0 0 0 6px rgba(225, 184, 119, .04), 0 0 35px rgba(157, 115, 218, .24), inset 0 0 22px rgba(215, 178, 119, .09);
+}
+.home-page .subtitle {
+    margin-bottom: clamp(14px, 2vh, 22px);
+    color: #d9bd8d;
+    font-size: 10px;
+    letter-spacing: clamp(3px, .65vw, 7px);
+    text-shadow: 0 2px 10px #000;
+}
+.home-page h1 {
+    font-size: clamp(42px, 7.2vw, 88px);
+    line-height: 1.06;
+    letter-spacing: clamp(3px, .65vw, 10px);
+    color: #f2e7d1;
+    text-shadow: 0 2px 25px rgba(218, 187, 143, .19), 0 4px 24px #000;
+}
+.home-page .tagline {
+    max-width: 620px;
+    margin: clamp(13px, 2vh, 23px) auto 0;
+    color: #c4bdd0;
+    font-family: Georgia, "Times New Roman", serif;
+    font-size: clamp(13px, 1.35vw, 17px);
+    letter-spacing: .5px;
+    line-height: 1.7;
+    text-shadow: 0 2px 12px #000;
+}
+.home-page .title-line {
+    width: min(250px, 44%);
+    margin: clamp(21px, 3vh, 34px) auto clamp(20px, 2.7vh, 30px);
+    background: linear-gradient(90deg, transparent, #d6b779, #b89adb, #d6b779, transparent);
+    box-shadow: 0 0 16px rgba(214, 183, 121, .24);
+}
+.home-page .start-game-button {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 14px;
+    min-height: 56px;
+    min-width: min(310px, 100%);
+    padding: 14px 27px;
+    border: 1px solid rgba(231, 200, 143, .86);
+    border-radius: 7px;
+    background: linear-gradient(110deg, rgba(62, 42, 73, .97), rgba(37, 29, 46, .97) 55%, rgba(69, 48, 65, .97));
+    color: #fff1d9;
+    letter-spacing: 2.3px;
+    box-shadow: 0 8px 28px rgba(0,0,0,.3), 0 0 0 4px rgba(222, 184, 119, .05), inset 0 1px 0 rgba(255,255,255,.08);
+    overflow: hidden;
+    transition: transform .25s ease, border-color .25s ease, box-shadow .25s ease, filter .25s ease;
+}
+.home-page .start-game-button::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    transform: translateX(-120%);
+    background: linear-gradient(105deg, transparent 24%, rgba(255,255,255,.15) 50%, transparent 72%);
+    transition: transform .65s ease;
+}
+.home-page .start-game-button:hover::before { transform: translateX(120%); }
+.home-page .start-game-button:hover {
+    transform: translateY(-3px);
+    border-color: #ffedc0;
+    box-shadow: 0 12px 36px rgba(0,0,0,.4), 0 0 32px rgba(208, 161, 238, .25), inset 0 0 20px rgba(250, 223, 168, .07);
+    filter: brightness(1.08);
+}
+.start-button-rune { color: #f1d39b; font-size: 19px; text-shadow: 0 0 12px rgba(241,211,155,.55); }
+.start-button-arrow { color: #d9c2ef; font-size: 20px; transition: transform .25s ease; }
+.home-page .start-game-button:hover .start-button-arrow { transform: translateX(4px); }
+.home-feature-strip {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-wrap: wrap;
+    gap: 15px;
+    margin-top: clamp(22px, 3.2vh, 36px);
+    color: rgba(224, 215, 232, .72);
+    font-size: 9px;
+    font-weight: 700;
+    letter-spacing: 1.4px;
+}
+.home-feature-strip span { display: inline-flex; align-items: center; gap: 8px; }
+.home-feature-strip i { color: #ddbf85; font-size: 14px; font-style: normal; }
+.home-feature-strip b { width: 3px; height: 3px; border-radius: 50%; background: #a78bfa; box-shadow: 0 0 9px #a78bfa; }
+.home-page .version {
+    right: 25px;
+    bottom: 18px;
+    padding: 8px 12px;
+    border: 1px solid rgba(228, 198, 146, .17);
+    border-radius: 999px;
+    background: rgba(5, 7, 15, .5);
+    color: #b3a6be;
+    letter-spacing: 1.6px;
+    backdrop-filter: blur(7px);
+}
+@media (max-height: 740px) and (min-width: 761px) {
+    .home-page .game-title { padding-top: 22px; padding-bottom: 22px; }
+    .home-page .title-symbol { width: 45px; height: 45px; margin-bottom: 12px; font-size: 23px; }
+    .home-page .title-line { margin-top: 16px; margin-bottom: 15px; }
+    .home-feature-strip { margin-top: 16px; }
+}
+@media (max-width: 760px) {
+    .home-page { overflow-y: auto; }
+    .home-page .main-content { min-height: 100dvh; padding: 78px 16px 62px; }
+    .home-page .game-title { padding: 28px 18px 25px; border-radius: 16px; }
+    .home-page h1 { font-size: clamp(36px, 10vw, 60px); letter-spacing: 2px; overflow-wrap: anywhere; }
+    .home-page .title-symbol { width: 50px; height: 50px; margin-bottom: 16px; }
+    .home-page .subtitle { letter-spacing: 3px; line-height: 1.7; }
+    .home-page .tagline { margin-top: 17px; }
+    .home-feature-strip { gap: 10px; font-size: 8px; letter-spacing: .8px; }
+    .home-feature-strip b { display: none; }
+    .home-page .version { right: 12px; bottom: 10px; font-size: 8px; }
+}
+@media (prefers-reduced-motion: reduce) {
+    .background::before, .home-page .game-title { animation: none !important; }
+}

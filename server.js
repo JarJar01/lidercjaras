@@ -10,7 +10,7 @@ const app = express();
 const server = http.createServer(app);
 const io = new Server(server);
 const PUBLIC_DIR = path.join(__dirname, "public");
-const APP_VERSION = "lidercjaras-ui-refresh-2026-10-24-1";
+const APP_VERSION = "lidercjaras-clown-sabotage-scrollbox-2026-10-24-1";
 
 app.get("/health", (_req, res) => {
     res.json({ ok: true, app: "Lidércjárás", version: APP_VERSION });
@@ -713,9 +713,8 @@ function resolveSwapperActions(room) {
         const target = room.players.get(String(action.targetId || ""));
         const effect = String(action.effect || "");
         if (!target || target.id === clown.id || target.alive === false || target.connected === false) continue;
-        // A Bohóc lidérc szabotázsa most Hamis szavazat: a kiválasztott játékos
-        // következő nappali voksát a szerver SKIP-ként számolja el.
-        if (effect !== "fake-vote") continue;
+        // A Bohóc lidérc három választható szabotázsa: hamis szavazat, némítás vagy hangelvékonyítás.
+        if (!["fake-vote", "mute", "thin"].includes(effect)) continue;
         game.pendingClownEffects.push({ clownId: clown.id, targetId: target.id, effect });
     }
     applyPendingClownEffects(room);
@@ -730,6 +729,7 @@ function applyPendingClownEffects(room) {
         const clown = room.players.get(action.clownId);
         if (!target || !clown || target.alive === false || target.connected === false || clown.alive === false || clown.connected === false) continue;
         if (action.effect === "fake-vote") {
+            // A célpont következő nappali szavazatát a szerver SKIP-ként számolja.
             game.voteSabotageTargetIds.add(target.id);
             game.pendingPublicEvents.push({
                 id: crypto.randomUUID(),
@@ -737,6 +737,9 @@ function applyPendingClownEffects(room) {
                 text: "A szavazást valami megzavarta.",
                 at: Date.now()
             });
+        } else if (action.effect === "mute" || action.effect === "thin") {
+            // A hatás a következő éjszaka kezdetéig él; a kliensek a bejövő hangon alkalmazzák.
+            target.voiceSabotage = action.effect;
         }
     }
     game.pendingClownEffects = [];
@@ -1270,7 +1273,7 @@ function sendPrivateRole(socket, room, player) {
         shadowbinder: "A lidércek oldalán játszol, ismered a lidérc társaidat. Minden második éjszakán kiválaszthatsz egy élő, nem lidérc játékost, akinek az éjszakai különleges képessége megbénul. Nem támadsz a lidércek helyett, de velük kommunikálhatsz."
     };
     if (player.specialSpirit) {
-        roleDescriptions.spirits = "Bohóc lidérc vagy: továbbra is a lidércek csapatában játszol és részt veszel a támadásban. A különleges körödben névfelvételt vagy nappali némítást használhatsz; ezt a szabotázst 3 kör elteltével újra használhatod. Ha egyedüli lidérc vagy, a szerepvizsgálatodat a teljes játékban csak egyszer használhatod. A célpont a saját eredeti nevét látja; mindenki más a felvett nevet látja.";
+        roleDescriptions.spirits = "Bohóc lidérc vagy: a lidércek csapatában játszol és részt veszel a támadásban. A különleges körödben Hamis szavazatot, némítást vagy hangelvékonyítást választhatsz. A szabotázs 3 kör elteltével használható újra. Ha egyedüli lidérc vagy, a szerepvizsgálatodat a teljes játékban csak egyszer használhatod.";
     }
     socket.emit("private-role", {
         role: player.role,
@@ -1597,14 +1600,20 @@ io.on("connection", (socket) => {
         if (!target || target.id === player.id || target.alive === false || target.connected === false) {
             socket.emit("game-action-error", "Válassz egy másik, élő játékost."); return;
         }
-        if (effect !== "fake-vote") {
-            socket.emit("game-action-error", "Válaszd a Hamis szavazat szabotázst."); return;
+        const allowedEffects = new Set(["fake-vote", "mute", "thin"]);
+        if (!allowedEffects.has(effect)) {
+            socket.emit("game-action-error", "Válassz érvényes Bohóc lidérc-szabotázst."); return;
         }
         room.game.swapperActions.set(socket.id, { clownId: player.id, targetId: target.id, effect });
         room.game.clownSabotageLastUsedRound.set(socket.id, room.game.round);
         socket.emit("swapper-used", { used: true, cooldownRounds: 3 });
         emitGameState(room);
-        socket.emit("game-action-ack", { message: "A Hamis szavazat szabotázs rögzítve. A kiválasztott játékos következő nappali voksát a rendszer SKIP-ként számolja el. A következő használatig 3 kör telik el." });
+        const confirmations = {
+            "fake-vote": "A Hamis szavazat rögzítve. A célpont következő nappali voksát a szerver titokban SKIP-ként számolja el.",
+            mute: "A Némítás szabotázs rögzítve. A célpont hangját a többi játékos nem fogja hallani a nappali szakaszban.",
+            thin: "A Hangelvékonyítás rögzítve. A célpont hangja magasabb lesz a többiek böngészőjében a nappali szakaszban."
+        };
+        socket.emit("game-action-ack", { message: `${confirmations[effect]} A szabotázs a következő használatig 3 körig pihen.` });
         maybeAdvanceActionPhase(room);
     });
 

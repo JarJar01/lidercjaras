@@ -1026,3 +1026,56 @@ body.lobby-page:has(#gameStartedView:not([hidden])) .game-layout:has(> .game-tea
 body.lobby-page:has(#gameStartedView:not([hidden])) .game-layout:has(> .game-team-chat-panel[hidden]):has(> .game-public-chat-panel[hidden]) .game-role-panel {
     grid-row: auto;
 }
+
+
+/* Bohóc lidérc: egyetlen elegáns, saját görgetős képességpanel */
+.clown-action-console {
+    display: flex;
+    flex-direction: column;
+    gap: 13px;
+    max-height: min(48vh, 440px);
+    min-height: 0;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    padding: 12px;
+    border: 1px solid rgba(183, 142, 239, .36);
+    border-radius: 14px;
+    background:
+        radial-gradient(ellipse at 0% 0%, rgba(125, 76, 179, .18), transparent 58%),
+        linear-gradient(180deg, rgba(12, 10, 23, .96), rgba(6, 7, 15, .96));
+    box-shadow: inset 0 1px 0 rgba(255,255,255,.035), 0 12px 28px rgba(0,0,0,.18);
+    scrollbar-width: thin;
+    scrollbar-color: rgba(178, 135, 230, .62) rgba(4, 4, 10, .6);
+}
+.clown-action-console::-webkit-scrollbar,
+.clown-target-list::-webkit-scrollbar { width: 7px; }
+.clown-action-console::-webkit-scrollbar-track,
+.clown-target-list::-webkit-scrollbar-track { background: rgba(4,4,10,.5); border-radius: 999px; }
+.clown-action-console::-webkit-scrollbar-thumb,
+.clown-target-list::-webkit-scrollbar-thumb { background: rgba(178,135,230,.55); border-radius: 999px; }
+.clown-console-intro { display: flex; align-items: center; gap: 11px; padding-bottom: 11px; border-bottom: 1px solid rgba(184,149,227,.16); }
+.clown-console-icon { display: grid; place-items: center; flex: 0 0 38px; width: 38px; height: 38px; border: 1px solid rgba(188,147,241,.42); border-radius: 12px; color: #e1c6ff; background: linear-gradient(145deg, rgba(132,80,180,.34), rgba(24,18,39,.8)); font-size: 22px; box-shadow: 0 0 22px rgba(139,92,246,.17); }
+.clown-console-intro-copy { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.clown-console-intro-copy strong { color: #f0e4ff; font-family: Georgia, 'Times New Roman', serif; font-size: 15px; }
+.clown-console-intro-copy span { color: #a99bbd; font-size: 11px; line-height: 1.45; }
+.clown-console-section { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+.clown-console-section + .clown-console-section { padding-top: 13px; border-top: 1px solid rgba(184,149,227,.17); }
+.clown-console-kicker { margin: 0; color: #a992c8; font-size: 9px; font-weight: 800; letter-spacing: .16em; }
+.clown-effect-options { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; }
+.clown-effect-option { min-width: 0; padding: 9px 6px; border: 1px solid rgba(152,128,185,.25); border-radius: 9px; background: rgba(25,21,37,.86); color: #c7bdd8; font: inherit; font-size: 10px; line-height: 1.35; text-align: center; cursor: pointer; transition: border-color .18s ease, background .18s ease, transform .18s ease, box-shadow .18s ease; }
+.clown-effect-option:hover { transform: translateY(-1px); border-color: rgba(194,154,246,.65); }
+.clown-effect-option.is-selected { border-color: #c39bff; background: linear-gradient(145deg, rgba(111,65,157,.56), rgba(39,25,58,.9)); color: #fff1ff; box-shadow: 0 0 18px rgba(154,104,223,.18), inset 0 1px 0 rgba(255,255,255,.06); }
+.clown-effect-hint { margin: 0; padding: 8px 10px; border-left: 2px solid rgba(185,143,240,.68); border-radius: 0 7px 7px 0; background: rgba(90,62,121,.14); color: #bdb0d1; font-size: 10px; line-height: 1.5; }
+.clown-target-list { display: flex; flex-direction: column; gap: 5px; max-height: 185px; min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding: 5px; border: 1px solid rgba(156,131,195,.19); border-radius: 10px; background: rgba(3,4,10,.42); scrollbar-width: thin; scrollbar-color: rgba(178,135,230,.58) rgba(4,4,10,.45); }
+.clown-target-option { min-height: 36px; padding: 8px 10px; border-radius: 8px; background: rgba(37,30,52,.58); font-size: 11px; }
+.clown-target-option::after { content: '›'; margin-left: auto; color: #b99add; font-size: 19px; }
+.clown-inspect-section .clown-console-kicker { color: #90cbd9; }
+.clown-inspect-list .clown-target-option { border-color: rgba(107,171,192,.26); background: rgba(15,35,45,.48); }
+.clown-inspect-list .clown-target-option:hover:not(:disabled) { border-color: rgba(124,205,224,.68); background: rgba(26,57,70,.66); }
+.clown-cooldown-message { margin: 0; padding: 10px 12px; border: 1px solid rgba(163,140,194,.2); border-radius: 9px; background: rgba(25,20,35,.7); color: #a69ab8; font-size: 11px; line-height: 1.5; }
+@media (max-width: 720px) {
+    .clown-action-console { max-height: 44vh; padding: 9px; }
+    .clown-effect-options { grid-template-columns: 1fr; }
+    .clown-effect-option { text-align: left; padding: 10px; }
+    .clown-target-list { max-height: 160px; }
+}

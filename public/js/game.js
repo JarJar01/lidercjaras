@@ -90,6 +90,7 @@
     let mySwapperUsed = false;
     let myRoleSwapUsed = false;
     let mySpiritInspectUsed = false;
+    let selectedClownEffect = "fake-vote";
     let amIInfected = false;
     let infectedPlayerIds = new Set();
     let rematchReadyIds = [];
@@ -326,34 +327,83 @@
             if (myRole !== "spirits" || !mySpecialSpirit) {
                 panel.appendChild(makeElement("p", "game-muted", "A Bohóc lidérc titkos képességköre zajlik. A többi játékos várjon."));
             } else if (gameState.specialSpiritActionSubmitted) {
-                panel.appendChild(makeElement("p", "game-muted", "Ebben a különleges körben már döntöttél. Várd meg a rendes lidérckört.") );
+                panel.appendChild(makeElement("p", "game-muted", "Ebben a különleges körben már döntöttél. Várd meg a rendes lidérckört."));
             } else {
                 const livingTeammates = myTeamMembers.filter((member) => players.some((player) => player.id === member.id));
                 const sabotageReady = Boolean(gameState.specialSpiritSabotageReady);
                 const cooldown = Math.max(0, Number(gameState.specialSpiritSabotageRoundsRemaining) || 0);
-                appendSectionDescription(panel, `Bohóc lidércként 20 másodperced van. A szabotázsod 3 körönként használható újra; a szerepvizsgálatot legfeljebb egyszer használhatod a teljes játékban. Ezután a rendes lidérckörben még támadhatsz.`);
+                const consoleBox = makeElement("div", "clown-action-console");
+                const intro = makeElement("div", "clown-console-intro");
+                intro.appendChild(makeElement("span", "clown-console-icon", "✦"));
+                const introText = makeElement("div", "clown-console-intro-copy");
+                introText.appendChild(makeElement("strong", "", "Bohóc lidérc · titkos képesség"));
+                introText.appendChild(makeElement("span", "", "Válassz egy szabotázst, majd egy célpontot. A lista ezen a panelen belül görgethető."));
+                intro.appendChild(introText);
+                consoleBox.appendChild(intro);
+
                 if (sabotageReady) {
-                    appendSectionDescription(panel, "Hamis szavazat: válassz egy élő játékost. A következő nappali szavazásánál bármire kattint, a szerver titokban SKIP-ként számolja el a voksát. A nyilvános napló csak annyit jelez, hogy a szavazást valami megzavarta.");
-                    otherPlayers.forEach((player) => {
-                        addChoiceButton(panel, `🎭 Hamis szavazat erre a játékosra: ${player.username}`, () => {
-                            setActionStatus("A szabotázs rögzítve. A célpont következő nappali voksát a rendszer titokban SKIP-ként számolja el.");
-                            sendAction("swapper-action", { targetId: player.id, effect: "fake-vote" });
-                        }, "is-neutral");
+                    const sabotageSection = makeElement("section", "clown-console-section");
+                    sabotageSection.appendChild(makeElement("p", "clown-console-kicker", "SZABOTÁZS TÍPUSA"));
+                    const modeList = makeElement("div", "clown-effect-options");
+                    const effectChoices = [
+                        { id: "fake-vote", label: "🎭 Hamis szavazat", hint: "A célpont voksát titokban SKIP-ként számolja a szerver." },
+                        { id: "mute", label: "🔇 Némítás", hint: "A következő nappali szakaszban mások nem hallják a célpont hangját." },
+                        { id: "thin", label: "🗣 Hangelvékonyítás", hint: "A célpont hangja magasabb lesz a többiek számára." }
+                    ];
+                    effectChoices.forEach((choice) => {
+                        const option = makeElement("button", `clown-effect-option${selectedClownEffect === choice.id ? " is-selected" : ""}`, choice.label);
+                        option.type = "button";
+                        option.disabled = actionSubmitted;
+                        option.setAttribute("aria-pressed", String(selectedClownEffect === choice.id));
+                        option.addEventListener("click", () => {
+                            selectedClownEffect = choice.id;
+                            renderActions();
+                        });
+                        modeList.appendChild(option);
                     });
-                } else {
-                    panel.appendChild(makeElement("p", "game-muted", `A Hamis szavazat még ${cooldown} körig nem használható.`));
-                }
-                if (livingTeammates.length <= 1 && !mySpiritInspectUsed) {
-                    appendSectionDescription(panel, "Mivel egyedüli lidérc vagy, egyszer a teljes játékban megvizsgálhatod egy másik élő játékos szerepét. Ez a szabotázs időzítésétől független képesség.");
+                    sabotageSection.appendChild(modeList);
+                    const currentChoice = effectChoices.find((choice) => choice.id === selectedClownEffect) || effectChoices[0];
+                    sabotageSection.appendChild(makeElement("p", "clown-effect-hint", currentChoice.hint));
+                    sabotageSection.appendChild(makeElement("p", "clown-console-kicker", "VÁLASSZ CÉLPONTOT"));
+                    const targetList = makeElement("div", "clown-target-list");
                     otherPlayers.forEach((player) => {
-                        addChoiceButton(panel, `☷ Megvizsgálom: ${player.username}`, () => {
+                        const targetButton = addChoiceButton(targetList, `${player.alive ? "●" : "†"}  ${player.username}`, () => {
+                            const effect = selectedClownEffect;
+                            const effectLabel = effect === "fake-vote" ? "Hamis szavazat" : effect === "mute" ? "Némítás" : "Hangelvékonyítás";
+                            setActionStatus(`${effectLabel} szabotázs elküldve. Várd meg a kör végét.`);
+                            sendAction("swapper-action", { targetId: player.id, effect });
+                        }, selectedClownEffect === "mute" ? "is-danger" : "is-neutral");
+                        targetButton.classList.add("clown-target-option");
+                    });
+                    if (!otherPlayers.length) targetList.appendChild(makeElement("p", "game-muted", "Nincs elérhető célpont."));
+                    sabotageSection.appendChild(targetList);
+                    consoleBox.appendChild(sabotageSection);
+                } else {
+                    consoleBox.appendChild(makeElement("p", "clown-cooldown-message", `A szabotázsod még ${cooldown} körig pihen. A Bohóc lidérc szabotázsa 3 körönként használható újra.`));
+                }
+
+                if (livingTeammates.length <= 1 && !mySpiritInspectUsed) {
+                    const inspectSection = makeElement("section", "clown-console-section clown-inspect-section");
+                    inspectSection.appendChild(makeElement("p", "clown-console-kicker", "EGYSZERI SZEREPVIZSGÁLAT"));
+                    inspectSection.appendChild(makeElement("p", "game-action-description", "Mivel egyedüli lidérc vagy, a teljes játékban egyszer megvizsgálhatod egy másik élő játékos szerepét. A lista ugyanebben a görgethető panelben található."));
+                    const inspectList = makeElement("div", "clown-target-list clown-inspect-list");
+                    otherPlayers.forEach((player) => {
+                        const targetButton = addChoiceButton(inspectList, `◉  ${player.username} szerepének megtekintése`, () => {
                             setActionStatus(`Megvizsgálod ${player.username} szerepét…`);
                             sendAction("special-spirit-inspect", { targetId: player.id });
                         }, "is-neutral");
+                        targetButton.classList.add("clown-target-option");
                     });
+                    if (!otherPlayers.length) inspectList.appendChild(makeElement("p", "game-muted", "Nincs elérhető célpont."));
+                    inspectSection.appendChild(inspectList);
+                    consoleBox.appendChild(inspectSection);
+                } else if (livingTeammates.length <= 1 && mySpiritInspectUsed) {
+                    consoleBox.appendChild(makeElement("p", "clown-cooldown-message", "Az egyszeri szerepvizsgálatodat már felhasználtad ebben a játékban."));
                 }
-                if (!sabotageReady && (livingTeammates.length > 1 || mySpiritInspectUsed)) {
-                    panel.appendChild(makeElement("p", "game-muted", "Ebben a különleges körben most nincs használható képességed. A normál lidérckör következik.") );
+
+                panel.appendChild(consoleBox);
+                if (!sabotageReady && livingTeammates.length > 1) {
+                    panel.appendChild(makeElement("p", "game-muted", "A különleges szabotázs most pihen. A normál lidérckör következik."));
                 }
             }
         } else if (phase === "night-spirits") {
@@ -363,7 +413,7 @@
                 const livingTeammates = myTeamMembers.filter((member) => players.some((player) => player.id === member.id));
                 if (livingTeammates.length <= 1) {
                     appendSectionDescription(panel, mySpecialSpirit
-                        ? "Egyedüli Bohóc lidércként megtámadhatsz egy játékost. A különleges képességkörben egyszer névfelvételt, némítást vagy (egyedüliként) szerepvizsgálatot választhattál."
+                        ? "Bohóc lidércként a különleges körödben Hamis szavazatot, némítást vagy hangelvékonyítást választhatsz. Egyedüli lidércként egyszer szerepet is vizsgálhatsz a teljes játékban; a rendes lidérckörben támadhatsz vagy SKIP-et választhatsz."
                         : "Egyedüli lidércként megtámadhatsz egy játékost, vagy megvizsgálhatod egy másik élő játékos szerepét. A szerepvizsgálat a teljes játékban egyszer használható.");
                     otherPlayers.forEach((player) => {
                         addChoiceButton(panel, `☾  Megtámadom: ${player.username}`, () => {
@@ -692,6 +742,7 @@
             actionSubmitted = false;
             hunterActionBlocked = false;
             actionStatusMessage = "";
+            if (state.phase === "night-special-spirit") selectedClownEffect = "fake-vote";
         }
     }
 

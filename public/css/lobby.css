@@ -832,3 +832,214 @@ body.lobby-page {
     .player-voice-controls { flex: 1 1 100%; min-width: 0; margin-left: 43px; }
 }
 
+
+
+/* =====================================================
+   LIDÉRCJÁRÁS – FANTASY LOBBY / ÜVEG, ARANY ÉS KŐTEXTÚRA
+   ===================================================== */
+body.lobby-page { background: #070b13; }
+body.lobby-page .background::before {
+    background-image:
+        linear-gradient(180deg, rgba(5, 8, 17, .54) 0%, rgba(7, 10, 18, .28) 30%, rgba(5, 7, 14, .72) 100%),
+        linear-gradient(90deg, rgba(3, 5, 11, .42), rgba(4, 6, 13, .04) 30%, rgba(4, 6, 13, .06) 70%, rgba(3, 5, 11, .42)),
+        url('/assets/backgrounds/village-day.webp');
+    background-position: center 58%;
+    opacity: .96;
+}
+body.lobby-page .background::after {
+    content: "";
+    position: absolute;
+    z-index: 2;
+    inset: 0;
+    pointer-events: none;
+    background: radial-gradient(ellipse at 50% 35%, transparent 10%, rgba(4, 6, 14, .22) 72%, rgba(3, 4, 10, .58) 100%);
+}
+body.lobby-page:has(#gameStartedView.is-night:not([hidden])) .background::before,
+body.lobby-page:has(#gameStartedView.is-countdown:not([hidden])) .background::before {
+    background-image:
+        linear-gradient(180deg, rgba(4, 6, 17, .38) 0%, rgba(5, 7, 18, .25) 36%, rgba(4, 5, 13, .68) 100%),
+        linear-gradient(90deg, rgba(2, 4, 12, .34), transparent 36%, rgba(2, 4, 12, .3)),
+        url('/assets/backgrounds/village-night.webp');
+    background-position: center 52%;
+}
+body.lobby-page:has(#gameStartedView.is-day:not([hidden])) .background::before {
+    background-image:
+        linear-gradient(180deg, rgba(4, 8, 15, .38) 0%, rgba(4, 9, 16, .20) 42%, rgba(4, 6, 12, .62) 100%),
+        linear-gradient(90deg, rgba(2, 5, 10, .28), transparent 36%, rgba(2, 5, 10, .28)),
+        url('/assets/backgrounds/village-day.webp');
+}
+.lobby-topbar {
+    width: min(1450px, calc(100% - 56px));
+    padding: 17px 0 14px;
+    border-bottom-color: rgba(227, 195, 142, .22);
+    background: linear-gradient(90deg, transparent, rgba(7, 9, 17, .24), transparent);
+}
+.lobby-brand {
+    gap: 12px;
+    color: #f2e5d3;
+    font-size: 15px;
+    letter-spacing: 3.8px;
+    text-shadow: 0 2px 16px #000;
+}
+.brand-symbol {
+    display: grid;
+    width: 36px;
+    height: 36px;
+    place-items: center;
+    border: 1px solid rgba(226, 194, 138, .43);
+    border-radius: 50%;
+    background: rgba(9, 12, 22, .72);
+    color: #edce98;
+    box-shadow: 0 0 20px rgba(203, 157, 98, .12), inset 0 0 16px rgba(184, 136, 77, .08);
+}
+.lobby-topbar-right { gap: 14px; }
+.player-pill {
+    border-color: rgba(224, 193, 143, .22);
+    background: rgba(7, 10, 18, .74);
+    box-shadow: inset 0 1px 0 rgba(255,255,255,.04);
+}
+.home-link { padding: 8px 12px; border: 1px solid rgba(224, 193, 143, .14); border-radius: 999px; background: rgba(7, 10, 18, .38); }
+.lobby-shell {
+    width: min(1280px, calc(100% - 52px));
+    min-height: calc(100dvh - 74px);
+    padding: clamp(26px, 5vh, 56px) 0 22px;
+}
+.lobby-heading { max-width: 830px; margin-bottom: clamp(24px, 4.3vh, 44px); }
+.lobby-kicker { display: inline-flex; align-items: center; gap: 10px; color: #e0c28e; letter-spacing: 4px; text-shadow: 0 2px 10px #000; }
+.lobby-kicker::before, .lobby-kicker::after { content: ""; display: block; width: 30px; height: 1px; background: linear-gradient(90deg, transparent, #d8b77f); }
+.lobby-kicker::after { transform: rotate(180deg); }
+.lobby-heading h1 {
+    margin-top: 2px;
+    font-size: clamp(37px, 5.5vw, 61px);
+    line-height: 1.08;
+    color: #f5ead8;
+    text-shadow: 0 3px 25px rgba(0,0,0,.8), 0 0 35px rgba(216, 181, 128, .14);
+}
+.lobby-lead { max-width: 650px; margin-top: 17px; color: #d0c7bd; font-family: Georgia, "Times New Roman", serif; font-size: clamp(13px, 1.3vw, 16px); text-shadow: 0 2px 12px #000; }
+.lobby-message { backdrop-filter: blur(16px); border-radius: 12px; box-shadow: 0 12px 38px rgba(0,0,0,.2); }
+.lobby-home-view { max-width: 1020px; gap: clamp(14px, 2.3vw, 28px); }
+.lobby-choice-card {
+    position: relative;
+    isolation: isolate;
+    min-height: 306px;
+    padding: clamp(22px, 3vw, 34px);
+    overflow: hidden;
+    border: 1px solid rgba(222, 190, 137, .42);
+    border-radius: 15px;
+    background: linear-gradient(140deg, rgba(7, 10, 19, .93), rgba(9, 9, 17, .68));
+    box-shadow: 0 24px 62px rgba(0,0,0,.36), inset 0 1px 0 rgba(255,255,255,.06);
+    backdrop-filter: blur(10px);
+    animation: lobbyCardRise .7s cubic-bezier(.2,.75,.2,1) both;
+}
+.lobby-choice-card:nth-child(2) { animation-delay: .11s; }
+.lobby-choice-card::before {
+    content: "";
+    position: absolute;
+    z-index: -2;
+    inset: 0;
+    background-size: cover;
+    background-position: center;
+    opacity: .54;
+    transition: transform .75s cubic-bezier(.2,.7,.2,1), opacity .35s ease;
+}
+.lobby-choice-card::after {
+    content: "";
+    position: absolute;
+    z-index: -1;
+    inset: 0;
+    background: linear-gradient(90deg, rgba(5,8,16,.93) 0%, rgba(5,8,16,.75) 58%, rgba(5,8,16,.26) 100%), linear-gradient(0deg, rgba(4,6,13,.72), transparent 62%);
+    pointer-events: none;
+}
+.lobby-choice-card:first-child::before { background-image: url('/assets/backgrounds/village-night.webp'); }
+.lobby-choice-card:nth-child(2)::before { background-image: url('/assets/backgrounds/village-day.webp'); }
+.lobby-choice-card:hover { transform: translateY(-5px); border-color: rgba(255, 222, 164, .8); box-shadow: 0 30px 76px rgba(0,0,0,.45), 0 0 36px rgba(210, 169, 105, .13), inset 0 1px 0 rgba(255,255,255,.1); }
+.lobby-choice-card:hover::before { transform: scale(1.06); opacity: .73; }
+.choice-icon {
+    width: 54px;
+    height: 54px;
+    margin-bottom: 21px;
+    border-color: rgba(228, 194, 139, .46);
+    border-radius: 15px;
+    background: rgba(12, 13, 23, .76);
+    color: #ecd09b;
+    box-shadow: 0 8px 24px rgba(0,0,0,.2), inset 0 0 22px rgba(215, 178, 119, .08);
+}
+.choice-icon-blue { border-color: rgba(142, 190, 218, .48); color: #b9dff4; }
+.choice-eyebrow { display: block; margin: 0 0 8px; color: #d2b78b; font-size: 9px; font-weight: 700; letter-spacing: 2.2px; text-shadow: 0 2px 8px #000; }
+.choice-title { margin-bottom: 12px; font-size: clamp(24px, 2.3vw, 31px); color: #f5e8d3; text-shadow: 0 2px 12px #000; }
+.choice-description { max-width: 370px; color: #d1c9c3; font-size: 13px; line-height: 1.78; text-shadow: 0 2px 8px #000; }
+.choice-action { margin-top: 22px; color: #f0d39b; font-size: 9px; letter-spacing: 1.7px; }
+.lobby-lore-rail {
+    grid-column: 1 / -1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: clamp(12px, 2.1vw, 28px);
+    max-width: 950px;
+    width: 100%;
+    margin: 3px auto 0;
+    padding: 18px 24px;
+    border: 1px solid rgba(219, 187, 136, .18);
+    border-radius: 12px;
+    background: linear-gradient(100deg, rgba(6, 9, 17, .5), rgba(15, 13, 23, .72), rgba(6, 9, 17, .5));
+    box-shadow: 0 10px 35px rgba(0,0,0,.16), inset 0 1px 0 rgba(255,255,255,.035);
+    backdrop-filter: blur(12px);
+    animation: lobbyCardRise .85s .2s both;
+}
+.lore-rail-item { display: flex; align-items: center; gap: 11px; min-width: 0; }
+.lore-rail-symbol { display: grid; flex: 0 0 33px; width: 33px; height: 33px; place-items: center; border: 1px solid rgba(218, 185, 129, .28); border-radius: 50%; color: #e1c28e; background: rgba(12,13,22,.62); font-size: 16px; }
+.lore-rail-item strong { display: block; color: #e8dcc8; font-family: Georgia, "Times New Roman", serif; font-size: 11px; font-weight: 500; }
+.lore-rail-item small { display: block; margin-top: 3px; color: #a8a1a0; font-size: 10px; }
+.lore-rail-divider { flex: 0 0 1px; height: 31px; background: linear-gradient(transparent, rgba(218,185,129,.36), transparent); }
+@keyframes lobbyCardRise { from { opacity: 0; transform: translateY(15px); } to { opacity: 1; transform: translateY(0); } }
+.panel-view {
+    max-width: 1120px;
+    border-color: rgba(220, 190, 142, .28);
+    border-radius: 15px;
+    background:
+        linear-gradient(145deg, rgba(7, 10, 18, .96), rgba(9, 9, 17, .88)),
+        url('/assets/backgrounds/village-night.webp') center/cover;
+    box-shadow: 0 26px 84px rgba(0,0,0,.4), inset 0 1px 0 rgba(255,255,255,.055);
+    backdrop-filter: blur(12px);
+}
+.panel-heading { margin-top: 25px; }
+.panel-symbol { border-color: rgba(223, 190, 137, .37); background: rgba(19,17,27,.78); color: #e5c68f; box-shadow: inset 0 0 18px rgba(223, 190, 137, .07); }
+.panel-heading h2, .waiting-room-title-row h2 { color: #f0e3cf; }
+.roles-heading { border-top-color: rgba(220, 190, 142, .18); }
+.role-field { border-color: rgba(220, 190, 142, .17); border-radius: 10px; background: linear-gradient(145deg, rgba(25,22,31,.9), rgba(8,10,17,.9)); box-shadow: inset 0 1px 0 rgba(255,255,255,.035); }
+.role-field label { color: #f0e4d2; }
+.number-control button { border-radius: 8px; border-color: rgba(222, 192, 145, .25); background: rgba(33,28,38,.88); color: #ecd09c; }
+.number-control button:hover { border-color: rgba(245, 214, 157, .65); background: rgba(75, 54, 55, .82); }
+.form-field input, .room-search-tools input, .lobby-input { border-color: rgba(221, 190, 141, .26); border-radius: 8px; background: rgba(5,8,15,.87); }
+.form-field input:focus, .room-search-tools input:focus, .lobby-input:focus { border-color: #d8b775; box-shadow: 0 0 0 3px rgba(216,183,117,.1); }
+.primary-button { border-color: rgba(229, 196, 139, .74); border-radius: 8px; background: linear-gradient(135deg, #6b4b36, #3a2b30); color: #fff0d4; box-shadow: 0 6px 22px rgba(0,0,0,.2), inset 0 1px 0 rgba(255,255,255,.06); }
+.primary-button:hover:not(:disabled) { background: linear-gradient(135deg, #80583e, #49313a); }
+.secondary-button { border-color: rgba(211, 184, 145, .28); border-radius: 8px; background: rgba(24,23,29,.88); }
+.room-card { border-color: rgba(218, 188, 144, .2); border-radius: 11px; background: rgba(8,11,18,.84); }
+.inner-panel { border-color: rgba(218, 188, 144, .2); border-radius: 12px; background: rgba(7,10,17,.7); }
+.waiting-note { border-color: rgba(218, 188, 144, .19); border-radius: 9px; background: rgba(20,16,19,.52); }
+.connection-indicator.is-connected .connection-dot { animation: connectionGlow 2.3s ease-in-out infinite; }
+@keyframes connectionGlow { 0%,100% { box-shadow: 0 0 0 0 rgba(141,201,168,.06), 0 0 8px rgba(141,201,168,.5); } 50% { box-shadow: 0 0 0 5px rgba(141,201,168,0), 0 0 15px rgba(141,201,168,.9); } }
+@media (max-width: 980px) {
+    .lobby-topbar { width: calc(100% - 32px); }
+    .lobby-shell { width: calc(100% - 32px); }
+    .lobby-lore-rail { gap: 13px; padding: 14px; }
+    .lore-rail-item { gap: 8px; }
+}
+@media (max-width: 760px) {
+    .lobby-topbar { width: calc(100% - 24px); padding: 12px 0; }
+    .lobby-brand { font-size: 11px; letter-spacing: 1.7px; }
+    .brand-symbol { width: 30px; height: 30px; }
+    .lobby-shell { width: calc(100% - 24px); padding-top: 28px; }
+    .lobby-heading { margin-bottom: 23px; }
+    .lobby-heading h1 { font-size: clamp(32px, 8vw, 43px); }
+    .lobby-choice-card { min-height: 235px; padding: 22px; }
+    .lobby-lore-rail { display: grid; grid-template-columns: 1fr; justify-content: stretch; gap: 13px; padding: 16px; }
+    .lore-rail-divider { display: none; }
+    .lore-rail-item { gap: 10px; }
+    .lore-rail-item strong { font-size: 12px; }
+    .lobby-settings-button { width: 38px; height: 38px; }
+}
+@media (prefers-reduced-motion: reduce) {
+    .background::before, .lobby-choice-card, .lobby-lore-rail, .connection-indicator.is-connected .connection-dot { animation: none !important; }
+}

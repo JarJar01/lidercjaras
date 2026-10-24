@@ -131,3 +131,25 @@ LEGÚJABB MÓDOSÍTÁS – HAMIS SZAVAZAT (2026-10-24):
 TESZTELÉS
 - Helyi indítás: npm start, majd http://localhost:3000. A /health oldalon ellenőrizhető az aktuális verzió.
 - A JavaScript-szintaxis ellenőrzése nem helyettesíti a több böngészős játéktesztet. A csapathang WebRTC-kapcsolatát és az új szerepek teljes körét több játékossal külön próbáljátok ki.
+
+
+ÚJ FANTASY KEZDŐOLDAL ÉS LOBBY
+- A kezdőoldal és a lobby közös fantasy stílust, helyi háttérképeket és animációkat használ.
+- A háttérképek a public/assets/backgrounds/village-night.webp és village-day.webp fájlok.
+- A szerepképek a public/assets/roles/ mappában vannak.
+- A játékmenethez tartozó JavaScript-fájlok az eredeti hivatkozásaikon maradtak.
+
+
+FRISSÍTÉS – BOHÓC LIDÉRC SZABOTÁZSVÁLASZTÓ (2026-10-24)
+- A Bohóc lidérc szabotázsmenüje egy külön, görgethető fantasy panelbe került. A célpontlista és az egyszeri szerepvizsgálat ugyanabban a panelben látható; hosszú játékoslistánál csak a belső panelt kell görgetni.
+- A szabotázs most három lehetőség közül választható: Hamis szavazat (a következő nappali voks titokban SKIP lesz), Némítás (a célpont hangját mások nem hallják a következő nappali szakaszban), vagy Hangelvékonyítás (a célpont hangja magasabb lesz a többi játékos böngészőjében).
+- A szabotázsok ugyanazt a háromkörös újratöltési szabályt használják; egy fázisban csak egyet lehet választani. Az egyedüli lidérc egyszeri szerepvizsgálata továbbra is külön lehetőség, ha még nem használta fel.
+- A hanghatás a szerver által küldött játékállapotból aktiválódik, a bejövő WebRTC-hangot a hallgató böngészője kezeli. A mikrofonengedélyt a böngészőnek egyszer engedélyeznie kell.
+- Verzióellenőrzés: http://localhost:3000/health, verzió: lidercjaras-clown-sabotage-scrollbox-2026-10-24-1.
+
+
+BOHÓC LIDÉRC – GÖRGETHETŐ SZABOTÁZSPANEL (2026-10-24)
+- A különleges kör akciói egy elegáns, görgethető panelben jelennek meg, így a szabotázs típusai, a játékosnevek és az egyszeri szerepvizsgálat hosszú listánál is a panelen belül görgethetők.
+- Választható szabotázsok: Hamis szavazat, Némítás és Hangelvékonyítás. A szabotázs használat után három kör múlva használható újra.
+- A Némítás és a Hangelvékonyítás a célpont bejövő hangján érvényesül a többi játékos böngészőjében; a célpont saját mikrofonját nem kapcsolja ki. A hangelvékonyítás a Web Audio feldolgozást használja, közvetlen audio kimenettel.
+- Az egyedüli Bohóc lidérc szerepvizsgálata külön, a teljes játékban csak egyszer használható.
