@@ -552,7 +552,7 @@
             if (speakingPlayerIds.has(player.id)) {
                 info.appendChild(makeElement("span", "player-speaking-badge", "🎙 Éppen beszél"));
             }
-            const marker = makeElement("span", player.isHost ? "host-marker" : (player.ready ? "player-marker is-ready" : "player-marker"), player.isHost ? "✦" : (player.ready ? "✓" : "●"));
+            const marker = makeElement("span", player.isHost ? "host-marker" : (player.ready ? "player-marker is-ready" : "player-marker"), player.isHost ? "♛" : (player.ready ? "✓" : "●"));
             row.append(avatar, info, marker);
             const voiceControls = renderPlayerVoiceControls(player, "lobby");
             if (voiceControls) row.appendChild(voiceControls);
@@ -605,7 +605,7 @@
         const startButton = document.getElementById("startGameButtonLobby");
         startButton.hidden = !isHost;
         startButton.disabled = !isHost || room.started || !full || !everyoneReady;
-        startButton.textContent = room.started ? "A JÁTÉK ELINDULT" : "JÁTÉK INDÍTÁSA ✦";
+        startButton.textContent = room.started ? "A JÁTÉK ELINDULT" : "JÁTÉK INDÍTÁSA";
 
         const startHint = document.getElementById("startHint");
         if (room.started) {
@@ -1394,7 +1394,7 @@
         window.setTimeout(() => {
             if (submit.isConnected) {
                 submit.disabled = false;
-                submit.innerHTML = 'SZOBÁM LÉTREHOZÁSA <span aria-hidden="true">✦</span>';
+                submit.textContent = 'SZOBÁM LÉTREHOZÁSA';
             }
         }, 3000);
     });
@@ -1519,7 +1519,7 @@
         showMessage(message, "error");
         const submit = document.getElementById("createRoomSubmit");
         submit.disabled = false;
-        submit.innerHTML = 'SZOBÁM LÉTREHOZÁSA <span aria-hidden="true">✦</span>';
+        submit.textContent = 'SZOBÁM LÉTREHOZÁSA';
         if (!views.search.hidden) renderRoomList();
     });
 

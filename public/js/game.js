@@ -334,7 +334,7 @@
                 const cooldown = Math.max(0, Number(gameState.specialSpiritSabotageRoundsRemaining) || 0);
                 const consoleBox = makeElement("div", "clown-action-console");
                 const intro = makeElement("div", "clown-console-intro");
-                intro.appendChild(makeElement("span", "clown-console-icon", "✦"));
+                intro.appendChild(makeElement("span", "clown-console-icon", "🎭"));
                 const introText = makeElement("div", "clown-console-intro-copy");
                 introText.appendChild(makeElement("strong", "", "Bohóc lidérc · titkos képesség"));
                 introText.appendChild(makeElement("span", "", "Válassz egy szabotázst, majd egy célpontot. A lista ezen a panelen belül görgethető."));
@@ -647,7 +647,7 @@
             roleImage.src = `/assets/roles/${roleArtKey}.svg`;
             roleImage.alt = `${myRoleLabel || "Titkos szerep"} karakterillusztráció`;
         }
-        $("gameRoleSymbol").textContent = mySpecialSpirit ? "☻" : (roleSymbols[myRole] || "✦");
+        $("gameRoleSymbol").textContent = mySpecialSpirit ? "☻" : (roleSymbols[myRole] || "◉");
         $("gameRoleName").textContent = myRoleLabel || "Titkos szerep";
         $("gameRoleDescription").textContent = myRoleDescription || "A szereped titkos. Figyeld a játékmenetet.";
         const teamLine = $("gameRoleTeamMembers");
