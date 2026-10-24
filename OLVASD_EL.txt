@@ -100,3 +100,6 @@ FRISSÍTÉS A BOHÓC LIDÉRC HANG ÉS NÉVÁLCA HIBÁJÁHOZ
 - A név/álca minden másik játékos személyre szabott játékoslistájában szerepel, az avatar kezdőbetűje és a beszélőjelzés a csalóként megjelenített sorhoz kötődik. Saját magát minden játékos továbbra is az eredeti nevén látja.
 - A hang elvékonyítása csak a megcélzott játékos bejövő WebRTC hangját dolgozza fel a hallgató böngészőjében. Normál esetben a hang közvetlenül szól; a Web Audio feldolgozás csak a "thin" effekt idején kapcsolódik be, és közvetlenül a hangkimenetre csatlakozik, nem MediaStreamDestinationre.
 - A böngészőnek engedélyeznie kell a hang lejátszását. WebRTC hanghatást csak több böngészőből, engedélyezett mikrofon és HTTPS/localhost mellett lehet ténylegesen kipróbálni.
+
+
+FRISSÍTÉS: A Bohóc lidérc névcseréjének aktív időszakában minden nyilvános zöld beszélőjelzés rejtve marad, így abból nem derülhet ki, ki kinek az álcáját viseli. A normál beszélőjelzés a névcsere lezárása után visszatér.

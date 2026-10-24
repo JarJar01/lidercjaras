@@ -290,6 +290,9 @@ function gamePublicState(room, viewerId = null) {
             // A hangszabotázs állapotát mindenki látja, kivéve az érintett játékost.
             voiceEffect: player.id !== viewerId ? (player.voiceSabotage || null) : null
         })),
+        // A névcsere ideje alatt elrejtjük az összes nyilvános beszélőjelzést,
+        // nehogy a zöld jelből kiderüljön, ki melyik álnév mögött van.
+        hidePublicSpeakingIndicators: [...room.players.values()].some((player) => Boolean(player.publicAlias && player.publicAliasIsClown)),
         infectedSelf: Boolean(viewerId && game.infectedPlayerIds instanceof Set && game.infectedPlayerIds.has(viewerId)),
         seerChannelAvailable: Boolean(
             game.phase === "night-seer" && livingRolePlayers(room, "seer").length > 0 &&

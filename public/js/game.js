@@ -419,7 +419,9 @@
         const voteCounts = gameState.voteCounts && typeof gameState.voteCounts === "object" ? gameState.voteCounts : {};
         gameState.players.forEach((player) => {
             const dead = !player.alive || player.connected === false;
-            const canShowSpeaker = speakingPlayerIds.has(player.id) && (!dead || gameState.phase === "game-over");
+            // Névcsere közben elrejtjük az összes zöld beszélőjelzést,
+            // hogy a hangból ne lehessen visszakövetni, ki kinek az álcáját viseli.
+            const canShowSpeaker = !gameState.hidePublicSpeakingIndicators && speakingPlayerIds.has(player.id) && (!dead || gameState.phase === "game-over");
             const row = makeElement("div", `game-player-row${dead ? " is-dead" : ""}${canShowSpeaker ? " is-speaking" : ""}`);
             const avatarWrap = makeElement("span", "game-player-avatar-wrap");
             const avatar = makeElement("span", "game-player-avatar", dead ? "†" : player.username.slice(0, 1).toLocaleUpperCase("hu-HU"));
