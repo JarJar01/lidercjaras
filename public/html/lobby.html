@@ -11,7 +11,6 @@
 </head>
 <body class="lobby-page">
     <div class="background" aria-hidden="true">
-        <div class="moon"></div>
         <div class="mist mist-one"></div>
         <div class="mist mist-two"></div>
         <div class="particles"></div>
@@ -20,7 +19,7 @@
 
     <header class="lobby-topbar">
         <a class="lobby-brand" href="/" aria-label="Vissza a kezdőoldalra">
-            <span class="brand-symbol" aria-hidden="true">☾</span>
+            <span class="brand-symbol" aria-hidden="true">◈</span>
             <span>LIDÉRCJÁRÁS</span>
         </a>
         <div class="lobby-topbar-right">
@@ -42,7 +41,7 @@
 
         <section class="lobby-view lobby-home-view" id="lobbyHomeView">
             <button class="lobby-choice-card" id="showCreateViewButton" type="button">
-                <span class="choice-icon" aria-hidden="true">♜</span>
+                <span class="choice-icon" aria-hidden="true">◈</span>
                 <span class="choice-eyebrow">LELJ OTTHONRA A KÖDÖN TÚL</span>
                 <span class="choice-title">Szoba készítése</span>
                 <span class="choice-description">Te leszel a házigazda. Állítsd be a szerepeket, majd várd meg a többieket.</span>
@@ -60,14 +59,14 @@
                 <span class="lore-rail-divider" aria-hidden="true"></span>
                 <div class="lore-rail-item"><span class="lore-rail-symbol" aria-hidden="true">⚜</span><span><strong>Régi falusi legendák</strong><small>Minden döntés számít.</small></span></div>
                 <span class="lore-rail-divider" aria-hidden="true"></span>
-                <div class="lore-rail-item"><span class="lore-rail-symbol" aria-hidden="true">♜</span><span><strong>Hívd össze a társaságot</strong><small>A történet veletek kezdődik.</small></span></div>
+                <div class="lore-rail-item"><span class="lore-rail-symbol" aria-hidden="true">⌂</span><span><strong>Hívd össze a társaságot</strong><small>A történet veletek kezdődik.</small></span></div>
             </div>
         </section>
 
         <section class="lobby-view panel-view" id="createView" hidden>
             <button class="back-link" id="backFromCreateButton" type="button">← Vissza a lobbyhoz</button>
             <div class="panel-heading">
-                <span class="panel-symbol" aria-hidden="true">⚜</span>
+                <span class="panel-symbol" aria-hidden="true">◇</span>
                 <div>
                     <p class="panel-kicker">HÁZIGAZDAI BEÁLLÍTÁSOK</p>
                     <h2>Szoba készítése</h2>
@@ -291,7 +290,7 @@
                 </section>
 
                 <p class="form-hint" id="roleHint">Legalább 4, legfeljebb 16 játékost állíts be. Egy szerepkörből 0 fő is választható.</p>
-                <button class="primary-button full-width" id="createRoomSubmit" type="submit">SZOBÁM LÉTREHOZÁSA</button>
+                <button class="primary-button full-width" id="createRoomSubmit" type="submit">SZOBÁM LÉTREHOZÁSA <span aria-hidden="true">→</span></button>
             </form>
         </section>
 
@@ -347,7 +346,7 @@
                     <div class="selected-roles-list" id="selectedRolesList"></div>
                 </section>
             </div>
-            <div class="waiting-note"><span aria-hidden="true">☾</span><span id="waitingNoteText">A szoba készen áll. Várjátok meg a többieket!</span></div>
+            <div class="waiting-note"><span aria-hidden="true">◈</span><span id="waitingNoteText">A szoba készen áll. Várjátok meg a többieket!</span></div>
             <div id="remoteAudioContainer" class="remote-audio-container" aria-label="Hangkapcsolatok"></div>
         </section>
 
@@ -400,7 +399,7 @@
                     <p class="game-section-kicker">A TE TITKOD</p>
                     <div class="game-role-art-frame">
                         <img class="game-role-art" id="gameRoleImage" src="/assets/roles/villagers.svg" alt="A saját szereped illusztrációja">
-                        <div class="game-role-symbol" id="gameRoleSymbol">◉</div>
+                        <div class="game-role-symbol" id="gameRoleSymbol">◆</div>
                     </div>
                     <h3 id="gameRoleName">Szerepkör</h3>
                     <p id="gameRoleDescription">A szereped titkos.</p>
@@ -478,7 +477,7 @@
             </div>
 
             <div class="game-end-panel" id="gameEndPanel" hidden>
-                <div class="game-end-symbol">☾</div>
+                <div class="game-end-symbol">◆</div>
                 <p class="game-section-kicker">A KÖD ELÜLT</p>
                 <h3 id="gameWinnerTitle">A játéknak vége</h3>
                 <p id="gameWinnerMessage">A történet lezárult.</p>

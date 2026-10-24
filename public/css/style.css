@@ -39,24 +39,6 @@ body {
     background: radial-gradient(ellipse at center, transparent 20%, #05050bd9 100%);
 }
 
-/* HOLD */
-.moon {
-    position: absolute;
-    top: 13%;
-    right: 16%;
-    width: 125px;
-    height: 125px;
-    border-radius: 50%;
-    background: radial-gradient(circle at 35% 30%, #f5efff, #c9b4ee 42%, #8f78ba 72%, #4e416e);
-    opacity: 0.6;
-    box-shadow: 0 0 35px #a78bfa45, 0 0 100px #a78bfa1d;
-    animation: moonBreath 8s ease-in-out infinite;
-}
-@keyframes moonBreath {
-    0%, 100% { opacity: 0.4; box-shadow: 0 0 25px #a78bfa30, 0 0 65px #a78bfa15; }
-    50% { opacity: 0.8; box-shadow: 0 0 45px #bda2ff65, 0 0 125px #a78bfa30; }
-}
-
 /* MOZGÓ KÖD */
 .mist {
     position: absolute;
@@ -124,14 +106,6 @@ body {
     width: 100%; min-height: 100vh; margin: 0; padding: 30px;
 }
 .game-title { width: 100%; max-width: 850px; margin-top: -10px; text-align: center; }
-.title-symbol {
-    margin-bottom: 22px; color: #bca1f2; font-size: 27px;
-    text-shadow: 0 0 25px #a78bfa; animation: symbolGlow 4s ease-in-out infinite;
-}
-@keyframes symbolGlow {
-    0%, 100% { opacity: 0.35; transform: scale(0.9); }
-    50% { opacity: 1; transform: scale(1.1); }
-}
 .subtitle { margin: 0 0 20px; color: #9e8cb9; font-size: 11px; font-weight: 700; letter-spacing: 6px; }
 h1 {
     margin: 0; color: #e7d8ff; font-family: Georgia, "Times New Roman", serif;
@@ -213,46 +187,6 @@ h1 {
 .lj-name-submit { border: 1px solid #9974d4; background: #392554; color: #fff; }
 .lj-name-submit:hover { background: #503372; }
 
-/* TÉMÁK */
-body.lj-theme-purple .background {
-    background: radial-gradient(ellipse at 70% 35%, #28204466, transparent 42%), radial-gradient(ellipse at 20% 80%, #25163866, transparent 45%), linear-gradient(180deg, #090a12, #10101b 65%, #080910);
-}
-body.lj-theme-blood .background {
-    background: radial-gradient(ellipse at 70% 35%, #5b171d88, transparent 43%), radial-gradient(ellipse at 20% 80%, #45111a77, transparent 45%), linear-gradient(180deg, #100709, #210e15 65%, #090608);
-}
-body.lj-theme-blood .moon { background: radial-gradient(circle at 35% 30%, #ffe6d9, #e58a80 42%, #9f3e4a 72%, #4e1728); box-shadow: 0 0 35px #fa686845, 0 0 100px #fa68681d; }
-body.lj-theme-blood h1 { color: #ffd4d7; text-shadow: 0 0 20px #b5273e80; }
-body.lj-theme-blood .mist-one { background: #922c42; }
-body.lj-theme-blood .mist-two { background: #713047; }
-body.lj-theme-blue .background {
-    background: radial-gradient(ellipse at 70% 35%, #183b5d88, transparent 43%), radial-gradient(ellipse at 20% 80%, #112d4f77, transparent 45%), linear-gradient(180deg, #060a12, #0c1b2b 65%, #060910);
-}
-body.lj-theme-blue .moon { background: radial-gradient(circle at 35% 30%, #e6f7ff, #a2d7f2 42%, #547fb6 72%, #27385f); box-shadow: 0 0 35px #73c8ff45, 0 0 100px #73c8ff1d; }
-body.lj-theme-blue h1 { color: #d7f1ff; text-shadow: 0 0 20px #42a9ff80; }
-body.lj-theme-blue .mist-one { background: #2a6c95; }
-body.lj-theme-blue .mist-two { background: #294b88; }
-body.lj-theme-green .background {
-    background: radial-gradient(ellipse at 70% 35%, #17412d88, transparent 43%), radial-gradient(ellipse at 20% 80%, #15392377, transparent 45%), linear-gradient(180deg, #060d0a, #0d2118 65%, #060a08);
-}
-body.lj-theme-green .moon { background: radial-gradient(circle at 35% 30%, #e8ffe9, #a3e1ad 42%, #4f9c6c 72%, #244e3b); box-shadow: 0 0 35px #64e69b45, 0 0 100px #64e69b1d; }
-body.lj-theme-green h1 { color: #d9ffe2; text-shadow: 0 0 20px #37c87980; }
-body.lj-theme-green .mist-one { background: #2e805a; }
-body.lj-theme-green .mist-two { background: #2a644c; }
-
-/* HÁTTÉRHATÁSOK */
-body.lj-effect-fog .mist { opacity: 0.24; }
-body.lj-effect-fog .particles { opacity: 0.09; }
-body.lj-effect-lights .mist { opacity: 0.1; }
-body.lj-effect-lights .particles { opacity: 0.35; animation-duration: 12s; }
-body.lj-effect-spirits .mist { opacity: 0.13; }
-body.lj-effect-spirits .particles { opacity: 0.25; animation-duration: 16s; }
-body.lj-effect-spirits .background::after {
-    content: ""; position: absolute; inset: -25%; pointer-events: none;
-    background: radial-gradient(ellipse at 25% 65%, #d8c1ff19, transparent 18%), radial-gradient(ellipse at 70% 35%, #c4b4ff18, transparent 16%), radial-gradient(ellipse at 52% 80%, #a78bfa12, transparent 20%);
-    filter: blur(24px); animation: spiritDrift 17s ease-in-out infinite alternate;
-}
-@keyframes spiritDrift { from { transform: translate(-3%, 2%) scale(0.95); } to { transform: translate(4%, -4%) scale(1.08); } }
-
 @media (max-width: 700px) {
     .gear-button { top: 15px; left: 15px; width: 48px; height: 48px; }
     .gear-icon { font-size: 26px; }
@@ -260,7 +194,6 @@ body.lj-effect-spirits .background::after {
     h1 { font-size: clamp(30px, 8vw, 57px); letter-spacing: 3px; }
     .subtitle { font-size: 9px; letter-spacing: 3px; }
     .tagline { font-size: 12px; line-height: 1.7; }
-    .moon { top: 10%; right: 8%; width: 85px; height: 85px; }
     .version { right: 12px; bottom: 12px; }
     .lj-modal, .lj-name-dialog { padding: 24px 20px; }
     .start-game-button { padding: 13px 24px; font-size: 0.8rem; }
@@ -303,7 +236,6 @@ body.lj-effect-spirits .background::after {
     animation: ljLandscapeBreath 32s ease-in-out infinite alternate;
     will-change: transform;
 }
-.background .moon,
 .background .mist,
 .background .particles { z-index: 1; }
 .background .vignette { z-index: 2; }
@@ -311,9 +243,6 @@ body.lj-effect-spirits .background::after {
     0% { transform: scale(1.02) translate3d(0, 0, 0); }
     100% { transform: scale(1.075) translate3d(-.35%, .2%, 0); }
 }
-body.lj-theme-blood .background::before { filter: sepia(.1) hue-rotate(315deg) saturate(1.15); }
-body.lj-theme-blue .background::before { filter: hue-rotate(12deg) saturate(.82) brightness(.93); }
-body.lj-theme-green .background::before { filter: hue-rotate(42deg) saturate(.9) brightness(.91); }
 body.home-page { min-height: 100dvh; overflow: hidden; background: #070a13; }
 body.home-page .background::before {
     background-image:
@@ -365,19 +294,6 @@ body.home-page .background::before {
     box-shadow: 0 0 16px rgba(231, 190, 127, .36);
 }
 @keyframes homeCardRise { from { opacity: 0; transform: translateY(18px) scale(.985); } to { opacity: 1; transform: translateY(0) scale(1); } }
-.home-page .title-symbol {
-    display: grid;
-    width: 62px;
-    height: 62px;
-    place-items: center;
-    margin: 0 auto 22px;
-    border: 1px solid rgba(224, 194, 139, .45);
-    border-radius: 50%;
-    background: radial-gradient(circle, rgba(151, 113, 207, .24), rgba(12, 12, 23, .74) 72%);
-    color: #efcf91;
-    font-size: 29px;
-    box-shadow: 0 0 0 6px rgba(225, 184, 119, .04), 0 0 35px rgba(157, 115, 218, .24), inset 0 0 22px rgba(215, 178, 119, .09);
-}
 .home-page .subtitle {
     margin-bottom: clamp(14px, 2vh, 22px);
     color: #d9bd8d;
@@ -441,7 +357,6 @@ body.home-page .background::before {
     box-shadow: 0 12px 36px rgba(0,0,0,.4), 0 0 32px rgba(208, 161, 238, .25), inset 0 0 20px rgba(250, 223, 168, .07);
     filter: brightness(1.08);
 }
-.start-button-rune { color: #f1d39b; font-size: 19px; text-shadow: 0 0 12px rgba(241,211,155,.55); }
 .start-button-arrow { color: #d9c2ef; font-size: 20px; transition: transform .25s ease; }
 .home-page .start-game-button:hover .start-button-arrow { transform: translateX(4px); }
 .home-feature-strip {
@@ -472,7 +387,6 @@ body.home-page .background::before {
 }
 @media (max-height: 740px) and (min-width: 761px) {
     .home-page .game-title { padding-top: 22px; padding-bottom: 22px; }
-    .home-page .title-symbol { width: 45px; height: 45px; margin-bottom: 12px; font-size: 23px; }
     .home-page .title-line { margin-top: 16px; margin-bottom: 15px; }
     .home-feature-strip { margin-top: 16px; }
 }
@@ -481,7 +395,6 @@ body.home-page .background::before {
     .home-page .main-content { min-height: 100dvh; padding: 78px 16px 62px; }
     .home-page .game-title { padding: 28px 18px 25px; border-radius: 16px; }
     .home-page h1 { font-size: clamp(36px, 10vw, 60px); letter-spacing: 2px; overflow-wrap: anywhere; }
-    .home-page .title-symbol { width: 50px; height: 50px; margin-bottom: 16px; }
     .home-page .subtitle { letter-spacing: 3px; line-height: 1.7; }
     .home-page .tagline { margin-top: 17px; }
     .home-feature-strip { gap: 10px; font-size: 8px; letter-spacing: .8px; }
@@ -490,4 +403,53 @@ body.home-page .background::before {
 }
 @media (prefers-reduced-motion: reduce) {
     .background::before, .home-page .game-title { animation: none !important; }
+}
+
+
+/* NYUGODT FANTASY ZENE ÉS KÖRBEMONDÓ BEÁLLÍTÁSOK */
+.lj-modal { max-height: min(88vh, 860px); overflow-y: auto; scrollbar-width: thin; scrollbar-color: rgba(205,176,126,.42) transparent; }
+.lj-music-card, .lj-voice-announcement-card {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 13px;
+    margin: 14px 0;
+    padding: 14px;
+    border: 1px solid rgba(218,188,139,.26);
+    border-radius: 11px;
+    background: linear-gradient(140deg, rgba(39,31,38,.82), rgba(8,11,18,.9));
+    box-shadow: inset 0 1px 0 rgba(255,255,255,.035), 0 9px 24px rgba(0,0,0,.12);
+}
+.lj-music-card { grid-template-columns: auto minmax(0,1fr); }
+.lj-music-art {
+    display: grid; place-items: center; width: 48px; height: 48px;
+    border: 1px solid rgba(226,196,142,.38); border-radius: 10px;
+    background: radial-gradient(circle at 50% 22%, rgba(227,195,135,.25), transparent 68%), rgba(12,13,22,.9);
+    color: #e7c98f; font-size: 25px; box-shadow: 0 0 24px rgba(184,138,74,.1);
+}
+.lj-music-copy, .lj-voice-announcement-copy { display: flex; flex-direction: column; gap: 5px; min-width: 0; }
+.lj-music-copy strong, .lj-voice-announcement-copy strong { color: #f0dfbe; font-size: .93rem; font-weight: 700; }
+.lj-music-copy span, .lj-voice-announcement-copy span { color: #aaa7b0; font-size: .79rem; line-height: 1.5; }
+.lj-music-actions { grid-column: 1 / -1; display: flex; justify-content: flex-end; padding-top: 9px; border-top: 1px solid rgba(220,190,142,.12); }
+.lj-inline-action {
+    display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+    min-height: 36px; padding: 8px 13px; border: 1px solid rgba(225,193,138,.32); border-radius: 8px;
+    background: linear-gradient(135deg, rgba(79,58,45,.9), rgba(33,27,31,.96));
+    color: #f0deb8; font: inherit; font-size: .8rem; font-weight: 700; cursor: pointer;
+    transition: transform .18s ease, border-color .18s ease, box-shadow .18s ease;
+}
+.lj-inline-action:hover { transform: translateY(-1px); border-color: rgba(237,206,151,.72); box-shadow: 0 6px 18px rgba(0,0,0,.2); }
+.lj-voice-announcement-card { grid-template-columns: minmax(0,1fr) auto; }
+.lj-switch-label { display: inline-flex; align-items: center; cursor: pointer; }
+.lj-switch-input { position: absolute; width: 1px; height: 1px; opacity: 0; pointer-events: none; }
+.lj-switch-visual { position: relative; width: 44px; height: 25px; border: 1px solid rgba(204,185,155,.25); border-radius: 99px; background: #292631; transition: background .2s ease, border-color .2s ease; }
+.lj-switch-visual::after { content: ""; position: absolute; left: 3px; top: 3px; width: 17px; height: 17px; border-radius: 50%; background: #b3a9b1; box-shadow: 0 1px 5px #0006; transition: transform .2s ease, background .2s ease; }
+.lj-switch-input:checked + .lj-switch-visual { background: rgba(95,125,92,.65); border-color: rgba(152,201,136,.7); }
+.lj-switch-input:checked + .lj-switch-visual::after { transform: translateX(19px); background: #e1f6cb; }
+.lj-switch-input:focus-visible + .lj-switch-visual { outline: 2px solid #e9ce9b; outline-offset: 3px; }
+.lj-voice-announcement-card .lj-music-actions { grid-column: 1 / -1; }
+@media (max-width: 520px) {
+    .lj-music-card, .lj-voice-announcement-card { padding: 12px; gap: 10px; }
+    .lj-music-art { width: 42px; height: 42px; }
+    .lj-inline-action { width: 100%; }
 }

@@ -1394,7 +1394,7 @@
         window.setTimeout(() => {
             if (submit.isConnected) {
                 submit.disabled = false;
-                submit.textContent = 'SZOBÁM LÉTREHOZÁSA';
+                submit.innerHTML = 'SZOBÁM LÉTREHOZÁSA <span aria-hidden="true">→</span>';
             }
         }, 3000);
     });
@@ -1519,7 +1519,7 @@
         showMessage(message, "error");
         const submit = document.getElementById("createRoomSubmit");
         submit.disabled = false;
-        submit.textContent = 'SZOBÁM LÉTREHOZÁSA';
+        submit.innerHTML = 'SZOBÁM LÉTREHOZÁSA <span aria-hidden="true">→</span>';
         if (!views.search.hidden) renderRoomList();
     });
 

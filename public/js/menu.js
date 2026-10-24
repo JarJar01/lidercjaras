@@ -1,55 +1,26 @@
 "use strict";
 
 // ================================================
-// LIDÉRCJÁRÁS – ZENE, HÁTTÉR ÉS JÁTÉKOSNÉV
+// LIDÉRCJÁRÁS – NYUGODT FANTASY ZENE ÉS BEÁLLÍTÁSOK
 // ================================================
 
 const gearButton = document.getElementById("gearButton");
 const startGameButton = document.getElementById("startGameButton");
-
-const tracks = [
-    { name: "Lidércek suttogása", src: "/music/zene1.mp3" },
-    { name: "Az elátkozott erdő", src: "/music/zene2.mp3" }
-];
-
-const themes = {
-    purple: "Lila lidércfény",
-    blood: "Vérholdvörös",
-    blue: "Kísérteties kék",
-    green: "Lidérczöld"
-};
-
-const effects = {
-    fog: "Mozgó köd",
-    lights: "Lebegő fények",
-    spirits: "Lidércfények"
-};
-
-const music = new Audio();
+const music = new Audio("/music/lidercjaras-fantasy.mp3");
 music.loop = true;
-music.preload = "none";
-
-let selectedTrack = getSavedNumber("ljSelectedTrack", 0, 0, tracks.length - 1);
-let selectedTheme = getSavedChoice("ljTheme", themes, "purple");
-let selectedEffect = getSavedChoice("ljEffect", effects, "fog");
+music.preload = "auto";
 let settingsWindow = null;
-let lastStatus = "A háttérzene indításra vár.";
+let lastStatus = "A nyugodt fantasy zene indításra vár.";
 let lastStatusIsError = false;
-
-music.volume = getSavedNumber("ljMusicVolume", 0.35, 0, 1);
-music.src = tracks[selectedTrack].src;
-applyAppearance();
+let musicStartedByGesture = false;
+let phaseVoiceEnabled = localStorage.getItem("ljPhaseVoiceEnabled") !== "false";
+music.volume = getSavedNumber("ljMusicVolume", 0.28, 0, 1);
 
 function getSavedNumber(key, fallback, min, max) {
     const saved = localStorage.getItem(key);
     if (saved === null) return fallback;
     const value = Number(saved);
     return Number.isFinite(value) ? Math.min(max, Math.max(min, value)) : fallback;
-}
-
-function getSavedChoice(key, choices, fallback) {
-    const saved = localStorage.getItem(key);
-    return Object.prototype.hasOwnProperty.call(choices, saved) ? saved : fallback;
 }
 
 function saveSetting(key, value) {
@@ -75,33 +46,16 @@ function setStatus(message, isError = false) {
     }
 }
 
-function applyAppearance() {
-    document.body.classList.remove(
-        "lj-theme-purple", "lj-theme-blood", "lj-theme-blue", "lj-theme-green",
-        "lj-effect-fog", "lj-effect-lights", "lj-effect-spirits"
-    );
-    document.body.classList.add(`lj-theme-${selectedTheme}`);
-    document.body.classList.add(`lj-effect-${selectedEffect}`);
-    saveSetting("ljTheme", selectedTheme);
-    saveSetting("ljEffect", selectedEffect);
-}
-
 async function playMusic() {
     try {
         await music.play();
-        setStatus(`Most szól: ${tracks[selectedTrack].name}`);
+        musicStartedByGesture = true;
+        setStatus("Most szól: A holdfény ösvénye – nyugodt fantasy zene.");
+        return true;
     } catch (error) {
-        setStatus("A böngésző nem indította el automatikusan a zenét. Kattints a Játék indítása gombra vagy válassz zenét a beállításokban.", true);
+        setStatus("A böngésző az első kattintásig nem engedi elindítani a zenét. Kattints a felületre, és elindul.", true);
+        return false;
     }
-}
-
-function changeTrack(index) {
-    if (!Number.isInteger(index) || index < 0 || index >= tracks.length) return;
-    selectedTrack = index;
-    music.src = tracks[selectedTrack].src;
-    music.load();
-    saveSetting("ljSelectedTrack", selectedTrack);
-    playMusic();
 }
 
 function updateVolume(value) {
@@ -109,12 +63,40 @@ function updateVolume(value) {
     if (!Number.isFinite(volume)) return;
     music.volume = Math.min(1, Math.max(0, volume));
     saveSetting("ljMusicVolume", music.volume);
-
     const volumeValue = document.getElementById("ljVolumeValue");
     const volumeIcon = document.getElementById("ljVolumeIcon");
     if (volumeValue) volumeValue.textContent = `${Math.round(music.volume * 100)}%`;
-    if (volumeIcon) volumeIcon.textContent = music.volume === 0 ? "🔇" : music.volume < 0.5 ? "🔉" : "🔊";
+    if (volumeIcon) volumeIcon.textContent = music.volume === 0 ? "🔇" : music.volume < 0.45 ? "🔉" : "🔊";
 }
+
+function speakPhaseAnnouncement(text, test = false) {
+    if (!text || (!test && !phaseVoiceEnabled) || !("speechSynthesis" in window) || !("SpeechSynthesisUtterance" in window)) {
+        if (test) setStatus("Ezen a böngészőn nem érhető el a beszédhang.", true);
+        return false;
+    }
+    try {
+        window.speechSynthesis.cancel();
+        const utterance = new SpeechSynthesisUtterance(text);
+        utterance.lang = "hu-HU";
+        utterance.rate = 0.88;
+        utterance.pitch = 0.86;
+        utterance.volume = 0.94;
+        const voices = window.speechSynthesis.getVoices();
+        const hungarianVoice = voices.find((voice) => /^hu(-|$)/i.test(voice.lang));
+        if (hungarianVoice) utterance.voice = hungarianVoice;
+        utterance.onstart = () => { if (test) setStatus("Hangpróba: magyar körbemondó hang szól."); };
+        utterance.onerror = () => { if (test) setStatus("A körbemondó hang nem indult el. Ellenőrizd a böngésző beszédhangját.", true); };
+        window.speechSynthesis.speak(utterance);
+        if (test) setStatus(hungarianVoice ? `Hangpróba indul: ${hungarianVoice.name}` : "Hangpróba indul a böngésző alapértelmezett hangjával.");
+        return true;
+    } catch (error) {
+        if (test) setStatus("Nem sikerült elindítani a körbemondó hangot.", true);
+        return false;
+    }
+}
+
+// A játék képernyője ezt hívja fázisváltáskor.
+window.lidercSpeakAnnouncement = (text) => speakPhaseAnnouncement(text, false);
 
 function openSettings() {
     if (settingsWindow) {
@@ -137,28 +119,29 @@ function openSettings() {
     closeButton.type = "button";
     closeButton.setAttribute("aria-label", "Bezárás");
     header.append(title, closeButton);
+    const description = createElement("p", "lj-modal-description", "Nyugodt fantasy háttérzene és a körök hangos bemondása.");
 
-    const description = createElement("p", "lj-modal-description", "Állítsd be a háttérzenét és a lidérces hangulatot.");
-
-    const trackField = createElement("div", "lj-field");
-    const trackLabel = createElement("label", "lj-field-label", "Háttérzene");
-    trackLabel.htmlFor = "ljTrackSelect";
-    const trackSelect = createElement("select", "lj-select");
-    trackSelect.id = "ljTrackSelect";
-    tracks.forEach((track, index) => {
-        const option = document.createElement("option");
-        option.value = String(index);
-        option.textContent = track.name;
-        trackSelect.appendChild(option);
-    });
-    trackSelect.value = String(selectedTrack);
-    trackField.append(trackLabel, trackSelect);
+    const musicCard = createElement("section", "lj-music-card");
+    musicCard.append(
+        createElement("div", "lj-music-art", "♫"),
+        createElement("div", "lj-music-copy")
+    );
+    const musicCopy = musicCard.querySelector(".lj-music-copy");
+    musicCopy.append(
+        createElement("strong", "", "A holdfény ösvénye"),
+        createElement("span", "", "Nyugodt, varázslatos fantasy háttérzene")
+    );
+    const musicActionRow = createElement("div", "lj-music-actions");
+    const musicToggle = createElement("button", "lj-inline-action", music.paused ? "Zene indítása" : "Zene szüneteltetése");
+    musicToggle.type = "button";
+    musicActionRow.appendChild(musicToggle);
+    musicCard.appendChild(musicActionRow);
 
     const volumeField = createElement("div", "lj-field");
-    const volumeLabel = createElement("label", "lj-field-label", "Hangerő");
+    const volumeLabel = createElement("label", "lj-field-label", "Háttérzene hangereje");
     volumeLabel.htmlFor = "ljVolumeSlider";
     const volumeRow = createElement("div", "lj-volume-row");
-    const volumeIcon = createElement("span", "lj-volume-icon", music.volume === 0 ? "🔇" : music.volume < 0.5 ? "🔉" : "🔊");
+    const volumeIcon = createElement("span", "lj-volume-icon", music.volume === 0 ? "🔇" : music.volume < 0.45 ? "🔉" : "🔊");
     volumeIcon.id = "ljVolumeIcon";
     const volumeSlider = createElement("input", "lj-volume-slider");
     volumeSlider.type = "range";
@@ -172,57 +155,51 @@ function openSettings() {
     volumeRow.append(volumeIcon, volumeSlider, volumeValue);
     volumeField.append(volumeLabel, volumeRow);
 
-    const themeField = createElement("div", "lj-field");
-    const themeLabel = createElement("label", "lj-field-label", "Háttérszín");
-    themeLabel.htmlFor = "ljThemeSelect";
-    const themeSelect = createElement("select", "lj-select");
-    themeSelect.id = "ljThemeSelect";
-    Object.entries(themes).forEach(([value, label]) => {
-        const option = document.createElement("option");
-        option.value = value;
-        option.textContent = label;
-        themeSelect.appendChild(option);
-    });
-    themeSelect.value = selectedTheme;
-    themeField.append(themeLabel, themeSelect);
-
-    const effectField = createElement("div", "lj-field");
-    const effectLabel = createElement("label", "lj-field-label", "Háttéranimáció");
-    effectLabel.htmlFor = "ljEffectSelect";
-    const effectSelect = createElement("select", "lj-select");
-    effectSelect.id = "ljEffectSelect";
-    Object.entries(effects).forEach(([value, label]) => {
-        const option = document.createElement("option");
-        option.value = value;
-        option.textContent = label;
-        effectSelect.appendChild(option);
-    });
-    effectSelect.value = selectedEffect;
-    effectField.append(effectLabel, effectSelect);
+    const voiceCard = createElement("section", "lj-voice-announcement-card");
+    const voiceCopy = createElement("div", "lj-voice-announcement-copy");
+    voiceCopy.append(
+        createElement("strong", "", "Körök hangos bemondása"),
+        createElement("span", "", "Például: „A lidércek köre következik.”")
+    );
+    const voiceToggleLabel = createElement("label", "lj-switch-label");
+    voiceToggleLabel.htmlFor = "ljPhaseVoiceToggle";
+    const voiceToggle = createElement("input", "lj-switch-input");
+    voiceToggle.type = "checkbox";
+    voiceToggle.id = "ljPhaseVoiceToggle";
+    voiceToggle.checked = phaseVoiceEnabled;
+    const switchVisual = createElement("span", "lj-switch-visual");
+    voiceToggleLabel.append(voiceToggle, switchVisual);
+    voiceCard.append(voiceCopy, voiceToggleLabel);
+    const voiceActionRow = createElement("div", "lj-music-actions");
+    const voiceTestButton = createElement("button", "lj-inline-action", "Hangpróba");
+    voiceTestButton.type = "button";
+    voiceActionRow.appendChild(voiceTestButton);
+    voiceCard.appendChild(voiceActionRow);
 
     const status = createElement("div", "lj-status", lastStatus);
     status.id = "ljMusicStatus";
     status.classList.toggle("error", lastStatusIsError);
     const guide = createElement("section", "lj-rules-guide");
     const guideHeading = createElement("h3", "lj-guide-heading", "Játékszabályok és szerepek");
-    const guideIntro = createElement("p", "lj-guide-intro", "A cél az, hogy kiderítsd, kik a lidércek. A falu nappal megbeszél és szavaz; éjszaka a szerepek titkos képességei működnek.");
+    const guideIntro = createElement("p", "lj-guide-intro", "A falu nappal megbeszél és szavaz; éjszaka a titkos szerepképességek működnek.");
     const roleDetails = createElement("details", "lj-guide-details");
     const roleSummary = createElement("summary", "", "Mit tudnak a szerepek?");
     const roleList = createElement("div", "lj-guide-list");
     [
-        ["Lidérc", "Éjszaka közösen választanak célpontot. Több lidércnek ugyanarra kell szavaznia. Egyedül maradva támadhat vagy megvizsgálhatja egy élő játékos szerepét. A lidércek egymással privát hangon és szöveges chaten beszélhetnek."],
+        ["Lidérc", "Éjszaka közösen választanak célpontot. Több lidércnek ugyanarra kell szavaznia. Egyedül maradva támadhat vagy egyetlen alkalommal megvizsgálhat egy élő játékost. A lidércek egymással privát hangon és szöveges chaten beszélhetnek."],
         ["Gyógyító", "Ha több gyógyító él, mindegyik külön szavaz, nincs chat vagy ping; védelem csak akkor történik, ha mind ugyanazt a játékost választja. Ha egyedüli gyógyító marad, összesen két éjszakán védhet, éjszakánként legfeljebb egyszer."],
         ["Falusi", "Nincs éjszakai képessége. Nappal a beszélgetés és a szavazás segít felderíteni a lidérceket."],
-        ["Vadász", "Éjszaka egyszer lőhet egy élő játékosra vagy passzolhat. Nem vizsgál szerepet. Több vadász a saját éjszakai körében privát hangon és szöveges chaten egyeztethet. Ha a lidércek ugyanazon az éjszakán megölik, nem támadhat vissza."],
+        ["Vadász", "Éjszaka egyszer lőhet egy élő játékosra vagy passzolhat. Nem vizsgál szerepet. Több vadász a saját éjszakai körében privát hangon és szöveges chaten egyeztethet."],
         ["Bolond", "A célja, hogy a falu nappali szavazással kiszavazza. Ha így esik ki, ő nyeri a játékot."],
-        ["Bohóc lidérc", "Nem külön beállítható kaszt: a lidércek közül legfeljebb egy válik Bohóc lidérccé. A külön 20 másodperces körében Hamis szavazatot használhat: kiválaszt egy élő játékost, akinek a következő nappali voksát a szerver titokban SKIP-ként számolja el. A szabotázs három körönként használható újra; az egyedüli lidérc egyszeri szerepvizsgálata külön képesség marad."],
-        ["Fertőző", "Éjszakánként megfertőzhet egy még nem fertőzött, élő játékost. Csak ő látja a fertőzött személyeket; a nyilvános napló nem nevezi meg őket. Akkor nyer, ha minden más életben lévő játékos megfertőződött."],
-        ["Látnok", "A halott játékosokkal külön szöveges csatornán beszélhet, és segítséget kérhet tőlük. Az élők többi tagja nem látja ezt a beszélgetést."],
-        ["Földesúr", "A nappali szavazata két szavazati pontot ér. Egy célpontot vagy a SKIP lehetőséget választja, és a voks kétszer számít."],
-        ["Házastársak", "A beállított játékosok párokba kerülnek. Éjszaka privát hangon és chaten beszélhetnek egymással. Ha egyikük meghal, a párja is kiesik."],
-        ["Kalandor", "Három, a szobában tényleg beállított szerepet kell megtalálnia. Éjszakánként egy játékosra tippelhet. A célpont halála nem törli a feladatot; mindhárom helyes találat után nyer."],
-        ["Lélekrabló", "Új halál után, hajnalban kiválaszthat egy halott játékost, és átveheti a szerepét, képességeit és győzelmi oldalát. Halott Lélekrabló szerepét nem veheti át."],
-        ["Árnyékkötő", "A lidércek szövetségese. Minden második éjszakán kiválaszthat egy élő, nem lidérc játékost, akinek arra az éjszakára letiltja a különleges képességét. A lidércekkel titkos csatornán kommunikálhat."]
+        ["Bohóc lidérc", "A lidércek közül legfeljebb egy válik Bohóc lidérccé. A külön körben szabotázst használhat, például Hamis szavazatot, némítást vagy hangelvékonyítást. A képesség használata után a beállított pihenőidőt ki kell várnia."],
+        ["Fertőző", "Éjszakánként megfertőzhet egy élő játékost. Csak ő látja, ki fertőzött; a nyilvános napló nem nevezi meg őket."],
+        ["Látnok", "Külön szeánszon beszélhet a halott játékosokkal. Az élők többi tagja nem látja ezt a kommunikációt."],
+        ["Földesúr", "A nappali szavazata két szavazati pontot ér."],
+        ["Házastársak", "Párokban kerülnek a játékba. Éjszaka privát hangon és chaten beszélhetnek; egyikük halálakor a párja is kiesik."],
+        ["Kalandor", "Három, ténylegesen beállított szerepet kell megtalálnia. A célpont halála nem törli a feladatot; mindhárom helyes találat szükséges a győzelemhez."],
+        ["Lélekrabló", "Hajnalban átveheti egy halott játékos szerepét, képességeit és győzelmi oldalát."],
+        ["Árnyékkötő", "A lidércek szövetségese. Minden második éjszakán letilthatja egy nem lidérc játékos különleges képességét."],
+        ["Árnycserélő", "Éjszaka egyszer vakon szerepet cserél egy másik élő játékossal; a kiválasztott Falusi lesz."]
     ].forEach(([name, descriptionText]) => {
         const entry = createElement("article", "lj-guide-entry");
         entry.append(createElement("strong", "", name), createElement("p", "", descriptionText));
@@ -234,17 +211,16 @@ function openSettings() {
     const flowList = createElement("ol", "lj-guide-steps");
     [
         "Mindenki READY állapotba kerül, majd a házigazda elindítja a játékot.",
-        "A 10 másodperces sötétedés alatt mindenki titkos szerepet kap, utána jön a beállított ismerkedési idő.",
-        "Éjszaka az Árnycserélő egyszer vakon szerepet cserélhet; a lidércek támadnak, a gyógyítók védenek, a vadászok lőhetnek, a Fertőző fertőzhet, a Kalandor szerepeket keres. Minden Lidérc külön 50% eséllyel lehet Bohóc lidérc. A nappali szavazatok titkosak: csak az látszik, ki szavazott már, a célpont nem.",
-        "Reggel megjelennek az éjszakai események, majd a falu megbeszél és szavaz; SKIP is választható.",
-        "A körök addig ismétlődnek, amíg a falu vagy a lidércek nem győznek, vagy a bolond nem nyer a kiszavazásával."
+        "A szereposztást követően jön a beállított ismerkedési idő.",
+        "Éjszaka a szerepek képességei aktiválódnak, a nyilvános chat zárva lehet.",
+        "Reggel megjelennek az éjszakai események, majd a falu megbeszél és titkosan szavaz; SKIP is választható.",
+        "A körök addig ismétlődnek, amíg valamelyik csapat vagy egy különleges szerep nem nyer."
     ].forEach((text) => flowList.appendChild(createElement("li", "", text)));
     flowDetails.append(flowSummary, flowList);
     guide.append(guideHeading, guideIntro, roleDetails, flowDetails);
+    const footer = createElement("p", "lj-footer", "A hangerő és a hangbemondás beállítása ezen a böngészőn mentődik el.");
 
-    const footer = createElement("p", "lj-footer", "A beállításaid ezen a böngészőn automatikusan elmentődnek.");
-
-    modal.append(header, description, trackField, volumeField, themeField, effectField, guide, status, footer);
+    modal.append(header, description, musicCard, volumeField, voiceCard, guide, status, footer);
     overlay.appendChild(modal);
     document.body.appendChild(overlay);
     settingsWindow = overlay;
@@ -254,25 +230,28 @@ function openSettings() {
         settingsWindow = null;
         document.removeEventListener("keydown", handleEscape);
     }
-    function handleEscape(event) {
-        if (event.key === "Escape") closeSettings();
-    }
-
+    function handleEscape(event) { if (event.key === "Escape") closeSettings(); }
     closeButton.addEventListener("click", closeSettings);
-    overlay.addEventListener("click", (event) => {
-        if (event.target === overlay) closeSettings();
-    });
+    overlay.addEventListener("click", (event) => { if (event.target === overlay) closeSettings(); });
     document.addEventListener("keydown", handleEscape);
-    trackSelect.addEventListener("change", () => changeTrack(Number(trackSelect.value)));
     volumeSlider.addEventListener("input", () => updateVolume(volumeSlider.value));
-    themeSelect.addEventListener("change", () => {
-        selectedTheme = themeSelect.value;
-        applyAppearance();
+    musicToggle.addEventListener("click", async () => {
+        if (music.paused) {
+            await playMusic();
+            musicToggle.textContent = music.paused ? "Zene indítása" : "Zene szüneteltetése";
+        } else {
+            music.pause();
+            musicToggle.textContent = "Zene indítása";
+            setStatus("A háttérzene szünetel.");
+        }
     });
-    effectSelect.addEventListener("change", () => {
-        selectedEffect = effectSelect.value;
-        applyAppearance();
+    voiceToggle.addEventListener("change", () => {
+        phaseVoiceEnabled = voiceToggle.checked;
+        saveSetting("ljPhaseVoiceEnabled", phaseVoiceEnabled);
+        if (!phaseVoiceEnabled && "speechSynthesis" in window) window.speechSynthesis.cancel();
+        setStatus(phaseVoiceEnabled ? "A körök hangos bemondása bekapcsolva." : "A körök hangos bemondása kikapcsolva.");
     });
+    voiceTestButton.addEventListener("click", () => speakPhaseAnnouncement("A lidércek köre következik.", true));
     closeButton.focus();
 }
 
@@ -286,9 +265,14 @@ if (gearButton) {
     gearButton.addEventListener("animationend", () => gearButton.classList.remove("is-spinning"));
 }
 
-music.addEventListener("error", () => {
-    setStatus("Nem sikerült betölteni a zenefájlt. Ellenőrizd, hogy a public/music mappában van-e a zene1.mp3 és a zene2.mp3.", true);
-});
+// A böngészők autoplay-védelme miatt az első felhasználói kattintás indítja a zenét.
+function ensureMusicOnInteraction() {
+    if (!musicStartedByGesture && music.paused) playMusic();
+}
+document.addEventListener("pointerdown", ensureMusicOnInteraction, { passive: true });
+document.addEventListener("keydown", ensureMusicOnInteraction);
+music.addEventListener("play", () => { musicStartedByGesture = true; });
+music.addEventListener("error", () => setStatus("A fantasy zene nem töltődött be. Ellenőrizd a public/music/lidercjaras-fantasy.mp3 fájlt.", true));
 
 // ================================================
 // JÁTÉKOSNÉV MEGADÁSA
@@ -444,15 +428,11 @@ function openNameDialog() {
 
 if (startGameButton) {
     startGameButton.addEventListener("click", () => {
-        // A kattintás felhasználói művelet, ezért a böngésző a zenét is engedélyezheti.
+        // A gombnyomás felhasználói művelet, ezért a böngésző engedélyezheti a zenét.
         if (music.paused) playMusic();
         openNameDialog();
     });
 }
 
-// Megpróbálja elindítani a zenét; a böngésző ezt letilthatja kattintás előtt.
-music.play().then(() => {
-    setStatus(`Most szól: ${tracks[selectedTrack].name}`);
-}).catch(() => {
-    setStatus("A háttérzene indításra vár.");
-});
+// Autoplay-próba: ha a böngésző tiltja, a következő kattintás indítja a zenét.
+playMusic();

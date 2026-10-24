@@ -78,6 +78,26 @@
         "vote-result": "A falu döntött",
         "game-over": "Véget ért a Lidércjárás"
     };
+    const phaseVoicePhrases = {
+        countdown: "A Lidércjárás hamarosan elkezdődik.",
+        intro: "Kezdődik az ismerkedési idő.",
+        "night-shadowbinder": "Az Árnyékkötő köre következik.",
+        "dawn-soulreaper": "A Lélekrabló választhat a halottak közül.",
+        "night-swapper": "Az Árnycserélő köre következik.",
+        "night-special-spirit": "A Bohóc lidérc különleges köre következik.",
+        "night-spirits": "A lidércek köre következik.",
+        "night-healer": "A gyógyító köre következik.",
+        "night-hunters": "A vadászok köre következik.",
+        "night-fool": "A Bolond köre következik.",
+        "night-infectious": "A Fertőző köre következik.",
+        "night-adventurer": "A Kalandor köre következik.",
+        "night-seer": "A Látnok köre következik.",
+        "dawn-result": "Hajnalodik. Az éjszaka eredménye következik.",
+        day: "Reggel van. A falu felébredhet.",
+        "vote-result": "A szavazás eredménye következik.",
+        "game-over": "A Lidércjárás véget ért."
+    };
+
     const nightPhases = new Set(["night-shadowbinder", "night-swapper", "night-special-spirit", "night-spirits", "night-healer", "night-hunters", "night-fool", "night-infectious", "night-adventurer", "night-seer"]);
 
     let myRole = null;
@@ -334,7 +354,7 @@
                 const cooldown = Math.max(0, Number(gameState.specialSpiritSabotageRoundsRemaining) || 0);
                 const consoleBox = makeElement("div", "clown-action-console");
                 const intro = makeElement("div", "clown-console-intro");
-                intro.appendChild(makeElement("span", "clown-console-icon", "🎭"));
+                intro.appendChild(makeElement("span", "clown-console-icon", "◆"));
                 const introText = makeElement("div", "clown-console-intro-copy");
                 introText.appendChild(makeElement("strong", "", "Bohóc lidérc · titkos képesség"));
                 introText.appendChild(makeElement("span", "", "Válassz egy szabotázst, majd egy célpontot. A lista ezen a panelen belül görgethető."));
@@ -647,7 +667,7 @@
             roleImage.src = `/assets/roles/${roleArtKey}.svg`;
             roleImage.alt = `${myRoleLabel || "Titkos szerep"} karakterillusztráció`;
         }
-        $("gameRoleSymbol").textContent = mySpecialSpirit ? "☻" : (roleSymbols[myRole] || "◉");
+        $("gameRoleSymbol").textContent = mySpecialSpirit ? "☻" : (roleSymbols[myRole] || "◆");
         $("gameRoleName").textContent = myRoleLabel || "Titkos szerep";
         $("gameRoleDescription").textContent = myRoleDescription || "A szereped titkos. Figyeld a játékmenetet.";
         const teamLine = $("gameRoleTeamMembers");
@@ -817,7 +837,13 @@
         gameState = state;
         amIInfected = Boolean(state.infectedSelf);
         renderGame();
-        if (phaseChanged) showPhaseAnnouncement(state);
+        if (phaseChanged) {
+            showPhaseAnnouncement(state);
+            const announcement = phaseVoicePhrases[state.phase];
+            if (announcement && typeof window.lidercSpeakAnnouncement === "function") {
+                window.lidercSpeakAnnouncement(announcement);
+            }
+        }
         if (state.message) showNotice(state.message, `${state.phase}|${state.round}|${state.message}`);
         else showNotice("");
     });

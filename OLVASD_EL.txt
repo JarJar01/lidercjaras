@@ -1,3 +1,18 @@
+LIDÉRCJÁRÁS – HANGOS KÖRBEMONDÁS ÉS NYUGODT FANTASY ZENE (2026-10-24)
+- A fontos fázisváltásokat a böngésző magyar beszédhangja mondja be: például „A lidércek köre következik”, „A gyógyító köre következik”, „A vadászok köre következik”, valamint a nappali, szavazási és játék vége eseményeket.
+- A Beállításokban ki/be kapcsolható a körbemondás, és van hangpróba gomb. A hang a böngésző helyi beszédszintézisét használja; a pontos hang a telepített magyar beszédhangtól függ.
+- Új, nyugodt, ambient fantasy zene: public/music/lidercjaras-fantasy.mp3. A ZIP tartalmazza ezt a fájlt, és a .gitignore kivétellel a GitHub Desktop is feltöltheti.
+- A beállításokból eltávolítottuk a háttérszín- és háttéranimáció-választót. A városi háttérképek megmaradnak, a fölé helyezett dekoratív kék holdat eltávolítottuk.
+- A kezdőképernyőn, lobbyban és játékképernyőn az ✦/✧ díszjeleket eltávolítottuk.
+
+TELEPÍTÉS
+1. Állítsd le a szervert Ctrl+C billentyűkkel.
+2. Csomagold ki a ZIP tartalmát a projekt főmappájába (ahol a server.js és package.json van), engedélyezd a fájlok felülírását.
+3. A ZIP tartalmazza a public/music/lidercjaras-fantasy.mp3 fájlt. A korábbi zene1.mp3 és zene2.mp3 megtartható, de már nem szükséges.
+4. A node_modules mappát és a package.json fájlt hagyd meg.
+5. Indítás: npm start
+6. Helyi játék: http://localhost:3000
+
 FELÜLETFRISSÍTÉS (2026-10-24)
 - A játékképernyő széles kijelzőn három rendezett oszlopban jelenik meg: balra a játékoslista, középen az aktuális kör és a döntések, jobbra a saját szerepkártya illusztrációval.
 - A körök váltásakor középre animált, visszafogott méretű fázisablak jelenik meg, amely megmutatja, melyik szerep vagy szakasz következik. A szavazás kezdetén külön szavazási értesítés jelenik meg; a szavazás vezérlői a középső panelen maradnak.
