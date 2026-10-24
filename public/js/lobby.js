@@ -243,7 +243,7 @@
     function readRoomSettings() {
         const keys = [
             "introSeconds", "daySeconds", "spiritsSeconds",
-            "healerSeconds", "huntersSeconds", "foolSeconds", "swapperSeconds", "infectiousSeconds", "adventurerSeconds"
+            "healerSeconds", "huntersSeconds", "foolSeconds", "swapperSeconds", "infectiousSeconds", "adventurerSeconds", "seerSeconds"
         ];
         const ids = {
             introSeconds: "settingIntroSeconds",
@@ -254,7 +254,8 @@
             foolSeconds: "settingFoolSeconds",
             swapperSeconds: "settingSwapperSeconds",
             infectiousSeconds: "settingInfectiousSeconds",
-            adventurerSeconds: "settingAdventurerSeconds"
+            adventurerSeconds: "settingAdventurerSeconds",
+            seerSeconds: "settingSeerSeconds"
         };
         const settings = {};
         for (const key of keys) {
@@ -453,7 +454,11 @@
     // -----------------------------------------------
 
     function getPrivateTeamRole(state = currentGameVoiceState) {
-        if (!state || !voiceRole || !gamePlayerAlive) return null;
+        if (!state || !voiceRole) return null;
+        if (state.phase === "night-seer" && ((voiceRole === "seer" && gamePlayerAlive) || !gamePlayerAlive)) {
+            return Array.isArray(state.seancePeerIds) && state.seancePeerIds.length > 0 ? "seance" : null;
+        }
+        if (!gamePlayerAlive) return null;
         if (voiceRole === "spirits" && ["night-special-spirit", "night-spirits"].includes(state.phase)) return "spirits";
         if (voiceRole === "hunters" && state.phase === "night-hunters") return "hunters";
         if (voiceRole === "spouses" && ["night-swapper", "night-special-spirit", "night-spirits", "night-healer", "night-hunters", "night-fool", "night-infectious", "night-adventurer"].includes(state.phase)) return "spouses";
@@ -462,6 +467,9 @@
 
     function getLivingTeamPeerIds(state = currentGameVoiceState, role = getPrivateTeamRole(state)) {
         if (!state || !role) return [];
+        if (role === "seance") {
+            return (Array.isArray(state.seancePeerIds) ? state.seancePeerIds : []).filter((id) => id !== socket.id);
+        }
         const livingIds = new Set((state.players || [])
             .filter((player) => player.alive && player.connected !== false)
             .map((player) => player.id));
@@ -488,12 +496,13 @@
         let buttonText;
         let statusText;
 
-        if (!gamePlayerAlive) {
+        const seanceVoiceAllowed = Boolean(currentGameVoiceState?.phase === "night-seer" && privateTeamVoice);
+        if (!gamePlayerAlive && !seanceVoiceAllowed) {
             buttonText = "Mikrofon letiltva";
             statusText = "Kiestél · hallgathatsz, de nem beszélhetsz";
         } else if (privateTeamVoice) {
             const activeRole = teamVoiceRole || voiceRole;
-            const teamName = activeRole === "hunters" ? "Vadászok" : activeRole === "spouses" ? "Házastársak" : "Lidércek";
+            const teamName = activeRole === "hunters" ? "Vadászok" : activeRole === "spouses" ? "Házastársak" : activeRole === "seance" ? "Látnok–halottak" : "Lidércek";
             buttonText = teamMicEnabled ? `${teamName} mikrofon némítása` : `${teamName} privát mikrofon bekapcsolása`;
             statusText = teamMicEnabled
                 ? `${teamName} privát hangja aktív · csak a csapat hallja`
@@ -514,7 +523,8 @@
 
         buttons.forEach((button) => {
             button.textContent = buttonText;
-            button.disabled = !gamePlayerAlive || (gameVoiceLocked && !privateTeamVoice);
+            const seanceVoiceAllowed = Boolean(currentGameVoiceState?.phase === "night-seer" && privateTeamVoice);
+            button.disabled = (!gamePlayerAlive && !seanceVoiceAllowed) || (gameVoiceLocked && !privateTeamVoice);
             button.classList.toggle("is-active", Boolean(
                 privateTeamVoice ? teamMicEnabled : (localAudioStream && micEnabled && !gameVoiceLocked)
             ));
@@ -547,7 +557,7 @@
         if (!state || !state.phase) return;
         const previousTeamVoicePhase = teamVoicePhaseActive;
         currentGameVoiceState = state;
-        gameVoiceLocked = ["countdown", "night-swapper", "night-special-spirit", "night-spirits", "night-healer", "night-hunters", "night-fool", "night-infectious", "night-adventurer"].includes(state.phase);
+        gameVoiceLocked = ["countdown", "night-swapper", "night-special-spirit", "night-spirits", "night-healer", "night-hunters", "night-fool", "night-infectious", "night-adventurer", "night-seer"].includes(state.phase);
         const me = Array.isArray(state.players) ? state.players.find((player) => player.id === socket.id) : null;
         // A kiesettek a játék végén újra beszélhetnek; a játék közben csak hallgatók.
         if (me) gamePlayerAlive = Boolean((me.alive && me.connected !== false) || state.phase === "game-over");
@@ -576,9 +586,10 @@
         if (teamVoicePhaseActive && localAudioStream && !teamAudioTrack) createTeamAudioTrack();
         if (teamVoicePhaseActive && localAudioStream) {
             teamMicEnabled = true;
-            if (teamAudioTrack) teamAudioTrack.enabled = Boolean(gamePlayerAlive);
+            if (teamAudioTrack) teamAudioTrack.enabled = Boolean(canTransmitTeamVoice(state));
         }
-        const muted = gameVoiceLocked || !gamePlayerAlive || teamVoicePhaseActive;
+        const seanceVoiceAllowed = Boolean(state.phase === "night-seer" && teamVoicePhaseActive && getPrivateTeamRole(state) === "seance");
+        const muted = gameVoiceLocked || (!gamePlayerAlive && !seanceVoiceAllowed) || teamVoicePhaseActive;
         if (localAudioStream) {
             localAudioStream.getAudioTracks().forEach((track) => { track.enabled = Boolean(micEnabled && !muted); });
         }
@@ -592,7 +603,7 @@
                     teamMicEnabled = true;
                     if (teamVoicePhaseActive) {
                         createTeamAudioTrack();
-                        if (teamAudioTrack) teamAudioTrack.enabled = true;
+                        if (teamAudioTrack) teamAudioTrack.enabled = Boolean(canTransmitTeamVoice(currentGameVoiceState));
                         syncTeamVoicePeers();
                     }
                     if (currentRoom) syncVoicePeers(currentRoom);
@@ -730,6 +741,10 @@
         if (socket.connected && currentRoom) socket.emit("team-voice-signal", { to: peerId, data });
     }
 
+    function canTransmitTeamVoice(state = currentGameVoiceState) {
+        return Boolean(gamePlayerAlive || (state?.phase === "night-seer" && getPrivateTeamRole(state) === "seance"));
+    }
+
     function createTeamAudioTrack() {
         if (!localAudioStream || teamAudioTrack) return teamAudioTrack;
         const original = localAudioStream.getAudioTracks()[0];
@@ -740,7 +755,7 @@
         if (!wasEnabled) original.enabled = true;
         teamAudioTrack = original.clone();
         original.enabled = wasEnabled;
-        teamAudioTrack.enabled = Boolean(teamMicEnabled && teamVoicePhaseActive && gamePlayerAlive);
+        teamAudioTrack.enabled = Boolean(teamMicEnabled && teamVoicePhaseActive && canTransmitTeamVoice());
         teamAudioStream = new MediaStream([teamAudioTrack]);
         return teamAudioTrack;
     }
@@ -822,7 +837,10 @@
     }
 
     async function handleTeamVoiceSignal({ from, data } = {}) {
-        if (!from || !data || !teamVoicePhaseActive || !voiceTeamMembers.some((member) => member.id === from)) return;
+        const allowedTeamIds = teamVoiceRole === "seance"
+            ? (Array.isArray(currentGameVoiceState?.seancePeerIds) ? currentGameVoiceState.seancePeerIds : [])
+            : voiceTeamMembers.map((member) => member.id);
+        if (!from || !data || !teamVoicePhaseActive || !allowedTeamIds.includes(from)) return;
         const record = ensureTeamVoicePeer(from);
         if (!record) return;
         const pc = record.pc;
@@ -974,8 +992,9 @@
             showMessage("Éjszaka a normál voice chat automatikusan kikapcsol.", "info");
             return;
         }
-        if (!gamePlayerAlive && currentGameVoiceState?.phase !== "game-over") {
-            showMessage("Kiesett játékosként a mikrofonod a játék végéig letiltva marad.", "info");
+        const seanceVoiceAllowed = Boolean(currentGameVoiceState?.phase === "night-seer" && privateTeamVoice && teamVoiceRole === "seance");
+        if (!gamePlayerAlive && currentGameVoiceState?.phase !== "game-over" && !seanceVoiceAllowed) {
+            showMessage("Kiesett játékosként csak a Látnok szeánsza alatt válaszolhatsz hanggal; máskor hallgató maradsz.", "info");
             return;
         }
         if (button) button.disabled = true;
@@ -989,11 +1008,11 @@
                 }
                 if (!teamAudioTrack) createTeamAudioTrack();
                 teamMicEnabled = !teamMicEnabled;
-                if (teamAudioTrack) teamAudioTrack.enabled = Boolean(teamMicEnabled && teamVoicePhaseActive && gamePlayerAlive);
+                if (teamAudioTrack) teamAudioTrack.enabled = Boolean(teamMicEnabled && teamVoicePhaseActive && canTransmitTeamVoice(currentGameVoiceState));
                 // A normál, mindenki számára elérhető mikrofoncsatorna éjszaka némítva marad.
                 localAudioStream?.getAudioTracks().forEach((track) => { track.enabled = false; });
                 syncTeamVoicePeers();
-                if (teamMicEnabled) showMessage("A privát csapathang bekapcsolt. Csak az életben lévő csapattársaid hallanak.", "success");
+                if (teamMicEnabled) showMessage(teamVoiceRole === "seance" ? "A Látnok–halottak privát hangja bekapcsolt. Csak a szeánsz résztvevői hallanak." : "A privát csapathang bekapcsolt. Csak a csapattársaid hallanak.", "success");
             } else if (!localAudioStream) {
                 await ensureLocalAudio();
                 if (currentRoom) syncVoicePeers(currentRoom);

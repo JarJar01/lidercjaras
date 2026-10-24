@@ -10,7 +10,7 @@ const app = express();
 const server = http.createServer(app);
 const io = new Server(server);
 const PUBLIC_DIR = path.join(__dirname, "public");
-const APP_VERSION = "lidercjaras-roles-seer-landlord-spouses-adventurer-2026-10-24-4";
+const APP_VERSION = "lidercjaras-cooldown-adventurer-seer-vote-count-2026-10-24-6";
 
 app.get("/health", (_req, res) => {
     res.json({ ok: true, app: "Lidércjárás", version: APP_VERSION });
@@ -57,7 +57,7 @@ const WINNER_LABELS = {
 };
 const MIN_PLAYERS = 4;
 const MAX_PLAYERS = 16;
-const NIGHT_PHASES = new Set(["night-swapper", "night-special-spirit", "night-spirits", "night-healer", "night-hunters", "night-fool", "night-infectious", "night-adventurer"]);
+const NIGHT_PHASES = new Set(["night-swapper", "night-special-spirit", "night-spirits", "night-healer", "night-hunters", "night-fool", "night-infectious", "night-adventurer", "night-seer"]);
 
 function cleanText(value, maxLength) {
     return String(value ?? "")
@@ -112,7 +112,8 @@ function normalizeRoomSettings(input) {
         foolSeconds: 10,
         swapperSeconds: 10,
         infectiousSeconds: 10,
-        adventurerSeconds: 20
+        adventurerSeconds: 20,
+        seerSeconds: 10
     };
     const source = input && typeof input === "object" ? input : {};
     const settings = {};
@@ -219,6 +220,31 @@ function currentVoteDetails(room) {
         submitted: game.votes.has(voter.id)
     }));
 }
+function currentVoteCounts(room) {
+    const game = room.game;
+    const counts = {};
+    for (const player of room.players.values()) {
+        if (player.connected !== false) counts[player.id] = 0;
+    }
+    counts.skip = 0;
+    // Csak összesített célpontonkénti számot küldünk; a szavazó-célpont párok titkosak maradnak.
+    for (const voter of room.players.values()) {
+        if (voter.connected === false || !game.votes.has(voter.id)) continue;
+        const targetId = game.votes.get(voter.id);
+        const weight = voter.role === "landlord" ? 2 : 1;
+        if (targetId === "skip") counts.skip += weight;
+        else if (Object.prototype.hasOwnProperty.call(counts, targetId)) counts[targetId] += weight;
+    }
+    return counts;
+}
+function clownSabotageRoundsRemaining(room, playerId) {
+    const usedAt = room.game?.clownSabotageLastUsedRound?.get(playerId);
+    if (!Number.isInteger(usedAt)) return 0;
+    return Math.max(0, 3 - (room.game.round - usedAt));
+}
+function canClownSabotage(room, playerId) {
+    return clownSabotageRoundsRemaining(room, playerId) === 0;
+}
 function displayNameForPlayer(player, viewerId) {
     if (!player) return "Ismeretlen játékos";
     // A saját nevét mindenki eredetinek látja; a névcsere célpontja a bohóc álnévét sem látja.
@@ -256,9 +282,24 @@ function gamePublicState(room, viewerId = null) {
         })),
         infectedSelf: Boolean(viewerId && game.infectedPlayerIds instanceof Set && game.infectedPlayerIds.has(viewerId)),
         seerChannelAvailable: Boolean(
-            game.phase !== "game-over" && livingRolePlayers(room, "seer").length > 0 &&
+            game.phase === "night-seer" && livingRolePlayers(room, "seer").length > 0 &&
             viewerPlayer && ((viewerPlayer.role === "seer" && viewerPlayer.alive !== false) || viewerPlayer.alive === false)
         ),
+        seancePeerIds: game.phase === "night-seer" && viewerPlayer &&
+            ((viewerPlayer.role === "seer" && viewerPlayer.alive !== false) || viewerPlayer.alive === false)
+            ? [...room.players.values()].filter((candidate) => candidate.id !== viewerId && candidate.connected !== false && (
+                viewerPlayer.role === "seer" && viewerPlayer.alive !== false
+                    ? candidate.alive === false
+                    : candidate.role === "seer" && candidate.alive !== false
+            )).map((candidate) => candidate.id)
+            : [],
+        specialSpiritSabotageReady: Boolean(viewerPlayer?.role === "spirits" && viewerPlayer.specialSpirit && canClownSabotage(room, viewerId)),
+        specialSpiritSabotageRoundsRemaining: viewerPlayer?.role === "spirits" && viewerPlayer.specialSpirit
+            ? clownSabotageRoundsRemaining(room, viewerId) : 0,
+        specialSpiritActionSubmitted: Boolean(viewerId && game.swapperActions?.has(viewerId)),
+        specialSpiritInspectUsed: Boolean(viewerId && game.spiritInspectUsedIds?.has(viewerId)),
+        adventurerTurnFailed: Boolean(viewerId && game.adventurerFailedThisRound?.has(viewerId)),
+        voteCounts: ["day", "vote-result"].includes(game.phase) ? currentVoteCounts(room) : {},
         adventurerTasks: viewerPlayer?.role === "adventurer"
             ? (game.adventurerObjectiveRoles?.get(viewerId) || []).map((roleKey) => ({
                 role: roleKey,
@@ -305,6 +346,12 @@ function emitSpeakingToChannel(room, playerId, channel, speaking) {
     const payload = { playerId, speaking: Boolean(speaking) };
     if (channel === "public") {
         io.to(room.code).emit("player-speaking", payload);
+        return;
+    }
+    // A Látnok–halottak hangjelzése csak a szeánsz résztvevőihez jut el.
+    if (channel === "seance") {
+        const participants = [...livingRolePlayers(room, "seer"), ...[...room.players.values()].filter((player) => player.alive === false && player.connected !== false)];
+        for (const participant of participants) io.to(participant.id).emit("player-speaking", payload);
         return;
     }
     // A házastársi beszélőjelzés kizárólag a saját párhoz jut el.
@@ -420,12 +467,14 @@ function startNightSpiritsPhase(room) {
 }
 
 function startSpecialSpiritPhaseOrSpirits(room) {
-    const hasUnusedSpecialSpirit = livingRolePlayers(room, "spirits").some((player) =>
-        player.specialSpirit && !room.game.swapperUsedIds.has(player.id)
-    );
-    if (hasUnusedSpecialSpirit) {
-        // A Bohóc lidércnek a rendes lidérckör előtt egy külön 20 másodperces titkos képességköre van.
-        startPhase(room, "night-special-spirit", 20, "A különleges lidércek titkos képességköre következik.");
+    const spirits = livingRolePlayers(room, "spirits");
+    const hasEligibleSpecialSpirit = spirits.some((player) => player.specialSpirit && (
+        canClownSabotage(room, player.id) ||
+        (spirits.length === 1 && !room.game.spiritInspectUsedIds.has(player.id))
+    ));
+    if (hasEligibleSpecialSpirit) {
+        // A Bohóc lidérc kap egy külön 20 másodperces kört. A szabotázs 3 körönként, a vizsgálat egyszer használható.
+        startPhase(room, "night-special-spirit", 20, "A Bohóc lidérc különleges köre következik.");
     } else {
         startNightSpiritsPhase(room);
     }
@@ -464,6 +513,7 @@ function startNightRound(room) {
     room.game.healerDisagreement = false;
     room.game.hunterActions = new Map();
     room.game.adventurerAttempts = new Map();
+    room.game.adventurerFailedThisRound = new Set();
     room.game.nightAttackTargetId = null;
     room.game.lastNightDeaths = [];
     room.game.pendingPublicEvents = [];
@@ -737,8 +787,8 @@ function resolveVotes(room) {
             continue;
         }
         const target = room.players.get(vote);
-        if (!target || target.alive === false || target.connected === false || target.id === player.id) {
-            counts.set("skip", (counts.get("skip") || 0) + 1);
+        if (!target || target.alive === false || target.connected === false) {
+            counts.set("skip", (counts.get("skip") || 0) + voteWeight);
             continue;
         }
         counts.set(vote, (counts.get(vote) || 0) + voteWeight);
@@ -791,6 +841,16 @@ function resolveVotes(room) {
     startPhase(room, "vote-result", 5, game.message);
 }
 
+function startSeerPhaseOrResolve(room) {
+    const hasLivingSeer = livingRolePlayers(room, "seer").length > 0;
+    const hasConnectedDead = [...room.players.values()].some((player) => player.alive === false && player.connected !== false);
+    if (room.game.round % 2 === 0 && hasLivingSeer && hasConnectedDead) {
+        startPhase(room, "night-seer", room.settings.seerSeconds || 10, "A Látnok minden második éjszakán rövid ideig beszélhet a holtakkal.");
+    } else {
+        resolveNight(room);
+    }
+}
+
 function startAdventurerPhaseOrResolve(room) {
     const game = room.game;
     const pending = livingRolePlayers(room, "adventurer").some((player) => {
@@ -798,8 +858,8 @@ function startAdventurerPhaseOrResolve(room) {
         const progress = game.adventurerProgress?.get(player.id) || new Map();
         return tasks.some((roleKey) => !progress.has(roleKey));
     });
-    if (pending) startPhase(room, "night-adventurer", room.settings.adventurerSeconds, "A Kalandor egy szerepet próbál meg beazonosítani.");
-    else resolveNight(room);
+    if (pending) startPhase(room, "night-adventurer", room.settings.adventurerSeconds, "A Kalandor legfeljebb három cél-szerepet próbál megtalálni. Hibás tipp után az adott éjszakára véget ér a köre.");
+    else startSeerPhaseOrResolve(room);
 }
 
 function startRemainingNightActions(room) {
@@ -864,6 +924,9 @@ function advanceGamePhase(room) {
             startAdventurerPhaseOrResolve(room);
             break;
         case "night-adventurer":
+            startSeerPhaseOrResolve(room);
+            break;
+        case "night-seer":
             resolveNight(room);
             break;
         case "dawn-result":
@@ -906,13 +969,13 @@ function sendPrivateRole(socket, room, player) {
         fool: "Próbáld elérni, hogy a falu nappali szavazással kiszavazzon. Ha így esel ki, a bolond nyer.",
         swapper: "Éjszaka egyszer, vakon válassz ki egy másik élő játékost. Megkapod az ő szerepét, ő pedig Falusi lesz. Nem látod előre a szerepét, és a célpont nem tud visszacserélni.",
         infectious: "Minden éjszaka megfertőzhetsz egy még nem fertőzött, élő játékost. Csak te látod, kik fertőződtek meg; a nyilvános napló csak annyit ír, hogy valaki megfertőződött. Akkor nyersz, ha minden más életben lévő játékos fertőzött.",
-        seer: "Látnokként a halott játékosokkal beszélgethetsz titkos csatornán. Kérhetsz tőlük segítséget, de a játékban élők többi tagja nem látja ezt a beszélgetést.",
+        seer: "Minden második éjszakán, ha már van halott játékos, kapsz egy külön szeánszt. Ebben csak hangon beszélhetsz a holtakkal; szöveges chat nincs, az élők más tagjai nem hallják.",
         landlord: "A nappali szavazásod két szavazatot ér. Egy célpontot választasz, és a voksod kétszer számít bele az eredménybe.",
         spouses: "Van egy házastársad, akit a titkos szerepkártyádon látsz. Éjszaka privát chaten és hangon kommunikálhattok. Ha egyikőtök meghal, a másik is kiesik.",
         adventurer: "Három, a szobában ténylegesen beállított szerepet kell megtalálnod. Minden éjszaka egy játékos szerepére tippelhetsz. A célpont halála nem törli a feladatot. Ha mindhárom helyes találatod megvan, azonnal nyersz."
     };
     if (player.specialSpirit) {
-        roleDescriptions.spirits = "Bohóc lidérc vagy: továbbra is a lidércek csapatában játszol és részt veszel a közös támadásban. A különleges körödben 20 másodperccel választhatsz egyszeri képességet: vakon felveheted egy élő játékos nevét, vagy lenémíthatod őt nappalra. Ha egyedüli lidérc vagy, a szabotázs helyett egyszer megvizsgálhatsz egy másik élő játékost. A különleges képesség a teljes játék során egyszer használható. A névfelvétel célpontja a saját eredeti nevét látja; mindenki más téged a kiválasztott játékos neve alatt lát.";
+        roleDescriptions.spirits = "Bohóc lidérc vagy: továbbra is a lidércek csapatában játszol és részt veszel a támadásban. A különleges körödben névfelvételt vagy nappali némítást használhatsz; ezt a szabotázst 3 kör elteltével újra használhatod. Ha egyedüli lidérc vagy, a szerepvizsgálatodat a teljes játékban csak egyszer használhatod. A célpont a saját eredeti nevét látja; mindenki más a felvett nevet látja.";
     }
     socket.emit("private-role", {
         role: player.role,
@@ -924,6 +987,8 @@ function sendPrivateRole(socket, room, player) {
         healerUsesRemaining: room.game?.healerUsesRemaining ?? 2,
         spiritInspectUsed: Boolean(room.game?.spiritInspectUsedIds?.has(player.id)),
         swapperUsed: Boolean(room.game?.swapperUsedIds?.has(player.id)),
+        specialSpiritSabotageReady: Boolean(player.role === "spirits" && player.specialSpirit && canClownSabotage(room, player.id)),
+        specialSpiritSabotageRoundsRemaining: player.role === "spirits" && player.specialSpirit ? clownSabotageRoundsRemaining(room, player.id) : 0,
         roleSwapUsed: Boolean(room.game?.roleSwapUsedIds?.has(player.id)),
         infectedPlayerIds: player.role === "infectious" ? [...(room.game?.infectedPlayerIds || new Set())] : [],
         adventurerTasks: player.role === "adventurer" ? (room.game?.adventurerObjectiveRoles?.get(player.id) || []).map((roleKey) => ({ role: roleKey, label: ROLE_LABELS[roleKey], solved: Boolean(room.game?.adventurerProgress?.get(player.id)?.has(roleKey)), targetId: room.game?.adventurerProgress?.get(player.id)?.get(roleKey) || null })) : [],
@@ -1113,13 +1178,13 @@ io.on("connection", (socket) => {
         room.started = true;
         room.game = {
             phase: "countdown", endsAt: null, round: 0, timer: null, message: "A sötétség elnyeli a falut...",
-            spiritActions: new Map(), swapperActions: new Map(), swapperUsedIds: new Set(), roleSwapActions: new Map(), roleSwapUsedIds: new Set(), pendingClownEffects: [],
+            spiritActions: new Map(), swapperActions: new Map(), swapperUsedIds: new Set(), clownSabotageLastUsedRound: new Map(), roleSwapActions: new Map(), roleSwapUsedIds: new Set(), pendingClownEffects: [],
             spiritInspectUsedIds: new Set(), infectiousActions: new Map(), infectedPlayerIds: new Set(), pendingPublicEvents: [],
             healerTargetId: null, healerActions: new Map(), healerDisagreement: false,
             healerUsesRemaining: 2, hunterActions: new Map(), nightAttackTargetId: null,
             votes: new Map(), lastNightDeaths: [], lastNightLog: [], lastVoteResult: null, pendingWinner: null, winner: null,
             rematchReady: new Set(),
-            adventurerObjectiveRoles: new Map(), adventurerProgress: new Map(), adventurerAttempts: new Map()
+            adventurerObjectiveRoles: new Map(), adventurerProgress: new Map(), adventurerAttempts: new Map(), adventurerFailedThisRound: new Set()
         };
         const availableAdventurerRoles = ROLE_KEYS.filter((roleKey) => roleKey !== "adventurer" && room.roles[roleKey] > 0);
         for (const adventurer of livingRolePlayers(room, "adventurer")) {
@@ -1162,15 +1227,15 @@ io.on("connection", (socket) => {
         socket.emit("game-action-ack", { message: "A vak szerepcsere rögzítve. A szereped a kör végén változik meg; a célpont csak Falusi lesz." });
     });
 
-    // A Bohóc lidérc a külön 20 másodperces képességkörben egyszer választhat szabotázst.
+    // A Bohóc lidérc szabotázsa három körönként használható újra.
     socket.on("swapper-action", (payload = {}) => {
         const room = rooms.get(socket.data.roomId);
         const player = room?.players.get(socket.id);
         if (!room?.game || room.game.phase !== "night-special-spirit" || !player || player.role !== "spirits" || !player.specialSpirit || player.alive === false || player.connected === false) {
             socket.emit("game-action-error", "Most nem használhatod a Bohóc lidérc képességét."); return;
         }
-        if (room.game.swapperUsedIds.has(socket.id)) {
-            socket.emit("game-action-error", "A különleges képességedet már felhasználtad ebben a játékban."); return;
+        if (!canClownSabotage(room, socket.id)) {
+            socket.emit("game-action-error", `A szabotázsod még ${clownSabotageRoundsRemaining(room, socket.id)} körig pihen.`); return;
         }
         if (room.game.swapperActions.has(socket.id)) {
             socket.emit("game-action-error", "Ebben a körben már választottál képességet."); return;
@@ -1184,13 +1249,14 @@ io.on("connection", (socket) => {
             socket.emit("game-action-error", "Válassz névfelvételt vagy némítást."); return;
         }
         room.game.swapperActions.set(socket.id, { clownId: player.id, targetId: target.id, effect });
-        room.game.swapperUsedIds.add(socket.id);
-        socket.emit("swapper-used", { used: true });
+        room.game.clownSabotageLastUsedRound.set(socket.id, room.game.round);
+        socket.emit("swapper-used", { used: true, cooldownRounds: 3 });
+        emitGameState(room);
         const actionText = effect === "rename" ? "névfelvétel" : "hang némítása";
-        socket.emit("game-action-ack", { message: `A teljes játékra szóló különleges képességed rögzítve (${actionText}).` });
+        socket.emit("game-action-ack", { message: `A szabotázsod rögzítve (${actionText}). A következő használatig 3 kör telik el.` });
     });
 
-    // Az egyedüli Bohóc lidérc a szabotázs HELYETT egyszer szerepet is vizsgálhat.
+    // Az egyedüli Bohóc lidérc a szerepvizsgálatot egyszer használhatja, külön a szabotázs hűtési idejétől.
     socket.on("special-spirit-inspect", (payload = {}) => {
         const room = rooms.get(socket.data.roomId);
         const player = room?.players.get(socket.id);
@@ -1200,17 +1266,20 @@ io.on("connection", (socket) => {
         if (livingRolePlayers(room, "spirits").length !== 1) {
             socket.emit("game-action-error", "Szerepet csak egyedüli lidércként vizsgálhatsz."); return;
         }
-        if (room.game.swapperUsedIds.has(socket.id) || room.game.spiritInspectUsedIds.has(socket.id)) {
-            socket.emit("game-action-error", "A különleges képességedet már felhasználtad."); return;
+        if (room.game.spiritInspectUsedIds.has(socket.id)) {
+            socket.emit("game-action-error", "A szerepvizsgálatodat már felhasználtad a teljes játékban."); return;
+        }
+        if (room.game.swapperActions.has(socket.id)) {
+            socket.emit("game-action-error", "Ebben a Bohóc lidérc-körben már választottál képességet."); return;
         }
         const target = room.players.get(String(payload.targetId || ""));
         if (!target || target.id === player.id || target.alive === false || target.connected === false) {
             socket.emit("game-action-error", "Válassz egy másik, élő játékost."); return;
         }
         room.game.spiritInspectUsedIds.add(socket.id);
-        room.game.swapperUsedIds.add(socket.id); // Vagy vizsgálat, vagy szabotázs: csak egy különleges választás a játékban.
-        socket.emit("swapper-used", { used: true });
+        room.game.swapperActions.set(socket.id, { type: "inspect" });
         socket.emit("spirit-inspect-used", { used: true });
+        emitGameState(room);
         socket.emit("player-role-revealed", {
             targetId: target.id,
             targetName: target.username,
@@ -1347,17 +1416,19 @@ io.on("connection", (socket) => {
         const objectives = game.adventurerObjectiveRoles?.get(player.id) || [];
         const progress = game.adventurerProgress?.get(player.id) || new Map();
         const attempts = game.adventurerAttempts?.get(player.id) || new Set();
+        const failedThisRound = game.adventurerFailedThisRound || new Set();
         const target = room.players.get(targetId);
+        if (failedThisRound.has(player.id)) { socket.emit("game-action-error", "A Kalandor-köröd erre az éjszakára véget ért. A következő éjjel folytathatod."); return; }
         if (!objectives.includes(roleKey)) { socket.emit("game-action-error", "Ez nem a Kalandor egyik feladata."); return; }
         if (progress.has(roleKey)) { socket.emit("game-action-error", "Ezt a szerepet már sikeresen megtaláltad."); return; }
-        if (attempts.has(roleKey)) { socket.emit("game-action-error", "Erre a feladatra ebben az éjszakában már tippeltél. Próbáld újra a következő éjszaka."); return; }
+        if (attempts.has(roleKey)) { socket.emit("game-action-error", "Erre a szerepre ezen az éjszakán már tippeltél. Várd meg a következő éjszakát."); return; }
         if (!target || target.id === player.id || target.connected === false) { socket.emit("game-action-error", "Válassz egy másik csatlakozott játékost. Kiesett játékosra is tippelhetsz."); return; }
         attempts.add(roleKey);
         game.adventurerAttempts.set(player.id, attempts);
         if (target.originalRole === roleKey) {
             progress.set(roleKey, target.id);
             game.adventurerProgress.set(player.id, progress);
-            socket.emit("adventurer-guess-result", { correct: true, roleKey, targetId: target.id, message: `Helyes! ${displayNameForPlayer(target, player.id)} valóban ${ROLE_LABELS[roleKey]}.` });
+            socket.emit("adventurer-guess-result", { correct: true, roleKey, targetId: target.id, message: `Helyes! ${displayNameForPlayer(target, player.id)} valóban ${ROLE_LABELS[roleKey]}. A következő feladatodra is tippelhetsz ebben a körben.` });
             const allSolved = objectives.length === 3 && objectives.every((key) => progress.has(key));
             if (allSolved) {
                 emitGameState(room);
@@ -1365,7 +1436,9 @@ io.on("connection", (socket) => {
                 return;
             }
         } else {
-            socket.emit("adventurer-guess-result", { correct: false, roleKey, targetId: target.id, message: "Nem talált. Erre a feladatra csak a következő éjszakában próbálkozhatsz újra." });
+            failedThisRound.add(player.id);
+            game.adventurerFailedThisRound = failedThisRound;
+            socket.emit("adventurer-guess-result", { correct: false, roleKey, targetId: target.id, message: "Rossz tipp! A Kalandor-köröd erre az éjszakára véget ért. A következő éjszaka újra próbálkozhatsz; mindhárom szerepet el kell találnod a győzelemhez." });
         }
         emitGameState(room);
     });
@@ -1377,14 +1450,12 @@ io.on("connection", (socket) => {
         if (!room?.game || !player || player.connected === false || room.game.phase === "game-over") return;
         const role = player.role;
         const isDead = player.alive === false;
-        const isSeanceSender = (role === "seer" && !isDead) || (isDead && livingRolePlayers(room, "seer").length > 0);
+        // A Látnok a külön körében csak privát voice csatornát kap, szöveges csatornát nem.
         const correctPhase = role === "spirits" && !isDead
             ? ["night-special-spirit", "night-spirits"].includes(room.game.phase)
             : role === "hunters" && !isDead && room.game.phase === "night-hunters"
                 ? true
-                : role === "spouses" && !isDead && NIGHT_PHASES.has(room.game.phase)
-                    ? true
-                    : isSeanceSender;
+                : role === "spouses" && !isDead && NIGHT_PHASES.has(room.game.phase) && room.game.phase !== "night-seer";
         if (!correctPhase) { socket.emit("game-action-error", "Ebben a körben nincs hozzáférésed ehhez a titkos csatornához."); return; }
         const text = cleanText(payload.text, 240);
         if (!text) return;
@@ -1393,12 +1464,7 @@ io.on("connection", (socket) => {
         player.lastTeamMessageAt = now;
         let channel = role;
         let teammates = [];
-        if (isSeanceSender) {
-            channel = "seance";
-            teammates = [...room.players.values()].filter((entry) => entry.connected !== false && (
-                (entry.role === "seer" && entry.alive !== false) || entry.alive === false
-            ));
-        } else if (role === "spouses") {
+        if (role === "spouses") {
             const partner = player.spousePartnerId ? room.players.get(player.spousePartnerId) : null;
             teammates = partner && partner.role === "spouses" && partner.alive !== false && partner.connected !== false ? [player, partner] : [player];
         } else {
@@ -1421,14 +1487,17 @@ io.on("connection", (socket) => {
         const player = room?.players.get(socket.id);
         const targetId = String(payload.to || "");
         const target = room?.players.get(targetId);
-        if (!room?.game || !player || !target || !payload.data || player.alive === false || target.alive === false || player.connected === false || target.connected === false) return;
-        const permitted = player.role === "spirits"
-            ? ["night-special-spirit", "night-spirits"].includes(room.game.phase)
-            : player.role === "hunters" && room.game.phase === "night-hunters"
-                ? true
-                : player.role === "spouses" && NIGHT_PHASES.has(room.game.phase);
-        const spousePairValid = player.role !== "spouses" || player.spousePartnerId === target.id;
-        if (!permitted || !spousePairValid || target.role !== player.role || target.id === player.id) return;
+        if (!room?.game || !player || !target || !payload.data || player.connected === false || target.connected === false || target.id === player.id) return;
+        const seancePair = room.game.phase === "night-seer" && (
+            (player.role === "seer" && player.alive !== false && target.alive === false) ||
+            (player.alive === false && target.role === "seer" && target.alive !== false)
+        );
+        const ordinaryPrivatePair = player.alive !== false && target.alive !== false && (
+            (player.role === "spirits" && target.role === "spirits" && ["night-special-spirit", "night-spirits"].includes(room.game.phase)) ||
+            (player.role === "hunters" && target.role === "hunters" && room.game.phase === "night-hunters") ||
+            (player.role === "spouses" && target.role === "spouses" && NIGHT_PHASES.has(room.game.phase) && room.game.phase !== "night-seer" && player.spousePartnerId === target.id)
+        );
+        if (!seancePair && !ordinaryPrivatePair) return;
         const targetSocket = io.sockets.sockets.get(targetId);
         if (!targetSocket || targetSocket.data.roomId !== room.code) return;
         targetSocket.emit("team-voice-signal", { from: socket.id, data: payload.data });
@@ -1456,13 +1525,17 @@ io.on("connection", (socket) => {
     socket.on("team-voice-speaking", (payload = {}) => {
         const room = rooms.get(socket.data.roomId);
         const player = room?.players.get(socket.id);
-        if (!room?.game || !player || player.alive === false || player.connected === false) return;
-        const role = player.role;
-        const permitted = role === "spirits"
+        if (!room?.game || !player || player.connected === false) return;
+        const isSeanceParticipant = room.game.phase === "night-seer" && (
+            (player.role === "seer" && player.alive !== false) || player.alive === false
+        );
+        if (player.alive === false && !isSeanceParticipant) return;
+        const role = isSeanceParticipant ? "seance" : player.role;
+        const permitted = isSeanceParticipant || (role === "spirits"
             ? ["night-special-spirit", "night-spirits"].includes(room.game.phase)
             : role === "hunters" && room.game.phase === "night-hunters"
                 ? true
-                : role === "spouses" && NIGHT_PHASES.has(room.game.phase);
+                : role === "spouses" && NIGHT_PHASES.has(room.game.phase) && room.game.phase !== "night-seer");
         if (!permitted) return;
         if (!payload.speaking) {
             if (room.speakingChannels.get(socket.id) === role) clearPlayerSpeaking(room, socket.id);
@@ -1541,8 +1614,8 @@ io.on("connection", (socket) => {
         const targetId = String(payload.targetId || "skip");
         if (targetId !== "skip") {
             const target = room.players.get(targetId);
-            if (!target || target.alive === false || target.connected === false || target.id === socket.id) {
-                socket.emit("game-action-error", "Válassz egy másik, élő játékost, vagy a SKIP lehetőséget."); return;
+            if (!target || target.alive === false || target.connected === false) {
+                socket.emit("game-action-error", "Válassz egy élő játékost, akár saját magadat is, vagy a SKIP lehetőséget."); return;
             }
         }
         room.game.votes.set(socket.id, targetId);

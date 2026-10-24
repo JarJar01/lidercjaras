@@ -32,6 +32,7 @@
         "night-fool": "Bolond köre",
         "night-infectious": "Fertőző köre",
         "night-adventurer": "Kalandor küldetése",
+        "night-seer": "Látnok szeánsza",
         "dawn-result": "Hajnalodik",
         day: "Nappal",
         "vote-result": "Szavazás eredménye",
@@ -48,12 +49,13 @@
         "night-fool": "A bolond kivárja az éjszakát",
         "night-infectious": "A fertőzés továbbterjed",
         "night-adventurer": "A Kalandor célpontot keres",
+        "night-seer": "A Látnok a holtakkal beszél",
         "dawn-result": "Felszáll a reggeli köd",
         day: "A falu felébred",
         "vote-result": "A falu döntött",
         "game-over": "Véget ért a Lidércjárás"
     };
-    const nightPhases = new Set(["night-swapper", "night-special-spirit", "night-spirits", "night-healer", "night-hunters", "night-fool", "night-infectious", "night-adventurer"]);
+    const nightPhases = new Set(["night-swapper", "night-special-spirit", "night-spirits", "night-healer", "night-hunters", "night-fool", "night-infectious", "night-adventurer", "night-seer"]);
 
     let myRole = null;
     let myRoleLabel = "";
@@ -206,30 +208,39 @@
             }
         } else if (phase === "night-special-spirit") {
             if (myRole !== "spirits" || !mySpecialSpirit) {
-                panel.appendChild(makeElement("p", "game-muted", "A különleges lidérc titkos képességköre zajlik. A többi játékos várjon."));
-            } else if (mySwapperUsed) {
-                panel.appendChild(makeElement("p", "game-muted", "A játék során már felhasználtad a különleges lidérc egyszeri képességét."));
+                panel.appendChild(makeElement("p", "game-muted", "A Bohóc lidérc titkos képességköre zajlik. A többi játékos várjon."));
+            } else if (gameState.specialSpiritActionSubmitted) {
+                panel.appendChild(makeElement("p", "game-muted", "Ebben a különleges körben már döntöttél. Várd meg a rendes lidérckört.") );
             } else {
                 const livingTeammates = myTeamMembers.filter((member) => players.some((player) => player.id === member.id));
-                appendSectionDescription(panel, "Bohóc lidércként kapsz egy külön 20 másodperces kört. Ebben egyszer választhatsz névfelvételt vagy némítást. Ha te vagy az egyetlen élő lidérc, a szabotázs helyett egyszer szerepet is megvizsgálhatsz a teljes játék során. Ezután a rendes lidérckörben még dönthetsz a támadásról.");
-                otherPlayers.forEach((player) => {
-                    addChoiceButton(panel, `🎭 Felveszem ezt a nevet: ${player.username}`, () => {
-                        setActionStatus("A névfelvétel rögzítve. A célpont a saját eredeti nevét látja; mások téged a kiválasztott néven látnak.");
-                        sendAction("swapper-action", { targetId: player.id, effect: "rename" });
-                    }, "is-neutral");
-                    addChoiceButton(panel, `🔇 Lenémítom: ${player.username}`, () => {
-                        setActionStatus("A némítás rögzítve. Ezt a különleges képességet már nem használhatod újra.");
-                        sendAction("swapper-action", { targetId: player.id, effect: "mute" });
-                    }, "is-danger");
-                });
+                const sabotageReady = Boolean(gameState.specialSpiritSabotageReady);
+                const cooldown = Math.max(0, Number(gameState.specialSpiritSabotageRoundsRemaining) || 0);
+                appendSectionDescription(panel, `Bohóc lidércként 20 másodperced van. A szabotázsod 3 körönként használható újra; a szerepvizsgálatot legfeljebb egyszer használhatod a teljes játékban. Ezután a rendes lidérckörben még támadhatsz.`);
+                if (sabotageReady) {
+                    otherPlayers.forEach((player) => {
+                        addChoiceButton(panel, `🎭 Felveszem ezt a nevet: ${player.username}`, () => {
+                            setActionStatus("Névfelvétel rögzítve. A célpont a saját nevét látja; a többiek téged a felvett néven látnak.");
+                            sendAction("swapper-action", { targetId: player.id, effect: "rename" });
+                        }, "is-neutral");
+                        addChoiceButton(panel, `🔇 Lenémítom: ${player.username}`, () => {
+                            setActionStatus("A némítás rögzítve. Három kör múlva használhatod újra a szabotázst.");
+                            sendAction("swapper-action", { targetId: player.id, effect: "mute" });
+                        }, "is-danger");
+                    });
+                } else {
+                    panel.appendChild(makeElement("p", "game-muted", `A szabotázs még ${cooldown} körig nem használható.`));
+                }
                 if (livingTeammates.length <= 1 && !mySpiritInspectUsed) {
-                    panel.appendChild(makeElement("p", "game-action-description", "Vagy egyszer megvizsgálhatod egy másik élő játékos szerepét. Ezzel a különleges képességedet is felhasználod, így később nem szabotálhatsz.") );
+                    appendSectionDescription(panel, "Mivel egyedüli lidérc vagy, egyszer a teljes játékban megvizsgálhatod egy másik élő játékos szerepét. Ez a szabotázs időzítésétől független képesség.");
                     otherPlayers.forEach((player) => {
                         addChoiceButton(panel, `☷ Megvizsgálom: ${player.username}`, () => {
                             setActionStatus(`Megvizsgálod ${player.username} szerepét…`);
                             sendAction("special-spirit-inspect", { targetId: player.id });
                         }, "is-neutral");
                     });
+                }
+                if (!sabotageReady && (livingTeammates.length > 1 || mySpiritInspectUsed)) {
+                    panel.appendChild(makeElement("p", "game-muted", "Ebben a különleges körben most nincs használható képességed. A normál lidérckör következik.") );
                 }
             }
         } else if (phase === "night-spirits") {
@@ -337,10 +348,12 @@
                 tasks.forEach((task) => {
                     panel.appendChild(makeElement("p", `game-adventurer-task${task.solved ? " is-solved" : ""}`, `${task.solved ? "✓" : "○"} Találd meg: ${task.label}${task.solved ? ` — ${task.targetName || "megtalálva"}` : ""}`));
                 });
-                if (!nextTask) {
+                if (gameState.adventurerTurnFailed) {
+                    panel.appendChild(makeElement("p", "game-adventurer-failed", "Rossz tipp! A köröd erre az éjszakára véget ért. Következő éjszaka újra próbálkozhatsz.") );
+                } else if (!nextTask) {
                     panel.appendChild(makeElement("p", "game-muted", "Mindhárom szerepet megtaláltad."));
                 } else {
-                    appendSectionDescription(panel, `A következő feladatod egy ${nextTask.label} szerepű játékos megtalálása. Válassz ki egy élő vagy már kiesett játékost. A célpont halála nem törli a feladatot.`);
+                    appendSectionDescription(panel, `Küldetés ${tasks.filter((task) => task.solved).length + 1}/3: találd meg a(z) ${nextTask.label} szerepű játékost. Egyetlen tipp van erre a feladatra ezen az éjszakán. Helyes válasznál zöld jelzést kapsz és jöhet a következő; hibás válasznál a köröd véget ér. Minden három feladatot el kell találnod a győzelemhez.`);
                     gameState.players.filter((player) => player.id !== socket.id && player.connected !== false).forEach((player) => {
                         addChoiceButton(panel, `🧭 ${player.username}${player.alive ? "" : " · kiesett"}`, () => {
                             setActionStatus(`Tipp elküldve: ${player.username}.`);
@@ -349,13 +362,22 @@
                     });
                 }
             }
+        } else if (phase === "night-seer") {
+            if (myRole === "seer" && isMyselfAlive()) {
+                panel.appendChild(makeElement("p", "game-muted", "A szeánsz idején a Látnok csak hangon beszélhet a halottakkal. Szöveges chat nincs; az élők más játékosai nem hallják ezt a csatornát."));
+            } else if (!isMyselfAlive()) {
+                panel.appendChild(makeElement("p", "game-muted", "A Látnok szeánszot tart. Ebben a rövid körben csak a Látnokkal beszélhetsz hangon; a többi élő játékos nem hallja."));
+            } else {
+                panel.appendChild(makeElement("p", "game-muted", "A Látnok a holtakkal beszél. A falu alszik."));
+            }
         } else if (phase === "dawn-result") {
             panel.appendChild(makeElement("p", "game-muted", "A reggeli eredmény mindjárt megjelenik. A voice chat nappal ismét elérhető az életben maradt játékosoknak."));
         } else if (phase === "day") {
             appendSectionDescription(panel, "Beszéljétek meg, mi történhetett, majd adj le egy szavazatot. A szavazatodat nem lehet módosítani. A SKIP azt jelenti, hogy senkit nem szeretnél kiszavazni.");
-            otherPlayers.forEach((player) => {
-                addChoiceButton(panel, `Szavazok rá: ${player.username}`, () => {
-                    setActionStatus(`A szavazatod elküldve: ${player.username}.`);
+            players.forEach((player) => {
+                const label = player.id === socket.id ? "Magamra szavazok" : `Szavazok rá: ${player.username}`;
+                addChoiceButton(panel, label, () => {
+                    setActionStatus(`A szavazatod elküldve: ${player.id === socket.id ? "magadra" : player.username}.`);
                     sendAction("day-vote", { targetId: player.id });
                 });
             });
@@ -382,11 +404,18 @@
         $("gameAliveCount").textContent = `${living.length} élő`;
         const showVotes = ["day", "vote-result"].includes(gameState.phase);
         const votesByVoter = new Map((gameState.voteDetails || []).map((vote) => [vote.voterId, vote]));
+        const voteCounts = gameState.voteCounts && typeof gameState.voteCounts === "object" ? gameState.voteCounts : {};
         gameState.players.forEach((player) => {
             const dead = !player.alive || player.connected === false;
             const canShowSpeaker = speakingPlayerIds.has(player.id) && (!dead || gameState.phase === "game-over");
             const row = makeElement("div", `game-player-row${dead ? " is-dead" : ""}${canShowSpeaker ? " is-speaking" : ""}`);
+            const avatarWrap = makeElement("span", "game-player-avatar-wrap");
             const avatar = makeElement("span", "game-player-avatar", dead ? "†" : player.username.slice(0, 1).toLocaleUpperCase("hu-HU"));
+            avatarWrap.appendChild(avatar);
+            if (showVotes) {
+                const voteCount = Number(voteCounts[player.id]) || 0;
+                avatarWrap.appendChild(makeElement("span", "game-vote-count-badge", String(voteCount)));
+            }
             const info = makeElement("div", "game-player-info");
             info.appendChild(makeElement("strong", "", player.username + (player.id === socket.id ? " (te)" : "")));
             info.appendChild(makeElement("span", "", dead ? "Kiesett" : (player.isHost ? "Házigazda · életben" : "Életben")));
@@ -408,7 +437,7 @@
                     info.appendChild(makeElement("span", "game-player-vote is-pending", "Még nem szavazott"));
                 }
             }
-            row.append(avatar, info);
+            row.append(avatarWrap, info);
             const publicVoicePhases = new Set(["intro", "dawn-result", "day", "vote-result", "game-over"]);
             if (player.id !== socket.id && publicVoicePhases.has(gameState.phase) && typeof window.lidercRenderPlayerVoiceControls === "function") {
                 const voiceControls = window.lidercRenderPlayerVoiceControls(player, "game");
@@ -483,12 +512,12 @@
 
         const meAlive = isMyselfAlive();
         const canUseSeance = Boolean(gameState.seerChannelAvailable && ((myRole === "seer" && meAlive) || !meAlive));
-        const activeTeamRole = canUseSeance ? "seance" :
+        const activeTeamRole = canUseSeance && phase === "night-seer" ? "seance" :
             (myRole === "spirits" && ["night-special-spirit", "night-spirits"].includes(phase)) ? "spirits" :
             (myRole === "hunters" && phase === "night-hunters") ? "hunters" :
-            (myRole === "spouses" && nightPhases.has(phase)) ? "spouses" : null;
+            (myRole === "spouses" && nightPhases.has(phase) && phase !== "night-seer") ? "spouses" : null;
         const activeTeamMembers = myTeamMembers.filter((member) => gameState.players.some((player) => player.id === member.id && player.alive && player.connected !== false));
-        const showTeamChat = activeTeamRole === "seance" || (meAlive && Boolean(activeTeamRole) && (activeTeamRole === "spouses" ? activeTeamMembers.length >= 1 : activeTeamMembers.length > 1));
+        const showTeamChat = Boolean(activeTeamRole && activeTeamRole !== "seance" && meAlive && (activeTeamRole === "spouses" ? activeTeamMembers.length >= 1 : activeTeamMembers.length > 1));
         $("gameTeamChatPanel").hidden = !showTeamChat;
         $("gameTeamChatTitle").textContent = activeTeamRole === "hunters" ? "Vadászok titkos csatornája" :
             activeTeamRole === "spouses" ? "Házastársak titkos csatornája" :
@@ -704,6 +733,8 @@
     });
 
     socket.on("adventurer-guess-result", (payload = {}) => {
+        // A Kalandor új tippelése csak helyes válasz után engedélyezett ugyanabban az éjszakai körben.
+        actionSubmitted = !payload.correct;
         setActionStatus(payload.message || (payload.correct ? "Helyes találat!" : "Nem talált."), !payload.correct);
         showNotice(payload.message || "Kalandor-tipp kiértékelve.", `adventurer|${payload.roleKey}|${payload.targetId}|${payload.correct}`);
         renderActions();

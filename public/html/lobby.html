@@ -185,7 +185,12 @@
                         <div class="room-setting-field">
                             <label for="settingAdventurerSeconds">Kalandor köre (mp)</label>
                             <input id="settingAdventurerSeconds" type="number" min="5" max="3600" step="1" value="20" required>
-                            <small>Egy éjszaka alatt egy szerepre tippelhet.</small>
+                            <small>Hibás tippnél az adott éjszakára véget ér a köre.</small>
+                        </div>
+                        <div class="room-setting-field">
+                            <label for="settingSeerSeconds">Látnok szeánsza (mp)</label>
+                            <input id="settingSeerSeconds" type="number" min="5" max="3600" step="1" value="10" required>
+                            <small>Minden második éjszakán, ha már van halott játékos.</small>
                         </div>
                     </div>
                     <p class="form-hint">Minden idő 5 és 3600 másodperc közötti egész szám legyen.</p>

@@ -1,5 +1,5 @@
 LIDÉRCJÁRÁS – LÁTNOK, FÖLDESÚR, HÁZASTÁRSAK ÉS KALANDOR
-Verzió: lidercjaras-roles-seer-landlord-spouses-adventurer-2026-10-24-4
+Verzió: lidercjaras-cooldown-adventurer-seer-vote-count-2026-10-24-6
 
 TELEPÍTÉS
 1. Állítsd le a futó szervert Ctrl+C billentyűkkel.
@@ -23,8 +23,8 @@ TELEPÍTÉS
 - A játékoslistán beszélőjelzés jelenik meg. A szerver jelzi, amikor valaki beszél; a jelzés minden játékosnak látható. A lidércek és a vadászok privát hangja továbbra is csak a saját csapatukhoz jut el.
 - Ha a lidércek ugyanazon az éjszakán megölik a vadászt, az adott vadász nem lőhet vissza ugyanabban az éjszakában.
 - Ha egyedül marad egy normál lidérc, megtámadhat egy élő játékost vagy a teljes játék során egyszer megvizsgálhatja egy másik élő játékos szerepét. A Bohóc lidérc egy lidérc 50%-os eséllyel kapott különleges változata. A vadász csak lőhet vagy passzolhat, szerepet nem vizsgálhat.
-- A szavazás alatt látható, ki adott le szavazatot és kire. Az eredményben a le nem adott szavazat SKIP-ként szerepel.
-- A Bohóc lidérc nem külön lobby-szerep: minden kiosztott lidérc külön 50% eséllyel kapja meg ezt a változatot. A játékos a lidércek csapatában marad. A külön 20 másodperces körben egyszer választhat névfelvételt vagy némítást; ha egyedüli lidérc, a szabotázs helyett egyszer szerepet is vizsgálhat.
+- A szavazás titkos: a játékosok csak azt látják, ki adta le már a szavazatát. A szavazat célpontja nem látható. A játékosikonok felett az összesített beérkezett szavazatszám jelenik meg; a Földesúr két szavazati ponttal számít. Önszavazás minden szerepnél megengedett.
+- A Bohóc lidérc nem külön lobby-szerep: minden kiosztott lidérc külön 50% eséllyel kapja meg ezt a változatot. A játékos a lidércek csapatában marad. A külön 20 másodperces körben névfelvételt vagy némítást választhat, ha a szabotázs újra használható; a szabotázs használat után a 3 körös várakozás lejártával válik újra elérhetővé. Ha egyedüli lidérc, a teljes játék során egyszer szerepet is vizsgálhat.
 - A Fertőző éjszakánként megfertőzhet egy még nem fertőzött élő játékost. Csak a Fertőző látja a fertőzöttek jelölését; a nyilvános napló csak annyit ír, hogy valaki megfertőződött. A Fertőző akkor nyer, ha minden más életben lévő játékos fertőzött.
 - Játék végén a hangkapcsolat minden játékosnak újra elérhető, a kiesetteknek is. Játék közben a kiesettek nem beszélhetnek, de nappal hallgathatják az életben lévő játékosokat.
 
@@ -48,7 +48,7 @@ TESZTELÉS
 
 Új javítások (2026-10-23):
 - A Bohóc lidérc nem kap külön létszámmezőt; minden Lidérc külön, 50%-os eséllyel válik Bohóc lidérccé.
-- A Bohóc lidérc a teljes játékban egyszer használhat különleges képességet: névfelvételt vagy némítást; ha egyedüli lidérc, választhat egyszeri szerepvizsgálatot is a szabotázs helyett. A névváltásnál a Bohóc a célpont nevén jelenik meg mindenki másnak, kivéve a Bohócot és a célpontot.
+- A Bohóc lidérc szabotázsa három körönként használható újra. A szerepvizsgálata csak egyetlen alkalommal használható a teljes játékban, és kizárólag egyedüli élő lidércként érhető el. A névváltásnál a Bohóc a célpont nevén jelenik meg mindenki másnak, kivéve a Bohócot és a célpontot.
 - A vadász többé nem kap szerepvizsgálati képességet; csak lőhet vagy passzolhat.
 - A váróteremben és a nyilvános nappali/éjszakák közti időszakokban a játékoslistán személyenkénti helyi hangerőcsúszka és némítás van. Ez a te böngésződben szabályozza az adott játékos hangját, a mikrofonját nem kapcsolja ki.
 
@@ -62,3 +62,11 @@ További pontosítás: a vadász nem vizsgál szerepet, csak lőhet vagy passzol
 - A Kalandor a lobbyban beállított szerepek közül három különbözőt kap feladatként. Éjszakánként egy célpontra tippelhet; a célpont halála nem törli a feladatot. Mindhárom sikeres találat után a Kalandor nyer.
 - A Kalandor éjszakai köre külön időkeretet kap (5–3600 másodperc).
 - A Házastársak privát hangkapcsolata az éjszakai fázisokban automatikusan bekapcsol, és a fázis végén lezárul.
+
+
+JAVÍTÁSOK (2026-10-24):
+- A Bohóc lidérc szabotázsa a használat után három körkülönbség elteltével ismét használható; az egyszeri szerepvizsgálat nem töltődik vissza.
+- A Kalandor csak a még meg nem talált cél-szerepekre tippel. A helyes találat zöld jelzést ad, és ugyanabban az éjszakai körben folytathatja a következő feladattal. Egy hibás tipp lezárja az adott éjszakai körét; a következő éjjel próbálkozhat újra. A győzelemhez mindhárom feladatot meg kell oldania.
+- A Látnoknak külön, hangalapú szeánsza van minden második éjszakán, amennyiben van élő Látnok és elérhető halott játékos. A szeánszhoz nem tartozik szöveges chat.
+- Szavazásnál minden játékos ikonja fölött az adott játékosra érkezett szavazatok száma látható. A célpontonkénti összesítés nyilvános, de az egyéni szavazó és célpont párosa titkos marad. Minden szerep önmagára is szavazhat.
+- A Látnok szeánszának hossza a lobbyban 5–3600 másodperc között állítható.

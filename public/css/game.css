@@ -359,3 +359,9 @@
 /* Kalandor feladatlista */
 .game-adventurer-task { margin: 7px 0; padding: 10px 12px; border: 1px solid rgba(169, 144, 210, 0.22); border-left: 3px solid #79c6cf; border-radius: 6px; background: rgba(28, 35, 49, 0.7); color: #d7e7f0; font-size: 12px; line-height: 1.5; }
 .game-adventurer-task.is-solved { border-left-color: #8dbb78; color: #a9d89a; background: rgba(35, 56, 39, 0.38); }
+
+/* Szavazatszám-jelölő a játékosikon fölött */
+.game-player-avatar-wrap { position: relative; display: inline-flex; flex: 0 0 32px; width: 32px; height: 32px; align-items: center; justify-content: center; }
+.game-player-avatar-wrap .game-player-avatar { flex: 0 0 32px; }
+.game-vote-count-badge { position: absolute; top: -9px; right: -8px; display: grid; place-items: center; min-width: 18px; height: 18px; padding: 0 4px; border: 1px solid rgba(245, 225, 255, .7); border-radius: 999px; background: linear-gradient(145deg, #8b5bd1, #4d2c7d); box-shadow: 0 2px 10px rgba(0,0,0,.42); color: #fff; font-size: 10px; font-weight: 800; line-height: 1; font-variant-numeric: tabular-nums; z-index: 2; }
+.game-adventurer-failed { margin: 10px 0; padding: 11px 13px; border: 1px solid rgba(242, 120, 120, .38); border-left: 3px solid #e87575; border-radius: 7px; color: #ffd0d0; background: rgba(100, 29, 40, .24); font-size: 12px; line-height: 1.5; }
